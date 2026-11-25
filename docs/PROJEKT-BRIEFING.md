@@ -32,5 +32,5 @@
 
 ## Stand (2026-11-25)
 - Grundgerüst fertig und getestet: Core, Modul-System, Web-Shell, Module `status`, `pairing` und `controls` (Mock-Treiber)
-- Desktop-Hülle (Electron) fertig: Tray, Hauptfenster mit gemerkter Position, Server als eigener Prozess mit automatischem Neustart, Nutzerordner `%APPDATA%\BlackHalo`, automatisch erzeugter Zugangsschlüssel, QR-Code zum Verbinden (ohne Link-Local-Adressen, mit Adapternamen). Unter Windows getestet: Start, Firewall, Tablet-Verbindung per QR, Fensterposition, Tray, Beenden.
+- Desktop-Hülle (Electron) fertig: Tray, Hauptfenster mit gemerkter Position, Server als eigener Prozess mit automatischem Neustart, Nutzerordner `%APPDATA%\BlackHalo`, automatisch erzeugter Zugangsschlüssel, QR-Code zum Verbinden (ohne Link-Local-Adressen, mit Adapternamen). Unter Windows getestet (2 Durchläufe): Start, Firewall, Tablet-Verbindung per QR (nur noch die richtige Adresse), Fenster in allen Ansichten normal bedienbar, Fensterposition, Tray, Beenden. Buttons per Handy lösen aus (Mock-Treiber).
 - Nächste Schritte: Windows-Eingabetreiber (mit Vordergrund-Prüfung), Installer und Auto-Update, Hub-Anbindung, Org Storage
