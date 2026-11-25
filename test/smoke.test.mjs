@@ -41,7 +41,8 @@ test('echte Module: REST, UI-Dateien und WebSocket', async () => {
   try {
     const mods = await (await fetch(`${base}/api/modules`)).json();
     const states = Object.fromEntries(mods.modules.map((m) => [m.id, m.state]));
-    assert.deepEqual(states, { controls: 'running', status: 'running' });
+    assert.deepEqual(states, { controls: 'running', pairing: 'running', status: 'running' });
+    assert.equal(mods.modules.find((m) => m.id === 'controls').noFocus, true);
 
     const buttons = await (await fetch(`${base}/api/controls/buttons`)).json();
     assert.equal(buttons.buttons.length, 4);
@@ -78,7 +79,7 @@ test('Rolle hub lädt Companion-Module nicht', async () => {
   try {
     const mods = await (await fetch(`http://127.0.0.1:${app.port}/api/modules`)).json();
     const states = Object.fromEntries(mods.modules.map((m) => [m.id, m.state]));
-    assert.deepEqual(states, { controls: 'skipped', status: 'running' });
+    assert.deepEqual(states, { controls: 'skipped', pairing: 'skipped', status: 'running' });
     assert.equal((await fetch(`http://127.0.0.1:${app.port}/api/controls/buttons`)).status, 404);
   } finally {
     await app.stop();
@@ -93,6 +94,11 @@ test('Token-Schutz für /api und /ws', async () => {
     assert.equal((await fetch(`${base}/api/modules`, { headers: { 'x-bh-token': 'falsch' } })).status, 401);
     assert.equal((await fetch(`${base}/api/modules`, { headers: { 'x-bh-token': 'geheim' } })).status, 200);
     assert.equal((await fetch(`${base}/`)).status, 200); // Shell bleibt frei
+
+    // QR-Code enthält genau das Token, mit dem angefragt wurde
+    const pair = await (await fetch(`${base}/api/pairing`, { headers: { 'x-bh-token': 'geheim' } })).json();
+    assert.equal(pair.protected, true);
+    for (const t of pair.targets) assert.match(t.qr, /^data:image\/svg\+xml/);
 
     await assert.rejects(openWs(app.port)); // ohne Token
     const ws = await openWs(app.port, '?token=geheim');

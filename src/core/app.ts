@@ -27,6 +27,8 @@ export interface CreateAppOptions {
   modulesDir?: string;
   /** Eigener Datenordner (Standard: <projekt>/data). */
   dataRoot?: string;
+  /** Pfad der lokalen Config (Standard: <projekt>/config/local.json). */
+  localConfigPath?: string;
 }
 
 /** Zeitkonstanter Vergleich. Über den Hash haben beide Seiten gleiche Länge. */
@@ -42,7 +44,7 @@ export async function startApp(options: CreateAppOptions = {}): Promise<BhApp> {
   const rootDir = join(distDir, '..');
 
   const log = createLogger('core');
-  const config = loadConfig(rootDir, options.overrides);
+  const config = loadConfig(rootDir, options.overrides, options.localConfigPath);
   const events = createEventBus(log);
   const services = createServiceRegistry();
   const ws = createWsHub(log);

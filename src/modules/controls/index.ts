@@ -36,6 +36,7 @@ const mod: BhModule = {
     roles: ['companion'],
     nav: { label: 'Controls', icon: '🎛️' },
     ui: true,
+    noFocus: true, // Buttons senden Tasten ans Spiel, das Fenster darf den Fokus nicht nehmen
   },
 
   setup(ctx) {

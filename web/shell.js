@@ -9,8 +9,15 @@ const store = {
   },
 };
 
-const urlToken = new URLSearchParams(location.search).get('token');
-if (urlToken) store.set('bh-token', urlToken);
+const params = new URLSearchParams(location.search);
+const urlToken = params.get('token');
+if (urlToken) {
+  store.set('bh-token', urlToken);
+  // Token aus der Adresszeile entfernen, damit es nicht sichtbar bleibt (Screenshots, Streams)
+  params.delete('token');
+  const rest = params.toString();
+  history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
+}
 const token = store.get('bh-token');
 
 // ---- REST ----
@@ -73,6 +80,10 @@ function createApi(moduleId, subs) {
 const nav = document.getElementById('nav');
 const main = document.getElementById('main');
 let current = null; // { id, cleanup, subs }
+let modulesById = new Map();
+
+/** Nur in der Desktop-App vorhanden (preload). Im Browser auf Tablet/Handy passiert nichts. */
+const desktop = window.bhDesktop;
 let navKey = '';
 
 let generation = 0; // jeder show()-Aufruf bekommt eine Nummer; nur der neueste darf die Ansicht ändern
@@ -90,6 +101,7 @@ async function show(id) {
   if (stale()) return;
 
   for (const a of nav.querySelectorAll('a')) a.classList.toggle('active', a.dataset.id === id);
+  desktop?.setFocusable(!modulesById.get(id)?.noFocus);
   main.replaceChildren();
   if (!id) {
     main.innerHTML = '<p class="muted">Keine Module mit Oberfläche aktiv.</p>';
@@ -125,6 +137,7 @@ async function show(id) {
 
 function buildNav(modules) {
   const items = modules.filter((m) => m.state === 'running' && m.ui && m.nav);
+  modulesById = new Map(items.map((m) => [m.id, m]));
   const key = items.map((m) => m.id).join(',');
   if (key === navKey) return; // nichts geändert (z. B. nach Reconnect)
   navKey = key;

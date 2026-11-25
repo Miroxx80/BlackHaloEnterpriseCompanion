@@ -27,11 +27,18 @@ function readJson(path: string): Json {
 
 /**
  * Reihenfolge (spätere gewinnen):
- * config/default.json -> config/local.json (nicht im Git) -> Umgebungsvariablen -> overrides
+ * config/default.json -> lokale Config (nicht im Git) -> Umgebungsvariablen -> overrides
+ *
+ * Die lokale Config liegt standardmäßig unter config/local.json. Die Desktop-App legt sie
+ * unter %APPDATA%\BlackHalo\config\local.json ab, weil der Installationsordner nicht beschreibbar ist.
  */
-export function loadConfig(rootDir: string, overrides: Json = {}): AppConfig {
+export function loadConfig(
+  rootDir: string,
+  overrides: Json = {},
+  localConfigPath = join(rootDir, 'config', 'local.json'),
+): AppConfig {
   let cfg = readJson(join(rootDir, 'config', 'default.json'));
-  cfg = deepMerge(cfg, readJson(join(rootDir, 'config', 'local.json')));
+  cfg = deepMerge(cfg, readJson(localConfigPath));
 
   const env: Json = {};
   if (process.env.BH_ROLE) env.role = process.env.BH_ROLE;

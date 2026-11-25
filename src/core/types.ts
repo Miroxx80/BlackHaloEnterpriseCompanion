@@ -23,6 +23,11 @@ export interface ModuleManifest {
   nav?: { label: string; icon?: string };
   /** true, wenn das Modul einen Ordner ui/ mit index.js mitbringt. */
   ui?: boolean;
+  /**
+   * true: Das Desktop-Fenster nimmt in dieser Ansicht keinen Fokus an. Für Ansichten mit Buttons,
+   * die Tasten ans Spiel senden. Das Spiel behält so die Tastatur. Nicht für Ansichten mit Eingabefeldern.
+   */
+  noFocus?: boolean;
 }
 
 /** Ein verbundenes Gerät (Browser auf Handy/Tablet/PC). */
@@ -82,6 +87,7 @@ export interface ModuleStatus {
   state: ModuleState;
   nav?: { label: string; icon?: string };
   ui: boolean;
+  noFocus?: boolean;
   error?: string;
 }
 

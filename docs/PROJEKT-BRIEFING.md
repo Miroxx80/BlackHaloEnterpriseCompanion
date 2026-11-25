@@ -31,5 +31,6 @@
 - **Overlay (optional, später):** passiv (durchklickbar, nur Anzeige) und aktiv (per globalem Hotkey, Buttons klickbar).
 
 ## Stand (2026-11-25)
-- Grundgerüst fertig und getestet: Core, Modul-System, Web-Shell, Module `status` und `controls` (Mock-Treiber)
-- Nächste Schritte: Windows-Eingabetreiber, Hub-Anbindung, Org Storage
+- Grundgerüst fertig und getestet: Core, Modul-System, Web-Shell, Module `status`, `pairing` und `controls` (Mock-Treiber)
+- Desktop-Hülle (Electron) fertig: Tray, Hauptfenster mit gemerkter Position, Server als eigener Prozess mit automatischem Neustart, Nutzerordner `%APPDATA%\BlackHalo`, automatisch erzeugter Zugangsschlüssel, QR-Code zum Verbinden, Fokus-Steuerung pro Ansicht (`noFocus` im Manifest). Unter Linux automatisiert getestet, Test unter Windows steht aus.
+- Nächste Schritte: Windows-Eingabetreiber (mit Vordergrund-Prüfung), Installer und Auto-Update, Hub-Anbindung, Org Storage

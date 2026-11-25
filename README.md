@@ -1,21 +1,29 @@
 # Black Halo Tool
 
-Modulares Org-Tool für Star Citizen (Black Halo Enterprises). Dieses Repo ist das Grundgerüst: ein Kern, der Module lädt, plus zwei Beispielmodule.
+Modulares Org-Tool für Star Citizen (Black Halo Enterprises). Desktop-App (Electron) für den Gaming-PC: läuft im Tray, stellt einen lokalen Server fürs Tablet/Handy bereit und hat ein Fenster, z. B. für den zweiten Bildschirm.
 
 Projektziele, Entscheidungen und Stand: siehe [docs/PROJEKT-BRIEFING.md](docs/PROJEKT-BRIEFING.md).
 
 ## Starten (Windows)
 
-Voraussetzung: [Node.js](https://nodejs.org) 20 oder neuer (LTS).
+Voraussetzung: [Node.js](https://nodejs.org) 20 oder neuer (LTS). Später gibt es einen Installer, dann ist Node nicht mehr nötig.
 
 ```
 npm install
-npm run dev
+npm run desktop
 ```
 
-Der Server zeigt beim Start die URLs an. Auf Tablet oder Handy im selben WLAN die Zeile `Tablet: http://...` im Browser öffnen. Beim ersten Start fragt die Windows-Firewall nach Netzwerkzugriff, den bitte für private Netzwerke erlauben.
+Es öffnen sich ein Fenster und ein Icon im Tray (neben der Uhr). Fenster schließen beendet die App nicht, der Server läuft im Tray weiter. Beenden über Rechtsklick aufs Tray-Icon.
 
-Tests: `npm test`
+- **Tablet/Handy verbinden:** im Fenster auf „Verbinden“ (oder Tray, „Gerät verbinden“) und den QR-Code scannen. Das Gerät muss im selben WLAN sein. Beim ersten Start fragt die Windows-Firewall nach Netzwerkzugriff, bitte für private Netzwerke erlauben.
+- **Nutzerordner** `%APPDATA%\BlackHalo`: `config\local.json` (eigene Einstellungen, enthält den Zugangsschlüssel), `data\` (Moduldaten), `logs\blackhalo.log`, `desktop.json` (Fensterposition usw.). Ordner öffnen über das Tray-Menü.
+- **`--hidden`** startet nur ins Tray (wird für den Autostart genutzt).
+
+Ohne Electron (z. B. für den Hub oder zum Entwickeln): `npm run dev`. Dann gilt `config/local.json` im Projektordner, und die URLs stehen in der Konsole.
+
+Tests:
+- `npm test`: Kern und Module
+- `npm run test:desktop`: Desktop-App Ende-zu-Ende (braucht Playwright, wird sonst übersprungen)
 
 ## Architektur
 
@@ -34,6 +42,21 @@ Alle Mitglieder sitzen in getrennten Netzen. Deshalb gibt es zwei Rollen, die au
 - **hub**: ein zentraler Server für alles, was die ganze Orga teilt (Org Storage, später evtl. Positions-Sync).
 
 Jedes Modul sagt in seinem Manifest, in welcher Rolle es läuft.
+
+### Desktop-App (`src/desktop`)
+
+```
+Electron-Hauptprozess (main.ts)
+ ├─ Tray (tray.ts), Fenster (window.ts), Einstellungen (settings.ts), Log (log.ts)
+ ├─ Supervisor (supervisor.ts) ──startet──> Server-Prozess (serverEntry.ts = Kern + Module)
+ │                                           ▲            ▲
+ └─ Fenster lädt http://127.0.0.1:<port> ────┘            └── Tablet/Handy im WLAN
+```
+
+- Der Server läuft in einem eigenen Prozess. Stürzt er ab, startet der Supervisor ihn neu (1 s, 2 s, 5 s, 10 s). Nach 5 Abstürzen in einer Minute gibt er auf und zeigt den Fehler im Fenster und im Tray.
+- Das Fenster ist nur ein weiterer Client, wie das Tablet. Es sieht dieselbe Oberfläche. Beim Schließen wird es wirklich beendet (spart RAM neben dem Spiel). Position, Größe und Bildschirm werden gemerkt. Fehlt der Bildschirm, öffnet es auf dem Hauptbildschirm.
+- Die Seite im Fenster hat keinen Zugriff auf Node oder Electron. `preload.cts` gibt ihr nur `bhDesktop.setFocusable()`.
+- Die Desktop-App läuft immer mit Zugangsschlüssel. Fehlt einer, wird er beim ersten Start erzeugt.
 
 ### Kern (`src/core`)
 
@@ -68,6 +91,7 @@ const mod: BhModule = {
     roles: ['companion'],            // oder ['hub'] oder beides
     nav: { label: 'Mein Modul' },    // Eintrag in der Navigation
     ui: true,                        // hat einen Ordner ui/
+    // noFocus: true,                // Desktop-Fenster nimmt in dieser Ansicht keinen Fokus (Buttons, die Tasten ans Spiel senden)
   },
   setup(ctx) {
     ctx.http.get('/hallo', async () => ({ ok: true }));      // GET /api/meinmodul/hallo
@@ -88,6 +112,6 @@ Module sollen sich nicht gegenseitig importieren. Für Zusammenarbeit gibt es `c
 
 ## Stand
 
-- Fertig: Kern, Modul-System, Web-Shell, Modul `status`, Modul `controls` mit Mock-Treiber (loggt Tastendrücke nur).
-- Als Nächstes: Windows-Eingabetreiber, damit die Buttons wirklich Tasten im Spiel auslösen.
+- Fertig: Kern, Modul-System, Web-Shell, Desktop-App (Tray, Fenster, Server-Prozess mit Neustart), Module `status`, `pairing` (QR-Code) und `controls` mit Mock-Treiber (loggt Tastendrücke nur).
+- Als Nächstes: Windows-Eingabetreiber, damit die Buttons wirklich Tasten im Spiel auslösen. Danach Installer und Auto-Update.
 - Die Tasten in `config/default.json` sind Beispiele. Passe sie an deine Keybinds an.
