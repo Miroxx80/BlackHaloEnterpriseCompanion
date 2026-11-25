@@ -19,10 +19,13 @@
 - **Eingabe:** Treiber-Abstraktion. Aktuell nur Mock, Windows-Treiber (SendInput) folgt.
 - **Positions-Tracking:** Keine offizielle API. Mögliche Wege: `/showlocation`, `Game.log`, manuelle Eingabe. Kein Speicherauslesen (Anti-Cheat-Risiko).
 - **Repo bleibt privat.**
+- **Zielbild:** Eine feste PC-Software (Electron) mit zwei Aufgaben: (1) ein stabiles, sauberes Overlay für die Funktionen, (2) lokaler Server im eigenen Netz, mit dem sich Tablet und Handy verbinden. Eine Handy-App kommt später (z. B. Capacitor mit derselben UI). Der Hub bleibt reines Node ohne Electron.
+- **Overlay ohne Eingriff ins Spiel:** eigenes transparentes Fenster über dem Spiel, kein DirectX-Hook und kein Einschleusen in den Spielprozess (Anti-Cheat). Funktioniert nur im Modus „Randloses Fenster“. Das Overlay-Fenster nimmt keinen Fokus an, damit Tastendrücke weiter beim Spiel landen.
 
 ## Geplant (später)
-- **Auto-Update über GitHub Releases:** GitHub Actions baut bei einem Versions-Tag ein Zip mit Prüfsumme und Signatur. Das Tool prüft auf neue Versionen, meldet sie in der UI und installiert erst nach Bestätigung. Jede Version liegt in einem eigenen Ordner (`versions/<x.y.z>/`), die vorherige bleibt als Rückfall. `config/local.json` und `data/` bleiben bei Updates erhalten. Da das Repo privat bleibt, kommen die Downloads aus einem separaten öffentlichen Release-Repo oder später vom Hub.
-- **Auslieferung als `BlackHalo.exe`:** per Node SEA, gebaut in GitHub Actions, ohne Node-Installation bei den Nutzern. Die `.exe` ist Launcher und Updater, die App selbst liegt in `versions/`. Native Teile (z. B. `koffi` für SendInput) liegen neben der `.exe`. Ohne Code-Signing-Zertifikat zeigt SmartScreen beim ersten Start eine Warnung. Später optional ein Tray-Icon statt Konsolenfenster.
+- **Auto-Update über GitHub Releases:** GitHub Actions baut bei einem Versions-Tag ein Zip mit Prüfsumme und Signatur. Das Tool prüft auf neue Versionen, meldet sie in der UI und installiert erst nach Bestätigung. `config/local.json` und `data/` bleiben bei Updates erhalten. Da das Repo privat bleibt, kommen die Downloads aus einem separaten öffentlichen Release-Repo oder später vom Hub.
+- **Electron-App:** Hauptprozess für Tray, Hotkeys, Fenster und Updates. Der bestehende Kern läuft als eigener Server-Prozess (`utilityProcess`) und wird bei einem Absturz neu gestartet. Das Overlay lädt die UI vom lokalen Server, ist also ein Client wie das Tablet. Installer per `electron-builder`, Updates per `electron-updater` (ersetzt den eigenen Launcher). Config und Daten liegen unter `%APPDATA%\BlackHalo`. Ohne Code-Signing-Zertifikat zeigt SmartScreen beim ersten Start eine Warnung.
+- **Overlay-Zustände:** passiv (durchklickbar, nur Anzeige) und aktiv (per globalem Hotkey, Buttons klickbar).
 
 ## Stand (2026-11-25)
 - Grundgerüst fertig und getestet: Core, Modul-System, Web-Shell, Module `status` und `controls` (Mock-Treiber)
