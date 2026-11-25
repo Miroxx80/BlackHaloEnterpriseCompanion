@@ -109,8 +109,40 @@ export default mod;
 
 Module sollen sich nicht gegenseitig importieren. Für Zusammenarbeit gibt es `ctx.events` (Ereignisse) und `ctx.services` (bereitgestellte Funktionen, z. B. `input` von `controls`).
 
+## Controls: Buttons und Tasten
+
+Die Buttons stehen unter `modules.controls` in der Config. Eigene Buttons gehören in die lokale Config (`%APPDATA%\BlackHalo\config\local.json`). Dort ersetzt die Liste `buttons` die Standardliste komplett.
+
+```json
+{
+  "modules": {
+    "controls": {
+      "target": { "process": "StarCitizen.exe" },
+      "buttons": [
+        { "id": "landing-gear", "label": "Fahrwerk", "key": "n" },
+        { "id": "eject", "label": "Aussteigen", "key": "y", "hold": 1500 },
+        { "id": "power", "label": "Energie", "key": "ralt+u" }
+      ]
+    }
+  }
+}
+```
+
+- **`key`:** eine Taste oder Kombination mit `+`, höchstens 4 Tasten. Namen wie in Star Citizens Keybinds (US-Layout): `a`–`z`, `0`–`9`, `f1`–`f24`, `lalt`/`ralt`, `lctrl`/`rctrl`, `lshift`/`rshift`, `space`, `enter`, `tab`, `escape`, `up`/`down`/`left`/`right`, `np_0`–`np_9`, `np_add` usw. (vollständige Liste in `src/modules/controls/input/keys.ts`). Kurzformen: `alt`, `ctrl`/`strg`, `shift`, `esc`.
+- **US-Layout heißt:** Es zählt die Position der Taste, nicht die Beschriftung. Auf einer deutschen Tastatur ist `z` die Taste mit dem „Y“ und umgekehrt. Genau so erwartet es das Spiel.
+- **`hold`:** Taste so viele Millisekunden halten (für Aktionen, die im Spiel „halten“ verlangen). Ohne `hold` gibt es einen kurzen Druck (50 ms).
+- **`target.process`:** Programm, das die Tasten bekommt. Standard `StarCitizen.exe`, zum Testen z. B. `notepad.exe`.
+- **`driver`:** `auto` (Standard: unter Windows echte Tasten, sonst `mock`), `windows` oder `mock` (nur protokollieren).
+- Feintuning, nur falls nötig: `tapMs` (Dauer eines kurzen Drucks), `comboGapMs` (Pause zwischen den Tasten einer Kombination), `focusSettleMs` (Wartezeit nach dem Wechsel ins Spiel).
+
+**So kommt der Tastendruck an:** Vor jedem Druck prüft das Tool, ob das Zielprogramm im Vordergrund ist, und holt es notfalls nach vorn (auch aus der Minimierung). Gelingt das nicht oder läuft es nicht, wird **nichts** gesendet, und die Oberfläche zeigt eine Meldung. Tasten landen nie in einem anderen Fenster. Mehrere Drücke laufen strikt nacheinander. Mehr als 5 wartende werden abgelehnt.
+
+**Wichtig:** Läuft Star Citizen bzw. der RSI Launcher **als Administrator**, blockiert Windows Tastendrücke von normalen Programmen, ohne Fehlermeldung. Dann entweder das Spiel normal starten oder Black Halo ebenfalls als Administrator.
+
+Es wird nichts in das Spiel eingeschleust und kein Speicher gelesen. Das Tool sendet nur Tastendrücke über die normale Windows-Schnittstelle (`SendInput`), wie ein Makro-Programm.
+
 ## Stand
 
-- Fertig: Kern, Modul-System, Web-Shell, Desktop-App (Tray, Fenster, Server-Prozess mit Neustart), Module `status`, `pairing` (QR-Code) und `controls` mit Mock-Treiber (loggt Tastendrücke nur).
-- Als Nächstes: Windows-Eingabetreiber, damit die Buttons wirklich Tasten im Spiel auslösen. Danach Installer und Auto-Update.
+- Fertig: Kern, Modul-System, Web-Shell, Desktop-App (Tray, Fenster, Server-Prozess mit Neustart), Module `status`, `pairing` (QR-Code) und `controls` mit Windows-Treiber (Scancodes, Kombinationen, Halten, Vordergrund-Prüfung) und Mock-Treiber.
+- Als Nächstes: Installer und Auto-Update.
 - Die Tasten in `config/default.json` sind Beispiele. Passe sie an deine Keybinds an.

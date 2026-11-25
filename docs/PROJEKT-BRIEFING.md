@@ -33,4 +33,5 @@
 ## Stand (2026-11-25)
 - Grundgerüst fertig und getestet: Core, Modul-System, Web-Shell, Module `status`, `pairing` und `controls` (Mock-Treiber)
 - Desktop-Hülle (Electron) fertig: Tray, Hauptfenster mit gemerkter Position, Server als eigener Prozess mit automatischem Neustart, Nutzerordner `%APPDATA%\BlackHalo`, automatisch erzeugter Zugangsschlüssel, QR-Code zum Verbinden (ohne Link-Local-Adressen, mit Adapternamen). Unter Windows getestet (2 Durchläufe): Start, Firewall, Tablet-Verbindung per QR (nur noch die richtige Adresse), Fenster in allen Ansichten normal bedienbar, Fensterposition, Tray, Beenden. Buttons per Handy lösen aus (Mock-Treiber).
-- Nächste Schritte: Windows-Eingabetreiber (mit Vordergrund-Prüfung), Installer und Auto-Update, Hub-Anbindung, Org Storage
+- Windows-Eingabetreiber gebaut: SendInput mit Scancodes (Tastennamen im US-Layout wie in den SC-Keybinds), Kombinationen, Halten, Warteschlange, Vordergrund-Prüfung mit Wiederherstellen aus der Minimierung. Logik unter Linux getestet, Test unter Windows steht aus.
+- Nächste Schritte: Windows-Test des Treibers, Installer und Auto-Update, Hub-Anbindung, Org Storage

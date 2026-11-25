@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { startApp } from '../dist/core/app.js';
 import { lanInterfaces } from '../dist/core/net.js';
 
-const LOCAL = { server: { host: '127.0.0.1', port: 0 } };
+const LOCAL = { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' } } };
 
 /** Kleiner WS-Client: sammelt Nachrichten und wartet gezielt auf einen Typ. */
 function openWs(port, query = '') {
