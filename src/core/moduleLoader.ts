@@ -1,17 +1,16 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { FastifyInstance } from 'fastify';
+import type { CoreEventBus, CoreServiceRegistry } from './events.js';
 import { createLogger } from './logger.js';
 import type { WsHub } from './ws.js';
 import type {
   AppConfig,
   BhModule,
-  EventBus,
   Logger,
   ModuleContext,
   ModuleStatus,
-  ServiceRegistry,
 } from './types.js';
 
 export interface LoadedModule {
@@ -31,8 +30,8 @@ interface LoaderOptions {
   modulesDir: string;
   dataRoot: string;
   ws: WsHub;
-  events: EventBus;
-  services: ServiceRegistry;
+  events: CoreEventBus;
+  services: CoreServiceRegistry;
   log: Logger;
 }
 
@@ -149,6 +148,10 @@ export async function loadModules(opts: LoaderOptions): Promise<LoadResult> {
       continue;
     }
 
+    const events = opts.events.forModule(id);
+    const services = opts.services.forModule(id);
+    const dataDir = join(opts.dataRoot, id);
+
     let setupError: unknown;
     await app.register(
       async (scope) => {
@@ -156,19 +159,20 @@ export async function loadModules(opts: LoaderOptions): Promise<LoadResult> {
         scope.addHook('onRequest', async (_req, reply) => {
           if (failedIds.has(id)) return reply.code(503).send({ error: `Modul "${id}" ist ausgefallen` });
         });
-        const ctx: ModuleContext = {
-          manifest: mod.manifest,
-          role: config.role,
-          log: createLogger(id),
-          config: config.modules[id] ?? {},
-          events: opts.events,
-          services: opts.services,
-          http: scope,
-          ws: opts.ws.forModule(id),
-          dataDir: join(opts.dataRoot, id),
-          dir,
-        };
         try {
+          mkdirSync(dataDir, { recursive: true });
+          const ctx: ModuleContext = {
+            manifest: mod.manifest,
+            role: config.role,
+            log: createLogger(id),
+            config: config.modules[id] ?? {},
+            events: events.api,
+            services: services.api,
+            http: scope,
+            ws: opts.ws.forModule(id),
+            dataDir,
+            dir,
+          };
           await mod.setup(ctx);
         } catch (err) {
           setupError = err;
@@ -178,8 +182,11 @@ export async function loadModules(opts: LoaderOptions): Promise<LoadResult> {
     );
 
     if (setupError) {
+      // Alles zurücknehmen, was das Modul vor dem Absturz angemeldet hat
       failedIds.add(id);
       opts.ws.dropModule(id);
+      events.release();
+      services.release();
       log.error(`Modul "${id}" ist beim Start fehlgeschlagen: ${errMsg(setupError)}`);
       statuses.set(id, { ...base, state: 'failed', error: errMsg(setupError) });
     } else {

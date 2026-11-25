@@ -47,7 +47,7 @@ Jedes Modul sagt in seinem Manifest, in welcher Rolle es läuft.
 
 ### Stabilität
 
-- Ein Modul, das beim Laden oder Starten fehlschlägt, wird als `failed` markiert. Alle anderen laufen weiter. Seine Routen antworten dann mit 503.
+- Ein Modul, das beim Laden oder Starten fehlschlägt, wird als `failed` markiert. Alle anderen laufen weiter. Seine Routen antworten dann mit 503, und alles, was es vorher angemeldet hat (WebSocket-Handler, Services, Event-Handler), wird zurückgenommen.
 - Module haben getrennte Namensräume für REST (`/api/<id>/...`) und WebSocket (`<id>:<name>`). Sie können sich nicht gegenseitig überschreiben.
 - WebSocket-Nachrichten sind auf 64 KB begrenzt, kaputtes JSON wird abgefangen.
 - Optionaler Zugriffsschutz: `security.token` in `config/local.json` setzen. Dann brauchen `/api` und `/ws` das Token. Die URL mit `?token=...` merkt sich der Browser.
@@ -79,9 +79,10 @@ export default mod;
 
 3. Optional `ui/index.js` mit `export function mount(root, api) { ... }`. Die API bietet `get(path)`, `send(name, payload)` und `on(name, handler)`. Die Navigation erscheint automatisch.
 4. Optional Einstellungen unter `modules.<id>` in der Config. Sie kommen als `ctx.config` an.
+   Für eigene Dateien gibt es `ctx.dataDir` (`data/<id>/`). Der Ordner existiert schon, wenn `setup()` läuft.
 5. `npm run dev`.
 
-**Ein Modul entfernen:** Ordner löschen oder `"enabled": false` unter `modules.<id>` setzen. Am Kern ändert sich nichts.
+**Ein Modul entfernen:** Ordner löschen oder `"enabled": false` unter `modules.<id>` setzen. Am Kern ändert sich nichts. `npm run build` leert `dist/` vorher, damit gelöschte Module nicht aus einem alten Build weiterlaufen.
 
 Module sollen sich nicht gegenseitig importieren. Für Zusammenarbeit gibt es `ctx.events` (Ereignisse) und `ctx.services` (bereitgestellte Funktionen, z. B. `input` von `controls`).
 

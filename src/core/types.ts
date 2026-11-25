@@ -61,7 +61,7 @@ export interface ModuleContext {
   /** Fastify-Scope mit Prefix /api/<id>. */
   http: FastifyInstance;
   ws: WsApi;
-  /** Eigener Datenordner des Moduls (wird bei Bedarf angelegt). */
+  /** Eigener Datenordner des Moduls (existiert bereits, wenn setup() läuft). */
   dataDir: string;
   /** Verzeichnis des Moduls (für eigene Assets). */
   dir: string;

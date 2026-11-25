@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startApp } from '../dist/core/app.js';
@@ -112,12 +112,26 @@ test('ein defektes Modul reißt die anderen nicht mit', async () => {
   const manifest = (id, extra = '') =>
     `manifest: { id: '${id}', name: '${id}', version: '1.0.0', roles: ['companion'] ${extra}}`;
 
-  mk('good', `export default { ${manifest('good')}, setup(ctx) { ctx.http.get('/ping', async () => ({ ok: true })); } };`);
+  // "broken" startet vor "good" (alphabetisch). Was broken vor dem Absturz anmeldet, muss weg sein.
+  mk(
+    'good',
+    `export default { ${manifest('good')}, setup(ctx) {
+      ctx.services.provide('leak', 'von good'); // wäre ein Fehler, wenn broken den Namen noch hielte
+      ctx.http.get('/ping', async () => ({ ok: true }));
+      ctx.http.get('/probe', async () => {
+        globalThis.__bhLeak = false;
+        ctx.events.emit('probe');
+        return { leak: globalThis.__bhLeak, service: ctx.services.get('leak') };
+      });
+    } };`,
+  );
   mk(
     'broken',
     `export default { ${manifest('broken')}, setup(ctx) {
       ctx.http.get('/ping', async () => ({ ok: true }));
       ctx.ws.on('x', () => {});
+      ctx.services.provide('leak', 'von broken');
+      ctx.events.on('probe', () => { globalThis.__bhLeak = true; });
       throw new Error('kaputt');
     } };`,
   );
@@ -148,7 +162,17 @@ test('ein defektes Modul reißt die anderen nicht mit', async () => {
     assert.equal((await fetch(`${base}/api/broken/ping`)).status, 503); // Teil-Routen werden gesperrt
     const child = mods.modules.find((m) => m.id === 'child');
     assert.match(child.error, /broken/);
+
+    const probe = await (await fetch(`${base}/api/good/probe`)).json();
+    assert.deepEqual(probe, { leak: false, service: 'von good' });
+
+    assert.ok(existsSync(join(dir, '_data', 'good')), 'dataDir wird vor setup() angelegt');
   } finally {
     await app.stop();
   }
+});
+
+test('ungültige Config wird beim Start abgelehnt', async () => {
+  await assert.rejects(startApp({ overrides: { server: { port: 'abc' } } }), /server\.port/);
+  await assert.rejects(startApp({ overrides: { ...LOCAL, role: 'server' } }), /role/);
 });

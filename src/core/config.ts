@@ -44,5 +44,19 @@ export function loadConfig(rootDir: string, overrides: Json = {}): AppConfig {
   if (role !== 'companion' && role !== 'hub') {
     throw new Error(`Ungültige role "${String(role)}" (erlaubt: companion, hub)`);
   }
+  const server = cfg.server as Json | undefined;
+  const port = server?.port;
+  if (typeof port !== 'number' || !Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error(`Ungültiger server.port "${String(port)}" (erlaubt: 0 bis 65535)`);
+  }
+  if (typeof server?.host !== 'string' || server.host === '') {
+    throw new Error('server.host fehlt');
+  }
+  const security = cfg.security as Json | undefined;
+  if (security?.token !== undefined && typeof security.token !== 'string') {
+    throw new Error('security.token muss ein String sein');
+  }
+  if (!isObject(cfg.security)) cfg.security = { token: '' };
+  if (!isObject(cfg.modules)) cfg.modules = {};
   return cfg as unknown as AppConfig;
 }

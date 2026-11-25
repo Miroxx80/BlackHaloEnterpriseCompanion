@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,6 +29,13 @@ export interface CreateAppOptions {
   dataRoot?: string;
 }
 
+/** Zeitkonstanter Vergleich. Über den Hash haben beide Seiten gleiche Länge. */
+function tokenMatches(given: unknown, expected: string): boolean {
+  if (typeof given !== 'string') return false;
+  const h = (v: string) => createHash('sha256').update(v).digest();
+  return timingSafeEqual(h(given), h(expected));
+}
+
 export async function startApp(options: CreateAppOptions = {}): Promise<BhApp> {
   const coreDir = dirname(fileURLToPath(import.meta.url)); // dist/core
   const distDir = join(coreDir, '..');
@@ -49,8 +57,8 @@ export async function startApp(options: CreateAppOptions = {}): Promise<BhApp> {
     app.addHook('onRequest', async (req, reply) => {
       const path = req.url.split('?')[0];
       if (!path.startsWith('/api') && path !== '/ws') return;
-      const given = req.headers['x-bh-token'] ?? (req.query as Record<string, string> | undefined)?.token;
-      if (given !== token) return reply.code(401).send({ error: 'Token fehlt oder ist falsch' });
+      const given = req.headers['x-bh-token'] ?? (req.query as Record<string, unknown> | undefined)?.token;
+      if (!tokenMatches(given, token)) return reply.code(401).send({ error: 'Token fehlt oder ist falsch' });
     });
   }
 

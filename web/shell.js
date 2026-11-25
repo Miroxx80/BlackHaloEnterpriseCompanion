@@ -75,31 +75,51 @@ const main = document.getElementById('main');
 let current = null; // { id, cleanup, subs }
 let navKey = '';
 
+let generation = 0; // jeder show()-Aufruf bekommt eine Nummer; nur der neueste darf die Ansicht ändern
+
 async function show(id) {
-  if (current) {
-    try { await current.cleanup?.(); } catch (err) { console.error(err); }
-    current.subs.forEach((off) => off());
-    current = null;
+  const gen = ++generation;
+  const stale = () => gen !== generation;
+
+  const prev = current;
+  current = null; // sofort, damit ein zweiter Aufruf prev nicht noch einmal abbaut
+  if (prev) {
+    prev.subs.forEach((off) => off());
+    try { await prev.cleanup?.(); } catch (err) { console.error(err); }
   }
+  if (stale()) return;
+
   for (const a of nav.querySelectorAll('a')) a.classList.toggle('active', a.dataset.id === id);
   main.replaceChildren();
   if (!id) {
     main.innerHTML = '<p class="muted">Keine Module mit Oberfläche aktiv.</p>';
     return;
   }
+
   const subs = [];
   const entry = { id, cleanup: null, subs };
   current = entry;
+  // Eigener Container pro Modul: schreibt ein altes Modul verspätet hinein, landet das im Leeren
+  const root = document.createElement('div');
+  main.append(root);
   try {
     const m = await import(`/modules/${id}/index.js`);
-    entry.cleanup = await m.mount(main, createApi(id, subs));
+    if (stale()) return;
+    const cleanup = await m.mount(root, createApi(id, subs));
+    if (stale()) {
+      // Zu spät fertig geworden: sofort wieder abbauen, ohne die neue Ansicht anzufassen
+      subs.forEach((off) => off());
+      try { await cleanup?.(); } catch (err) { console.error(err); }
+      return;
+    }
+    entry.cleanup = cleanup;
   } catch (err) {
     console.error(err);
-    main.innerHTML = '';
+    if (stale()) return;
     const p = document.createElement('p');
     p.className = 'state-failed';
     p.textContent = `Modul "${id}" konnte nicht angezeigt werden: ${err.message}`;
-    main.append(p);
+    root.replaceChildren(p);
   }
 }
 
