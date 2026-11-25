@@ -9,20 +9,34 @@ const store = {
   },
 };
 
+// Muss zu src/core/token.ts passen: nur sichtbare ASCII-Zeichen. Alles andere würde jede Anfrage
+// im Browser scheitern lassen ("non ISO-8859-1 code point") und wird deshalb verworfen.
+const validToken = (t) => /^[\x21-\x7e]{1,256}$/.test(t);
+
 const params = new URLSearchParams(location.search);
 const urlToken = params.get('token');
-if (urlToken) {
-  store.set('bh-token', urlToken);
+if (urlToken !== null) {
+  if (validToken(urlToken)) store.set('bh-token', urlToken);
   // Token aus der Adresszeile entfernen, damit es nicht sichtbar bleibt (Screenshots, Streams)
   params.delete('token');
   const rest = params.toString();
   history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
 }
-const token = store.get('bh-token');
+let token = store.get('bh-token');
+if (token && !validToken(token)) {
+  store.set('bh-token', '');
+  token = '';
+}
 
 // ---- REST ----
 async function get(path) {
   const res = await fetch(path, { headers: token ? { 'x-bh-token': token } : {} });
+  if (res.status === 401) {
+    throw Object.assign(
+      new Error('Zugangsschlüssel fehlt oder ist falsch. Bitte am PC unter „Verbinden“ den QR-Code neu scannen.'),
+      { auth: true },
+    );
+  }
   if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
   return res.json();
 }
@@ -160,6 +174,7 @@ window.addEventListener('hashchange', route);
 get('/api/modules')
   .then((d) => buildNav(d.modules))
   .catch((err) => {
-    main.textContent = `Server nicht erreichbar oder Token falsch: ${err.message}`;
+    // Schlüssel-Fehler sind schon verständlich formuliert, alles andere ist meist ein Netzwerkproblem
+    main.textContent = err.auth ? err.message : `Server nicht erreichbar: ${err.message}`;
   });
 connect();

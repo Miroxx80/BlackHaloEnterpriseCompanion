@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startApp } from '../dist/core/app.js';
 import { lanInterfaces } from '../dist/core/net.js';
+import { ensureToken } from '../dist/desktop/token.js';
 
 const LOCAL = { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' } } };
 
@@ -195,4 +196,35 @@ test('Netzwerkadressen: ohne 169.254.x.x, virtuelle Adapter zuletzt', () => {
     { name: 'WLAN', address: '192.168.1.20', virtual: false },
     { name: 'vEthernet (WSL)', address: '172.20.0.1', virtual: true },
   ]);
+});
+
+test('Zugangsschlüssel mit ungültigen Zeichen wird beim Start abgelehnt', async () => {
+  for (const bad of ['…bleibt wie es ist…', 'mit leerzeichen', 'schlüssel', '„x“']) {
+    await assert.rejects(startApp({ overrides: { ...LOCAL, security: { token: bad } } }), /security\.token enthält ungültige Zeichen/);
+  }
+});
+
+test('Desktop: Zugangsschlüssel erzeugen, behalten, ungültigen ersetzen, kaputte Datei nicht anfassen', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bh-token-'));
+  const file = join(dir, 'config', 'local.json');
+  const read = () => JSON.parse(readFileSync(file, 'utf8'));
+  const quiet = () => {};
+
+  assert.equal(ensureToken(file, quiet), 'created');
+  const first = read().security.token;
+  assert.match(first, /^[A-Za-z0-9_-]{24}$/);
+  assert.equal(ensureToken(file, quiet), 'kept');
+  assert.equal(read().security.token, first);
+
+  // Der Fall aus dem Windows-Test: Platzhalter aus der Anleitung übernommen. Andere Einträge bleiben erhalten.
+  writeFileSync(file, JSON.stringify({ security: { token: '…bleibt wie es ist…' }, modules: { controls: { driver: 'mock' } } }));
+  assert.equal(ensureToken(file, quiet), 'replaced');
+  assert.match(read().security.token, /^[A-Za-z0-9_-]{24}$/);
+  assert.deepEqual(read().modules, { controls: { driver: 'mock' } });
+
+  writeFileSync(file, '{ kaputt');
+  assert.equal(ensureToken(file, quiet), 'skipped');
+  assert.equal(readFileSync(file, 'utf8'), '{ kaputt');
+  writeFileSync(file, '[]');
+  assert.equal(ensureToken(file, quiet), 'skipped');
 });

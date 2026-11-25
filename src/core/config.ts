@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { isValidToken, TOKEN_RULE } from './token.js';
 import type { AppConfig } from './types.js';
 
 type Json = Record<string, unknown>;
@@ -62,6 +63,9 @@ export function loadConfig(
   const security = cfg.security as Json | undefined;
   if (security?.token !== undefined && typeof security.token !== 'string') {
     throw new Error('security.token muss ein String sein');
+  }
+  if (typeof security?.token === 'string' && security.token !== '' && !isValidToken(security.token)) {
+    throw new Error(`security.token enthält ungültige Zeichen. Erlaubt: ${TOKEN_RULE}`);
   }
   if (!isObject(cfg.security)) cfg.security = { token: '' };
   if (!isObject(cfg.modules)) cfg.modules = {};

@@ -2,7 +2,7 @@
 // (unter Linux z. B. "xvfb-run -a npm run test:desktop"). Ohne Playwright wird er übersprungen.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -40,6 +40,9 @@ const until = async (fn, what, ms = 15000) => {
 
 test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electron && 'playwright nicht installiert' }, async () => {
   const userDir = mkdtempSync(join(tmpdir(), 'bh-desktop-'));
+  // Wie beim Windows-Test: Platzhalter aus der Anleitung als Schlüssel übernommen. Die App muss trotzdem laufen.
+  mkdirSync(join(userDir, 'config'));
+  writeFileSync(join(userDir, 'config', 'local.json'), JSON.stringify({ security: { token: '…bleibt wie es ist…' } }));
   const args = ['.'];
   if (process.getuid?.() === 0) args.push('--no-sandbox'); // nur im Container als root nötig
   const executablePath = createRequire(import.meta.url)('electron'); // Pfad zur electron-Binary aus diesem Projekt
@@ -48,6 +51,7 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
   try {
     const win = await app.firstWindow();
     await win.waitForSelector('nav a[data-id="pairing"]', { timeout: 15000 });
+    await win.waitForSelector('#grid button'); // Controls hat seine Buttons per REST geladen (Token im Header ok)
 
     // Token wurde erzeugt, gespeichert und aus der Adresszeile entfernt
     const local = JSON.parse(readFileSync(join(userDir, 'config', 'local.json'), 'utf8'));
