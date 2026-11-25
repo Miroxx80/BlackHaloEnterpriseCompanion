@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startApp } from '../dist/core/app.js';
+import { lanInterfaces } from '../dist/core/net.js';
 
 const LOCAL = { server: { host: '127.0.0.1', port: 0 } };
 
@@ -42,7 +43,6 @@ test('echte Module: REST, UI-Dateien und WebSocket', async () => {
     const mods = await (await fetch(`${base}/api/modules`)).json();
     const states = Object.fromEntries(mods.modules.map((m) => [m.id, m.state]));
     assert.deepEqual(states, { controls: 'running', pairing: 'running', status: 'running' });
-    assert.equal(mods.modules.find((m) => m.id === 'controls').noFocus, true);
 
     const buttons = await (await fetch(`${base}/api/controls/buttons`)).json();
     assert.equal(buttons.buttons.length, 4);
@@ -181,4 +181,18 @@ test('ein defektes Modul reißt die anderen nicht mit', async () => {
 test('ungültige Config wird beim Start abgelehnt', async () => {
   await assert.rejects(startApp({ overrides: { server: { port: 'abc' } } }), /server\.port/);
   await assert.rejects(startApp({ overrides: { ...LOCAL, role: 'server' } }), /role/);
+});
+
+test('Netzwerkadressen: ohne 169.254.x.x, virtuelle Adapter zuletzt', () => {
+  const v4 = (address, internal = false) => ({ family: 'IPv4', address, internal });
+  const result = lanInterfaces({
+    'vEthernet (WSL)': [v4('172.20.0.1')],
+    Ethernet: [v4('169.254.12.34')],
+    WLAN: [v4('192.168.1.20'), { family: 'IPv6', address: 'fe80::1', internal: false }],
+    'Loopback Pseudo-Interface 1': [v4('127.0.0.1', true)],
+  });
+  assert.deepEqual(result, [
+    { name: 'WLAN', address: '192.168.1.20', virtual: false },
+    { name: 'vEthernet (WSL)', address: '172.20.0.1', virtual: true },
+  ]);
 });

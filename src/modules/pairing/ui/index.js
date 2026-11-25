@@ -1,7 +1,8 @@
 export async function mount(root, api) {
   root.innerHTML = `
     <h2>Gerät verbinden</h2>
-    <p class="muted">QR-Code mit dem Tablet oder Handy scannen. Das Gerät muss im selben WLAN sein.</p>
+    <p class="muted">QR-Code mit dem Tablet oder Handy scannen. Das Gerät muss im selben Netzwerk sein.
+      Bei mehreren Codes meist den mit „WLAN“ oder „Ethernet“ nehmen.</p>
     <div id="list" class="pair-list"></div>
     <p id="note" class="muted"></p>
   `;
@@ -19,9 +20,18 @@ export async function mount(root, api) {
       const img = document.createElement('img');
       img.src = t.qr;
       img.alt = `QR-Code für ${t.display}`;
+      const adapter = document.createElement('strong');
+      adapter.textContent = t.adapter;
       const url = document.createElement('code');
       url.textContent = t.display;
-      card.append(img, url);
+      card.append(adapter, img, url);
+      if (t.virtual) {
+        card.classList.add('pair-virtual');
+        const hint = document.createElement('small');
+        hint.className = 'muted';
+        hint.textContent = 'Virtueller Adapter, meist nicht der richtige';
+        card.append(hint);
+      }
       list.append(card);
     }
     note.textContent = data.protected

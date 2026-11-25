@@ -38,7 +38,7 @@ const until = async (fn, what, ms = 15000) => {
   }
 };
 
-test('Desktop-App: Fenster, Fokus, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electron && 'playwright nicht installiert' }, async () => {
+test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electron && 'playwright nicht installiert' }, async () => {
   const userDir = mkdtempSync(join(tmpdir(), 'bh-desktop-'));
   const args = ['.'];
   if (process.getuid?.() === 0) args.push('--no-sandbox'); // nur im Container als root nötig
@@ -57,12 +57,10 @@ test('Desktop-App: Fenster, Fokus, QR, Absturz-Neustart, Tray-Betrieb', { skip: 
     const api = (path) => fetch(`http://127.0.0.1:${port}${path}`, { headers: { 'x-bh-token': local.security.token } });
     assert.equal((await fetch(`http://127.0.0.1:${port}/api/modules`)).status, 401);
 
-    // Fokus je Ansicht: Controls nimmt keinen Fokus, Status schon
-    const focusable = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFocusable());
+    // Fenster ist in allen Ansichten ein normales, fokussierbares Fenster
     await win.evaluate(() => (location.hash = 'controls'));
-    await until(async () => (await focusable()) === false, 'Controls nicht fokussierbar');
-    await win.evaluate(() => (location.hash = 'status'));
-    await until(async () => (await focusable()) === true, 'Status fokussierbar');
+    await win.waitForSelector('#grid button');
+    assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFocusable()), true);
 
     // QR-Code-Ansicht
     await win.evaluate(() => (location.hash = 'pairing'));

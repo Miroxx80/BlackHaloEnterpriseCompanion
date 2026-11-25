@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import { lanAddresses } from '../../core/net.js';
+import { lanInterfaces } from '../../core/net.js';
 import type { BhModule } from '../../core/types.js';
 
 /**
@@ -26,10 +26,15 @@ const mod: BhModule = {
       const query = token ? `/?token=${encodeURIComponent(token)}` : '/';
 
       const targets = await Promise.all(
-        lanAddresses().map(async (ip) => {
-          const url = `http://${ip}:${port}${query}`;
+        lanInterfaces().map(async ({ name, address, virtual }) => {
+          const url = `http://${address}:${port}${query}`;
           const svg = await QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
-          return { ip, display: `http://${ip}:${port}`, qr: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}` };
+          return {
+            adapter: name,
+            virtual,
+            display: `http://${address}:${port}`,
+            qr: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,
+          };
         }),
       );
       return { protected: !!token, targets };

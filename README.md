@@ -55,7 +55,7 @@ Electron-Hauptprozess (main.ts)
 
 - Der Server läuft in einem eigenen Prozess. Stürzt er ab, startet der Supervisor ihn neu (1 s, 2 s, 5 s, 10 s). Nach 5 Abstürzen in einer Minute gibt er auf und zeigt den Fehler im Fenster und im Tray.
 - Das Fenster ist nur ein weiterer Client, wie das Tablet. Es sieht dieselbe Oberfläche. Beim Schließen wird es wirklich beendet (spart RAM neben dem Spiel). Position, Größe und Bildschirm werden gemerkt. Fehlt der Bildschirm, öffnet es auf dem Hauptbildschirm.
-- Die Seite im Fenster hat keinen Zugriff auf Node oder Electron. `preload.cts` gibt ihr nur `bhDesktop.setFocusable()`.
+- Die Seite im Fenster hat keinen Zugriff auf Node oder Electron (kein Preload, Sandbox aktiv).
 - Die Desktop-App läuft immer mit Zugangsschlüssel. Fehlt einer, wird er beim ersten Start erzeugt.
 
 ### Kern (`src/core`)
@@ -91,7 +91,6 @@ const mod: BhModule = {
     roles: ['companion'],            // oder ['hub'] oder beides
     nav: { label: 'Mein Modul' },    // Eintrag in der Navigation
     ui: true,                        // hat einen Ordner ui/
-    // noFocus: true,                // Desktop-Fenster nimmt in dieser Ansicht keinen Fokus (Buttons, die Tasten ans Spiel senden)
   },
   setup(ctx) {
     ctx.http.get('/hallo', async () => ({ ok: true }));      // GET /api/meinmodul/hallo

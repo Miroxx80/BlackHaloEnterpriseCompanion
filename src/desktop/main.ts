@@ -32,7 +32,6 @@ if (!app.requestSingleInstanceLock()) {
   const supervisor = new ServerSupervisor(join(here, 'serverEntry.js'), userDir, log);
   const icon = join(rootDir, 'assets', 'icon.png');
   const window = new MainWindow({
-    preload: join(here, 'preload.cjs'),
     icon,
     settings,
     log,

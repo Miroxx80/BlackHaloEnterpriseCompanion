@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, screen, shell, type Rectangle } from 'electron';
+import { BrowserWindow, screen, shell, type Rectangle } from 'electron';
 import type { LogFile } from './log.js';
 import type { SettingsStore, WindowBounds } from './settings.js';
 
@@ -24,7 +24,6 @@ function isVisibleOnSomeDisplay(b: Rectangle): boolean {
 }
 
 interface Options {
-  preload: string;
   icon: string;
   settings: SettingsStore;
   log: LogFile;
@@ -45,12 +44,7 @@ export class MainWindow {
   /** true, sobald die echte Oberfläche geladen ist. Danach verbindet sich die Shell selbst neu. */
   private showingShell = false;
 
-  constructor(private readonly opts: Options) {
-    ipcMain.on('bh:set-focusable', (e, value: unknown) => {
-      if (!this.win || e.sender !== this.win.webContents || typeof value !== 'boolean') return;
-      if (this.win.isFocusable() !== value) this.win.setFocusable(value);
-    });
-  }
+  constructor(private readonly opts: Options) {}
 
   get isOpen() {
     return !!this.win;
@@ -109,7 +103,6 @@ export class MainWindow {
       alwaysOnTop: this.opts.settings.get().alwaysOnTop,
       autoHideMenuBar: true,
       webPreferences: {
-        preload: this.opts.preload,
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,

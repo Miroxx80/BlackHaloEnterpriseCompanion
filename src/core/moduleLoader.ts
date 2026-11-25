@@ -102,7 +102,6 @@ export async function loadModules(opts: LoaderOptions): Promise<LoadResult> {
       version: mod.manifest.version,
       nav: mod.manifest.nav,
       ui: !!mod.manifest.ui,
-      noFocus: !!mod.manifest.noFocus,
     };
     if (!mod.manifest.roles.includes(config.role)) {
       statuses.set(id, { ...base, state: 'skipped' });
@@ -139,7 +138,6 @@ export async function loadModules(opts: LoaderOptions): Promise<LoadResult> {
       version: mod.manifest.version,
       nav: mod.manifest.nav,
       ui: !!mod.manifest.ui,
-      noFocus: !!mod.manifest.noFocus,
     };
 
     const missing = (mod.manifest.dependsOn ?? []).filter((d) => statuses.get(d)?.state !== 'running');
