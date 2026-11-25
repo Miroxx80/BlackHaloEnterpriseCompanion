@@ -1,0 +1,18 @@
+{
+  "role": "companion",
+  "server": { "host": "0.0.0.0", "port": 3000 },
+  "security": { "token": "" },
+  "modules": {
+    "status": { "enabled": true },
+    "controls": {
+      "enabled": true,
+      "driver": "mock",
+      "buttons": [
+        { "id": "landing-gear", "label": "Fahrwerk", "key": "n" },
+        { "id": "lights", "label": "Lichter", "key": "l" },
+        { "id": "quantum", "label": "Quantum-Modus", "key": "b" },
+        { "id": "scan", "label": "Scan-Modus", "key": "tab" }
+      ]
+    }
+  }
+}
