@@ -131,3 +131,38 @@ test('PaddleOCR am echten Screenshot: Werte gelesen, und kein falscher Wert blei
   assert.deepEqual(silent, [], `falsch und nicht markiert: ${silent.map((k) => `${k}=${read[k]} (echt ${expected[k]})`).join(', ')}`);
   assert.ok(!result.marks['parts.0.ore'] && !result.marks['parts.4.ore'], 'eindeutige Erznamen nicht markiert');
 });
+
+test('API: "Am PC einlesen" nimmt über die Desktop-App auf, ohne Desktop-App 501', async () => {
+  const opts = (dataRoot) => ({ overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' } } }, dataRoot });
+  // Ohne Desktop-App: Knopf ausgeblendet, Route lehnt ab
+  const plain = await startApp(opts(mkdtempSync(join(tmpdir(), 'bh-cap-'))));
+  try {
+    const base = `http://127.0.0.1:${plain.port}/api/mining`;
+    assert.equal((await (await fetch(`${base}/ocr`)).json()).capture, false);
+    assert.equal((await fetch(`${base}/ocr/capture`, { method: 'POST' })).status, 501);
+  } finally {
+    await plain.stop();
+  }
+  // Mit Desktop-App: Aufnahme wird gelesen und übernommen; Fehler der Aufnahme -> 502
+  let fail = false;
+  const capture = async () => {
+    if (fail) throw new Error('kaputt');
+    return sharp(fixture(HUD[1])).png().toBuffer();
+  };
+  const app = await startApp({ ...opts(mkdtempSync(join(tmpdir(), 'bh-cap-'))), services: { 'desktop.screen': { capture } } });
+  try {
+    const base = `http://127.0.0.1:${app.port}/api/mining`;
+    assert.equal((await (await fetch(`${base}/ocr`)).json()).capture, true);
+    const res = await fetch(`${base}/ocr/capture`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    assert.equal(res.status, 200);
+    const out = await res.json();
+    assert.equal(out.applied, true);
+    assert.equal((await (await fetch(`${base}/scan`)).json()).scan.mass, out.draft.mass);
+    fail = true;
+    const bad = await fetch(`${base}/ocr/capture`, { method: 'POST' });
+    assert.equal(bad.status, 502);
+    assert.match((await bad.json()).error, /kaputt/);
+  } finally {
+    await app.stop();
+  }
+});

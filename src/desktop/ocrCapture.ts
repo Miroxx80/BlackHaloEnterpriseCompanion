@@ -1,8 +1,17 @@
 import { desktopCapturer, Notification, screen } from 'electron';
 import type { LogFile } from './log.js';
 
+/** Screenshot des Hauptbildschirms (dort läuft das Spiel) als PNG in 1920x1080. */
+export async function captureScreen(): Promise<Buffer> {
+  const primary = screen.getPrimaryDisplay();
+  const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1920, height: 1080 } });
+  const source = sources.find((s) => s.display_id === String(primary.id)) ?? sources[0];
+  if (!source || source.thumbnail.isEmpty()) throw new Error('Keine Bildschirmaufnahme möglich');
+  return source.thumbnail.toPNG();
+}
+
 /**
- * Hotkey -> Screenshot des Hauptbildschirms -> OCR auf dem lokalen Server (Ergebnis landet im gemeinsamen Scan,
+ * Tray/Hotkey -> Screenshot des Hauptbildschirms -> OCR auf dem lokalen Server (Ergebnis landet im gemeinsamen Scan,
  * also sofort auch auf Handy und zweitem Bildschirm). Nur Bildschirmaufnahme über Windows, kein Eingriff ins Spiel.
  */
 export async function captureAndRead(server: { port: number; token: string } | null, log: LogFile): Promise<void> {
@@ -15,12 +24,7 @@ export async function captureAndRead(server: { port: number; token: string } | n
   }
   try {
     const t0 = Date.now();
-    const primary = screen.getPrimaryDisplay();
-    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1920, height: 1080 } });
-    // Hauptbildschirm (dort läuft das Spiel); sonst der erste
-    const source = sources.find((s) => s.display_id === String(primary.id)) ?? sources[0];
-    if (!source || source.thumbnail.isEmpty()) throw new Error('Keine Bildschirmaufnahme möglich');
-    const png = source.thumbnail.toPNG();
+    const png = await captureScreen();
     const res = await fetch(`http://127.0.0.1:${server.port}/api/mining/ocr?apply=1`, {
       method: 'POST',
       headers: { 'content-type': 'image/png', ...(server.token ? { 'x-bh-token': server.token } : {}) },

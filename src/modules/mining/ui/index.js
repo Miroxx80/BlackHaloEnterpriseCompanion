@@ -410,7 +410,7 @@ export async function mount(root, api) {
 
     scanPanel.replaceChildren(
       el('div', { class: 'panel-head' }, el('h2', {}, el('span', { class: 'idx' }, '01'), 'Scan', el('span', { class: 'tag' }, 'auf allen Geräten gleich')), syncState, resetButton),
-      el('div', { class: 'panel-body' }, el('div', { class: 'mn-actions', style: { marginBottom: '16px' } }, ocrButton, fileInput), ocrNotes, checkBar, fields),
+      el('div', { class: 'panel-body' }, el('div', { class: 'mn-actions', style: { marginBottom: '16px' } }, captureButton, ocrButton, fileInput), ocrNotes, checkBar, fields),
       el('hr', { class: 'panel-sep' }),
       el('div', { class: 'panel-head' }, el('h2', {}, el('span', { class: 'idx' }, '02'), 'Zusammensetzung', el('span', { class: 'tag' }, 'optional')), addButton),
       el(
@@ -485,11 +485,27 @@ export async function mount(root, api) {
   };
   document.addEventListener('paste', onPaste);
 
-  async function readScreenshot(file) {
-    ocrButton.disabled = true;
-    ocrNotes.replaceChildren(notice('note', 'Screenshot wird gelesen ...', { iconName: 'scan' }));
+  // Am PC aufnehmen: Hotkeys kommen im Spiel nicht an, deshalb per Knopf (am Handy/Tablet oder im Fenster).
+  // Nur sichtbar, wenn Black Halo als Desktop-App läuft.
+  const captureButton = button('Am PC einlesen', {
+    iconName: 'camera',
+    onclick: () => runOcr(() => api.post('/api/mining/ocr/capture', {}), 'Screenshot am PC wird aufgenommen und gelesen ...'),
+  });
+  captureButton.title = 'Nimmt den Hauptbildschirm des Spiel-PCs auf und liest den Scan (z. B. vom Handy aus, während du im Spiel bist)';
+  captureButton.hidden = true;
+  api
+    .get('/api/mining/ocr')
+    .then((info) => (captureButton.hidden = !info.capture))
+    .catch(() => {});
+
+  const readScreenshot = (file) =>
+    runOcr(() => api.postRaw('/api/mining/ocr?apply=1', file, file.type || 'application/octet-stream'), 'Screenshot wird gelesen ...');
+
+  async function runOcr(request, busyText) {
+    ocrButton.disabled = captureButton.disabled = true;
+    ocrNotes.replaceChildren(notice('note', busyText, { iconName: 'scan' }));
     try {
-      const res = await api.postRaw('/api/mining/ocr?apply=1', file, file.type || 'application/octet-stream');
+      const res = await request();
       const notes = [...res.notes];
       if (res.applied) notes.unshift(`Gelesen in ${res.ms} ms (Erkennung: ${res.engine}). Gelb markierte Felder bitte prüfen.`);
       ocrNotes.replaceChildren(...notes.map((n) => notice('note', n, { iconName: res.panelFound ? 'info' : 'edge' })));
@@ -497,7 +513,7 @@ export async function mount(root, api) {
     } catch (err) {
       ocrNotes.replaceChildren(notice('alert', err.message));
     } finally {
-      ocrButton.disabled = false;
+      ocrButton.disabled = captureButton.disabled = false;
     }
   }
 
@@ -1099,7 +1115,7 @@ export async function mount(root, api) {
           el(
             'label',
             { class: 'field' },
-            el('span', { class: 'field-label' }, 'Crafting-Bonus Leistung', el('small', {}, '% · optional')),
+            el('span', { class: 'field-label' }, 'Crafting-Bonus', el('small', {}, 'optional')),
             el('span', { class: 'unit', 'data-unit': '%' }, bonusInput),
           ),
           ...slots,

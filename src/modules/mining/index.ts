@@ -1,7 +1,8 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import type { BhModule } from '../../core/types.js';
+import type { FastifyReply } from 'fastify';
+import { SCREEN_CAPTURE_SERVICE, type BhModule, type ScreenCaptureService } from '../../core/types.js';
 import { calculate, DEFAULT_OPTIONS, InputError, POWER_BONUS_RANGE } from './calc.js';
 import { createScanValidator, emptyDraft, type ScanDraft } from './scanState.js';
 import { noReader, type LineReader } from './ocr/engine.js';
@@ -258,16 +259,13 @@ const mod: BhModule = {
       (_req, body, done) => done(null, body),
     );
 
-    /** POST /api/mining/ocr[?apply=1] mit dem Screenshot als Body. apply: Ergebnis in den gemeinsamen Scan übernehmen. */
-    ctx.http.post<{ Querystring: { apply?: string } }>('/ocr', async (req, reply) => {
-      if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
-        return reply.code(400).send({ error: 'Screenshot fehlt (PNG, JPG oder WebP als Body senden)' });
-      }
+    /** Screenshot lesen; apply: Ergebnis in den gemeinsamen Scan übernehmen (nur wenn das Panel gefunden wurde). */
+    async function ocrImage(image: Buffer, apply: boolean, reply: FastifyReply) {
       try {
-        const { result, panelPng } = await readScan(req.body, reader, data.ores);
+        const { result, panelPng } = await readScan(image, reader, data.ores);
         keepSample(panelPng, result);
         let applied = false;
-        if (req.query.apply === '1' && result.panelFound) {
+        if (apply && result.panelFound) {
           commitScan(validator.validateDraft({ ...result.draft, marks: result.marks }), 'ocr');
           applied = true;
         }
@@ -277,6 +275,40 @@ const mod: BhModule = {
         if (err instanceof ScreenError) return reply.code(400).send({ error: err.message });
         ctx.log.error('OCR fehlgeschlagen:', err);
         return reply.code(500).send({ error: `Screenshot konnte nicht gelesen werden: ${(err as Error).message}` });
+      }
+    }
+
+    /** POST /api/mining/ocr[?apply=1] mit dem Screenshot als Body. */
+    ctx.http.post<{ Querystring: { apply?: string } }>('/ocr', async (req, reply) => {
+      if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+        return reply.code(400).send({ error: 'Screenshot fehlt (PNG, JPG oder WebP als Body senden)' });
+      }
+      return ocrImage(req.body, req.query.apply === '1', reply);
+    });
+
+    // Bildschirmaufnahme am Spiel-PC: nur in der Desktop-App. Hotkeys kommen im Spiel nicht an (Star Citizen
+    // blockiert sie), deshalb löst man die Aufnahme per Knopf aus, z. B. am Handy.
+    const screen = ctx.services.get<ScreenCaptureService>(SCREEN_CAPTURE_SERVICE);
+    let capturing = false;
+
+    /** GET /api/mining/ocr: Was ist möglich? */
+    ctx.http.get('/ocr', async () => ({ engine: reader.name, capture: Boolean(screen) }));
+
+    /** POST /api/mining/ocr/capture: Screenshot am Spiel-PC aufnehmen, lesen und übernehmen. */
+    ctx.http.post('/ocr/capture', async (_req, reply) => {
+      if (!screen) return reply.code(501).send({ error: 'Aufnahme am PC geht nur, wenn Black Halo als Desktop-App läuft.' });
+      if (capturing) return reply.code(409).send({ error: 'Es wird gerade schon ein Screenshot gelesen.' });
+      capturing = true;
+      try {
+        let png: Buffer;
+        try {
+          png = await screen.capture();
+        } catch (err) {
+          return reply.code(502).send({ error: `Bildschirmaufnahme fehlgeschlagen: ${(err as Error).message}` });
+        }
+        return await ocrImage(png, true, reply);
+      } finally {
+        capturing = false;
       }
     });
 
