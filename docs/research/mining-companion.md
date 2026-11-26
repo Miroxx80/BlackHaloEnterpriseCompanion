@@ -784,3 +784,17 @@ I checked everything myself by cloning the repos. The core data claims hold up. 
 - **Not verified:** the claimed 0.6 % match with the screenshot. 4627 kg / 5.54 SCU = 835 kg/SCU, an implied mean density of about 5.85. I would need the full composition to check it.
 
 </details>
+
+## OCR an bestätigten Scans (2026-11-26, 21 Scans: Weltraum und 3 Planeten)
+
+Auswertung mit `scripts/ocr-eval.mjs` (nach `npm run build`):
+- 357 Felder, 85 % richtig gelesen, **0 falsche Werte ohne Markierung**, alle 52 Fehler gelb.
+- Unnötig gelb: 161 richtige Felder. Gründe: Zweifel bei 0/6/8/9 (92), geringe Sicherheit (61), Kasten-/Formatprüfungen (42), sonstiges (28).
+- PaddleOCR lässt sich nicht besser einstellen: falsch gelesene Ziffern hatten Sicherheiten bis 0,991 (8 statt 0). Schwelle für 0/6/8/9 deshalb auf 0,995 angehoben (darüber kein Fehler in den Daten).
+
+**Eigene Ziffernerkennung (Experiment, nicht eingebaut):**
+- Ziffern lassen sich nicht über Lücken trennen: Durch Fettschrift und Farbsaum kleben sie fast immer zusammen. Brauchbar: Ziffernabstand fest (~0,7 x Zeilenhöhe, ~6,5 px bei 1080p), Fenster auf die Schrift einrasten.
+- 881 beschriftete Ziffern; Test je Bild nur mit den anderen Bildern gelernt:
+  - Nächste Nachbarn (8x12): 77 % richtig. Einig und gleich wie PaddleOCR: 500 Ziffern, 0 falsch, aber nur 31 von 230 zweifelhaften 0/6/8/9 bestätigt.
+  - Spezialmodell 0/6/8/9 (logistische Regression, 10x15): 70–73 % (PaddleOCR 87 %), sicher nur 19–39 von 232 zweifelhaften bestätigt.
+- Fazit: Bei ~6x9 px pro Ziffer und Farbsaum reicht die Information mit 21 Scans nicht. Neu bewerten mit deutlich mehr bestätigten Scans (Ordner füllt sich über "Alles geprüft") oder höherer Auflösung (1440p/4K).

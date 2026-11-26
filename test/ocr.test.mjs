@@ -129,7 +129,10 @@ function silentErrors(result, truth) {
     mass: d.mass, resistance: d.resistance, instability: d.instability, scu: d.scu,
     ...Object.fromEntries(d.parts.flatMap((p, i) => [[`parts.${i}.pct`, p.pct], [`parts.${i}.quality`, p.quality]])),
   };
-  const wrong = Object.keys(expected).filter((k) => Number(read[k] ?? NaN) !== Number(expected[k]) && !result.marks[k]);
+  // Fehlende Zeile: gilt als gewarnt, wenn die Anteile markiert sind (dann steht auch "Fehlt eine Zeile?" da)
+  const pctMarked = Object.keys(result.marks).some((k) => /^parts\.\d+\.pct$/.test(k));
+  const missing = (k) => /^parts\.(\d+)\./.test(k) && !d.parts[+k.split('.')[1]] && pctMarked;
+  const wrong = Object.keys(expected).filter((k) => Number(read[k] ?? NaN) !== Number(expected[k]) && !result.marks[k] && !missing(k));
   return wrong.map((k) => `${k}=${read[k]} (echt ${expected[k]})`);
 }
 
@@ -162,7 +165,8 @@ test('PC-Test-Bilder mit bekannten Werten: kein falscher Wert und kein falsches 
     assert.deepEqual(silentErrors(result, truth), [], file);
     // Alle Testbilder zeigen weiße Werte (Farbsaum darf nicht als grün/rot gelten)
     assert.deepEqual([result.draft.resColor, result.draft.instColor], ['white', 'white'], file);
-    const wrongOre = truth.parts.map((p, i) => i).filter((i) => result.draft.parts[i]?.ore !== truth.parts[i].ore && !result.marks[`parts.${i}.ore`]);
+    const rowsWarned = Object.keys(result.marks).some((k) => /^parts\.\d+\.pct$/.test(k));
+    const wrongOre = truth.parts.map((p, i) => i).filter((i) => (result.draft.parts[i] ? result.draft.parts[i].ore !== truth.parts[i].ore && !result.marks[`parts.${i}.ore`] : !rowsWarned));
     assert.deepEqual(wrongOre, [], `${file}: falsches Erz unmarkiert`);
   }
 });

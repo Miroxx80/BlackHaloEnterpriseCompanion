@@ -29,6 +29,8 @@ export interface OcrResult {
   /** Felder (Pfade wie im Entwurf, z. B. "mass", "parts.2.pct"), die geprüft werden sollten. */
   marks: Record<string, 'check'>;
   notes: string[];
+  /** Warum Felder markiert sind (conf, amb, variant, format, box), für Fehlersuche und Abstimmung. */
+  reasons?: Record<string, string[]>;
   /** Rohtexte der Erkennung, für Fehlersuche und Beispielsammlung. */
   raw: Record<string, string | null>;
   ms: number;
@@ -38,6 +40,8 @@ export interface ReadScanOptions {
   layout?: HudLayout;
   /** Findet das Panel, auch wenn es verschoben ist. Ohne: feste Lage (nur für Tests und als Notbehelf). */
   detector?: TextDetector;
+  /** Mitschnitt jeder Lesung (Ausschnitt + Ergebnis), z. B. um Trainingsdaten für eine Ziffernerkennung zu sammeln. */
+  trace?: (key: string, image: Rgb, kind: ReadKind, read: ReadResult | null) => void;
 }
 
 const shift = ([x, y, w, h]: Box, dx: number, dy: number): Box => [x + dx, y + dy, w, h];
@@ -109,7 +113,7 @@ export async function readScan(
   input: Buffer,
   reader: LineReader,
   ores: Ore[],
-  { layout = PROSPECTOR_1080, detector = noDetector }: ReadScanOptions = {},
+  { layout = PROSPECTOR_1080, detector = noDetector, trace }: ReadScanOptions = {},
 ): Promise<{ result: OcrResult; panelPng: Buffer }> {
   const t0 = Date.now();
   const img = await loadScreen(input, layout);
@@ -120,8 +124,17 @@ export async function readScan(
   const withDetection = detector !== noDetector;
   // Beispielbild: der ganze Suchbereich, damit auch verschobene Panels vollständig drin sind
   const panelPng = await toPng(crop(img, withDetection ? layout.search : layout.panel));
+  type Reason = 'conf' | 'amb' | 'variant' | 'format' | 'box';
+  const why: Record<string, Set<Reason>> = {};
+  const flag = (key: string, reason: Reason) => {
+    marks[key] = 'check';
+    (why[key] ??= new Set()).add(reason);
+  };
   const finish = (panelFound: boolean, offset: [number, number] | null, anchors: string[]) => ({
-    result: { layout: layout.id, engine: reader.name, panelFound, offset, anchors, draft, marks, notes, raw, ms: Date.now() - t0 },
+    result: {
+      layout: layout.id, engine: reader.name, panelFound, offset, anchors, draft, marks, notes, raw, ms: Date.now() - t0,
+      reasons: Object.fromEntries(Object.entries(why).filter(([k]) => marks[k]).map(([k, r]) => [k, [...r]])),
+    },
     panelPng,
   });
 
@@ -196,12 +209,6 @@ export async function readScan(
    * Sicherheit ist gering oder eine 0/6/8 zweifelhaft: zum Prüfen markieren. Namen prüft die Erzliste.
    */
   /** Warum ein Feld markiert ist (nur 'amb' kann später durch die Summe der Anteile aufgelöst werden). */
-  type Reason = 'conf' | 'amb' | 'variant' | 'format' | 'box';
-  const why: Record<string, Set<Reason>> = {};
-  const flag = (key: string, reason: Reason) => {
-    marks[key] = 'check';
-    (why[key] ??= new Set()).add(reason);
-  };
   const read = async (key: string, box: Box | null, kind: ReadKind): Promise<ReadResult | null> => {
     if (!box) {
       raw[key] = null;
@@ -209,6 +216,7 @@ export async function readScan(
     }
     const image = cropFor(box, kind);
     const a = await reader.read(image, kind);
+    trace?.(key, image, kind, a);
     raw[key] = a?.text ?? null;
     if (!a || !a.text || kind === 'text') return a;
     const reasons = new Set<Reason>();

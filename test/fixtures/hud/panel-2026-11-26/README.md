@@ -10,3 +10,4 @@
   weiße Schrift als "grün" (Farbsaum der HUD-Schrift) -> Farberkennung über den Mittelwert.
 - `region-*-ice-2296kg/460kg`: zwei Eis-Steine je ohne/mit Scheinwerfer (PC-Test 4). Mit Licht erschien eine leere
   Phantom-Zeile in der Zusammensetzung -> Zeilen ohne lesbaren Inhalt werden ausgelassen.
+- `region-confirmed-*`: aus den ersten bestätigten Trainingsdaten ("Alles geprüft", 21 Scans, Weltraum und 3 Planeten). Schwierige Fälle: Masse 10323 als 18323 gelesen, zwei fehlende Zeilen, Panel um 117 px verschoben.

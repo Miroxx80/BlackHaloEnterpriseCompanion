@@ -68,10 +68,10 @@ function toTensorData(img: Rgb, variant: ReadOptions['variant'] = 'normal'): { d
  */
 const LOOKALIKE_SURE = 0.98;
 /**
- * Außerdem muss jede 0/6/8/9 für sich mindestens so sicher sein. Gemessen an 4 Screenshots: richtig gelesene
- * liegen fast immer bei 0,99 oder darüber, die beiden falschen (32240 -> 32249, 58.23 -> 50.23) bei 0,983/0,985.
+ * Außerdem muss jede 0/6/8/9 für sich mindestens so sicher sein. Gemessen an 28 bestätigten Scans (300 solche
+ * Ziffern): falsch gelesene kamen bis 0,991 vor (8 statt 0), über 0,995 keine.
  */
-const LOOKALIKE_MIN_P = 0.99;
+const LOOKALIKE_MIN_P = 0.995;
 
 /** Gieriges CTC-Dekodieren, nur erlaubte Zeichen. Sicherheit = kleinste Zeichen-Wahrscheinlichkeit. */
 function decode(probs: Float32Array, steps: number, classes: number, chars: string[], allowed: number[], lookalike: number[]) {

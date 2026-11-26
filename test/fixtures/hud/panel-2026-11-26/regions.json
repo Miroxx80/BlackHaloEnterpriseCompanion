@@ -197,5 +197,101 @@
         "quality": 0
       }
     ]
+  },
+  "region-confirmed-10323kg.png": {
+    "mass": 10323,
+    "resistance": {
+      "value": 22.0
+    },
+    "instability": {
+      "value": 22.65
+    },
+    "scu": 18.62,
+    "parts": [
+      {
+        "pct": 4.54,
+        "ore": "Ore_Agricium",
+        "quality": 588
+      },
+      {
+        "pct": 3.95,
+        "ore": "Raw_Aslarite",
+        "quality": 575
+      },
+      {
+        "pct": 9.87,
+        "ore": "Ore_Titanium",
+        "quality": 516
+      },
+      {
+        "pct": 62.88,
+        "ore": "Ore_Titanium",
+        "quality": 295
+      },
+      {
+        "pct": 18.74,
+        "ore": "inert",
+        "quality": 0
+      }
+    ]
+  },
+  "region-confirmed-6079kg.png": {
+    "mass": 6079,
+    "resistance": {
+      "value": 0.0
+    },
+    "instability": {
+      "value": 5.36
+    },
+    "scu": 8.11,
+    "parts": [
+      {
+        "pct": 9.78,
+        "ore": "Ore_Tin",
+        "quality": 537
+      },
+      {
+        "pct": 10.51,
+        "ore": "Ore_Copper",
+        "quality": 742
+      },
+      {
+        "pct": 36.93,
+        "ore": "Ore_Copper",
+        "quality": 359
+      },
+      {
+        "pct": 42.76,
+        "ore": "inert",
+        "quality": 0
+      }
+    ]
+  },
+  "region-confirmed-3096kg.png": {
+    "mass": 3096,
+    "resistance": {
+      "value": 62.0
+    },
+    "instability": {
+      "value": 72.47
+    },
+    "scu": 8.68,
+    "parts": [
+      {
+        "pct": 9.68,
+        "ore": "Raw_Beryl",
+        "quality": 547
+      },
+      {
+        "pct": 75.84,
+        "ore": "Raw_Beryl",
+        "quality": 324
+      },
+      {
+        "pct": 14.46,
+        "ore": "inert",
+        "quality": 0
+      }
+    ]
   }
 }

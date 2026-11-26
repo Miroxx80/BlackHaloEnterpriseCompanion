@@ -177,7 +177,7 @@ Rechner für die Prospector: Steinwerte eingeben (oder einlesen), Loadout wähle
 - Das Scan-Panel steht nicht fest (im Test bis ~100 px verschoben). Das Tool sucht es anhand der Beschriftungen (MASS, RES, INST, COMP.).
 - Unsichere Werte (v. a. 0/6/8, die durchgestrichene Null) sind **gelb markiert**, auf allen Geräten. Bitte prüfen und ggf. korrigieren, dann „Alles geprüft“. Vor hellem Planetenboden ist die Erkennung deutlich schwächer, dort ist mehr gelb.
 - Die Texterkennung (PaddleOCR) läuft lokal auf der CPU, ca. 0,2–0,4 s pro Bild. Es wird nur der Bildschirm fotografiert, nichts im Spiel gelesen oder gesteuert.
-- **„Alles geprüft“** nach einem eingelesenen Scan (erst falsche Werte korrigieren) speichert den Scan als Wahrheit zum Beispielbild, in `ocr-samples\confirmed` (bis 200, werden nicht automatisch gelöscht). Daraus wird später eine eigene Erkennung für die HUD-Schrift angelernt.
+- **„Alles geprüft“** nach einem eingelesenen Scan (erst falsche Werte korrigieren) speichert den Scan als Wahrheit zum Beispielbild, in `ocr-samples\confirmed` (bis 200, werden nicht automatisch gelöscht). Damit lässt sich die Erkennung messen: `npm run build`, dann `node scripts/ocr-eval.mjs <Ordner confirmed>` (Trefferquote, unnötiges Gelb, falsche Werte ohne Markierung).
 - Die letzten 60 Lesungen (Ausschnitt um das Panel + Ergebnis) liegen in `%APPDATA%\BlackHalo\data\mining\ocr-samples` (zum Verbessern der Erkennung).
 - Ausschalten: in `config\local.json` unter `modules.mining` `"ocr": false`.
 
