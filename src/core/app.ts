@@ -31,6 +31,8 @@ export interface CreateAppOptions {
   dataRoot?: string;
   /** Pfad der lokalen Config (Standard: <projekt>/config/local.json). */
   localConfigPath?: string;
+  /** Services der Umgebung (z. B. "desktop.screen" aus der Desktop-App), für Module über ctx.services. */
+  services?: Record<string, unknown>;
 }
 
 /** Zeitkonstanter Vergleich. Über den Hash haben beide Seiten gleiche Länge. */
@@ -79,6 +81,7 @@ export async function startApp(options: CreateAppOptions = {}): Promise<BhApp> {
   const version = readVersion(rootDir);
   const events = createEventBus(log);
   const services = createServiceRegistry();
+  for (const [name, impl] of Object.entries(options.services ?? {})) services.provide(name, impl);
   const ws = createWsHub(log);
 
   const app = Fastify({ logger: false });

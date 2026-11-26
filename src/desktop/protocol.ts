@@ -7,6 +7,12 @@ export interface ServerInfo {
   modules: { id: string; state: string }[];
 }
 
-export type ServerMessage = ({ type: 'ready' } & ServerInfo) | { type: 'fatal'; message: string };
+export type ServerMessage =
+  | ({ type: 'ready' } & ServerInfo)
+  | { type: 'fatal'; message: string }
+  /** Server bittet um einen Screenshot des Hauptbildschirms (z. B. Knopf "Am PC einlesen" am Handy). */
+  | { type: 'capture-request'; id: number };
 
-export type SupervisorMessage = { type: 'stop' };
+export type SupervisorMessage =
+  | { type: 'stop' }
+  | { type: 'capture-result'; id: number; png?: Uint8Array; error?: string };

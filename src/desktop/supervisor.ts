@@ -19,6 +19,8 @@ export class ServerSupervisor extends EventEmitter {
   state: ServerState = 'stopped';
   info: ServerInfo | null = null;
   lastError = '';
+  /** Liefert einen Screenshot, wenn der Server danach fragt (gesetzt von main.ts). */
+  captureHandler: (() => Promise<Buffer>) | null = null;
 
   private child: UtilityProcess | null = null;
   private crashes: number[] = [];
@@ -100,6 +102,8 @@ export class ServerSupervisor extends EventEmitter {
         this.log.line('INFO', `Server läuft auf Port ${info.port}`);
       } else if (msg?.type === 'fatal') {
         this.lastError = msg.message;
+      } else if (msg?.type === 'capture-request') {
+        void this.answerCapture(child, msg.id);
       }
     });
 
@@ -111,6 +115,17 @@ export class ServerSupervisor extends EventEmitter {
       }
       this.onCrash(code);
     });
+  }
+
+  private async answerCapture(child: UtilityProcess, id: number) {
+    let reply: SupervisorMessage;
+    try {
+      if (!this.captureHandler) throw new Error('Bildschirmaufnahme nicht verfügbar');
+      reply = { type: 'capture-result', id, png: new Uint8Array(await this.captureHandler()) };
+    } catch (err) {
+      reply = { type: 'capture-result', id, error: (err as Error).message };
+    }
+    if (this.child === child) child.postMessage(reply);
   }
 
   private onCrash(code: number) {

@@ -3,6 +3,7 @@
 import { join } from 'node:path';
 import { startApp } from '../core/app.js';
 import { lanAddresses } from '../core/net.js';
+import { SCREEN_CAPTURE_SERVICE, type ScreenCaptureService } from '../core/types.js';
 import type { ServerMessage, SupervisorMessage } from './protocol.js';
 import { ensureToken } from './token.js';
 
@@ -34,7 +35,33 @@ async function stop() {
     process.exit(0);
   }
 }
+// Bildschirmaufnahme macht der Hauptprozess (Electron); der Server fragt per Nachricht danach.
+const CAPTURE_TIMEOUT_MS = 10_000;
+const captures = new Map<number, { resolve: (png: Buffer) => void; reject: (err: Error) => void; timer: NodeJS.Timeout }>();
+let nextCaptureId = 1;
+const screenCapture: ScreenCaptureService = {
+  capture: () =>
+    new Promise((resolve, reject) => {
+      const id = nextCaptureId++;
+      const timer = setTimeout(() => {
+        captures.delete(id);
+        reject(new Error('Die Desktop-App hat keinen Screenshot geliefert'));
+      }, CAPTURE_TIMEOUT_MS);
+      captures.set(id, { resolve, reject, timer });
+      send({ type: 'capture-request', id });
+    }),
+};
+
 parent?.on('message', ({ data }) => {
+  if (data?.type === 'capture-result') {
+    const pending = captures.get(data.id);
+    if (!pending) return;
+    captures.delete(data.id);
+    clearTimeout(pending.timer);
+    if (data.png) pending.resolve(Buffer.from(data.png.buffer, data.png.byteOffset, data.png.byteLength));
+    else pending.reject(new Error(data.error ?? 'Bildschirmaufnahme fehlgeschlagen'));
+    return;
+  }
   if (data?.type !== 'stop' || stopRequested) return;
   stopRequested = true;
   if (app) void stop(); // sonst übernimmt das der Start-Code unten
@@ -43,7 +70,11 @@ parent?.on('message', ({ data }) => {
 try {
   const localConfigPath = join(userDir, 'config', 'local.json');
   if (!process.env.BH_TOKEN) ensureToken(localConfigPath);
-  app = await startApp({ localConfigPath, dataRoot: join(userDir, 'data') });
+  app = await startApp({
+    localConfigPath,
+    dataRoot: join(userDir, 'data'),
+    services: parent ? { [SCREEN_CAPTURE_SERVICE]: screenCapture } : {},
+  });
   if (stopRequested) {
     await stop();
   } else {

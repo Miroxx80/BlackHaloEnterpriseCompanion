@@ -78,6 +78,18 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
     await win.evaluate(() => (location.hash = 'pairing'));
     await win.waitForSelector('.pair img, .view .note, .view .alert');
 
+    mark('Aufnahme am PC');
+    // Knopf "Am PC einlesen": Server bittet die Desktop-App um einen Screenshot, liest ihn (hier ohne Spiel: kein Panel)
+    const capInfo = await (await api('/api/mining/ocr')).json();
+    assert.equal(capInfo.capture, true);
+    const cap = await fetch(`http://127.0.0.1:${port}/api/mining/ocr/capture`, { method: 'POST', headers: { 'x-bh-token': local.security.token } });
+    const capOut = await cap.json();
+    assert.equal(cap.status, 200, JSON.stringify(capOut));
+    assert.equal(capOut.panelFound, false);
+    assert.equal(capOut.applied, false);
+    await win.evaluate(() => (location.hash = 'mining'));
+    await win.waitForSelector('button[aria-label="Am PC einlesen"]:not([hidden])');
+
     mark('Absturz-Neustart');
     // Server-Prozess abschießen: wird neu gestartet, die Shell verbindet sich wieder
     await until(() => isOnline(), 'verbunden');

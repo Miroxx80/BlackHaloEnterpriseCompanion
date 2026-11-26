@@ -171,8 +171,9 @@ Es wird nichts in das Spiel eingeschleust und kein Speicher gelesen. Das Tool se
 Rechner für die Prospector: Steinwerte eingeben (oder einlesen), Loadout wählen, das Tool sagt, ob der Stein brechbar ist und mit wie viel Laserleistung. Der aktuelle Scan ist zwischen PC, Handy und zweitem Bildschirm synchron.
 
 **Scan einlesen (OCR, Stufe 2):** Das Tool liest das Scan-Panel aus einem Screenshot (1920×1080, englisches HUD).
-- In der Desktop-App: im Spiel **Alt+Shift+S** drücken (oder Tray, „Scan einlesen“). Das Tool fotografiert den Bildschirm und trägt die Werte ein.
-- Im Rechner: Knopf „Screenshot einlesen“ oder ein Bild mit **Strg+V** einfügen.
+- **Am PC einlesen** (Knopf im Rechner, z. B. am Handy, während du im Spiel bist): Die Desktop-App fotografiert den Hauptbildschirm und trägt die Werte ein. Nur sichtbar, wenn Black Halo als Desktop-App läuft. Das Spiel sollte im Modus „Borderless“ laufen; im exklusiven Vollbild kann die Aufnahme schwarz sein.
+- Hotkeys (Alt+Shift+S) kommen **im Spiel nicht an**, Star Citizen blockiert sie. Sie funktionieren nur außerhalb des Spiels, z. B. am Desktop.
+- Im Rechner: Knopf „Screenshot einlesen“ (Bilddatei) oder ein Bild mit **Strg+V** einfügen.
 - Unsichere Werte (v. a. 0/6/8, die durchgestrichene Null) sind **gelb markiert**, auf allen Geräten. Bitte prüfen und ggf. korrigieren, dann „Alles geprüft“.
 - Die Texterkennung (PaddleOCR) läuft lokal auf der CPU, ca. 0,2–0,4 s pro Bild. Es wird nur der Bildschirm fotografiert, nichts im Spiel gelesen oder gesteuert.
 - Die letzten 100 Screenshots mit Ergebnis liegen in `%APPDATA%\BlackHalo\data\mining\ocr-samples` (zum Verbessern der Erkennung).

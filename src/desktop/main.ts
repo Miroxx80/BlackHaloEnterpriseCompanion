@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { app, globalShortcut, Menu, shell } from 'electron';
 import { createLogFile } from './log.js';
-import { captureAndRead } from './ocrCapture.js';
+import { captureAndRead, captureScreen } from './ocrCapture.js';
 import { createSettingsStore } from './settings.js';
 import { ServerSupervisor } from './supervisor.js';
 import { createTray, type TrayState } from './tray.js';
@@ -45,6 +45,8 @@ if (!app.requestSingleInstanceLock()) {
   let tray: ReturnType<typeof createTray> | null = null;
   let hotkeyActive = false;
   const readScan = () => void captureAndRead(supervisor.info, log);
+  // Knopf "Am PC einlesen" (Handy/Tablet/Fenster): der Server fragt hier nach dem Screenshot
+  supervisor.captureHandler = captureScreen;
   const refreshTray = () => {
     const s: TrayState = {
       server: supervisor.state,

@@ -53,6 +53,16 @@ export interface ServiceRegistry {
   require<T>(name: string): T;
 }
 
+/**
+ * Service "desktop.screen": Bildschirmaufnahme des Spiel-PCs. Gibt es nur, wenn der Server in der Desktop-App läuft.
+ * Nur Aufnahme über Windows, kein Eingriff ins Spiel.
+ */
+export interface ScreenCaptureService {
+  /** PNG des Hauptbildschirms (1920x1080). */
+  capture(): Promise<Buffer>;
+}
+export const SCREEN_CAPTURE_SERVICE = 'desktop.screen';
+
 export interface ModuleContext {
   manifest: ModuleManifest;
   role: Role;
