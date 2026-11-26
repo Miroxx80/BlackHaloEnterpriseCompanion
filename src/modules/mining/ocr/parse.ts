@@ -33,29 +33,37 @@ export function zeroEightVariants(s: string): string[] {
 export function matchOre(raw: string | null | undefined, ores: Ore[]): { id: string; exact: boolean } | null {
   if (!raw) return null;
   const t = raw.toUpperCase().replace(/[^A-Z() ]/g, ' ').replace(/\s+/g, ' ').trim();
-  // "INERT MATERIALS": das erste Wort reicht (eindeutig)
+  const flat = t.replace(/[^A-Z]/g, '');
+  // "INERT MATERIALS": das erste Wort reicht (eindeutig); verstümmelt (heller Boden) nur unsicher
   if (/^INERT/.test(t)) return { id: 'inert', exact: true };
-  if (/MATERIALS?$/.test(t)) return { id: 'inert', exact: false };
-  const form = /\(RAW\)/.test(t) ? 'RAW' : /\(ORE\)/.test(t) ? 'ORE' : null;
-  const word = t.replace(/\((RAW|ORE)\)/g, '').trim().replace(/\s+/g, '');
-  if (word.length < 3) return null;
+  if (/MATERIALS?$/.test(t) || (flat.length >= 8 && (levenshtein(flat, 'INERTMATERIALS') <= 5 || /ATER?I?ALS?$/.test(flat)))) {
+    return { id: 'inert', exact: false };
+  }
+  // Form am Ende: "(ORE)", "(RAW)", auch verstümmelt wie "CORE)", "ORE", "(RAN"
+  const formMatch = t.match(/\s*[(C]?\s*(ORE|0RE|RAW|RAN|RAV)\)?$/);
+  const form = formMatch ? (formMatch[1].startsWith('R') ? 'RAW' : 'ORE') : null;
+  const clean = !formMatch || /\((ORE|RAW)\)$/.test(t);
+  const word = (formMatch ? t.slice(0, formMatch.index) : t).replace(/[^A-Z]/g, '');
+  if (word.length < 2) return null;
   const pool = ores.filter((o) => !form || o.form === form);
   // 1. Name beginnt mit dem gelesenen Wort (Abkürzungen der Prospector, z. B. HEPH -> Hephaestanite)
-  const prefix = pool.filter((o) => o.name.toUpperCase().startsWith(word));
-  // Eindeutige Abkürzung (z. B. HEPH) gilt als sicher erkannt
-  if (prefix.length === 1) return { id: prefix[0].id, exact: true };
+  const prefix = word.length >= 3 ? pool.filter((o) => o.name.toUpperCase().startsWith(word)) : [];
+  // Eindeutige Abkürzung mit sauber gelesener Form (z. B. "HEPH (RAW)") gilt als sicher erkannt
+  if (prefix.length === 1) return { id: prefix[0].id, exact: clean };
   // 2. Ähnlichster Name (Lesefehler einzelner Buchstaben), höchstens ein Drittel der Buchstaben anders
-  let best: { o: Ore; d: number } | null = null;
-  for (const o of pool) {
+  // (Anfang des Namens mit Länge ±1, weil Buchstaben fehlen oder doppelt gelesen werden). Gleichstand: keine Wahl.
+  const scored = pool.map((o) => {
     const name = o.name.toUpperCase();
-    const d = levenshtein(word, name.slice(0, Math.max(word.length, 4)));
-    if (!best || d < best.d) best = { o, d };
-  }
-  if (best && best.d <= Math.floor(word.length / 3)) return { id: best.o.id, exact: false };
+    const lens = [word.length - 1, word.length, word.length + 1].filter((n) => n >= 2);
+    return { o, d: Math.min(...lens.map((n) => levenshtein(word, name.slice(0, n)))) };
+  });
+  const bestD = Math.min(...scored.map((x) => x.d));
+  const best = scored.filter((x) => x.d === bestD);
+  if (best.length === 1 && bestD <= Math.max(1, Math.floor(word.length / 3))) return { id: best[0].o.id, exact: false };
   return null;
 }
 
-function levenshtein(a: string, b: string): number {
+export function levenshtein(a: string, b: string): number {
   const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
   for (let j = 1; j <= b.length; j++) dp[0][j] = j;
   for (let i = 1; i <= a.length; i++)

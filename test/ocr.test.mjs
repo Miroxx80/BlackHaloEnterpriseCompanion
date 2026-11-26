@@ -12,7 +12,7 @@ import { PROSPECTOR_1080 } from '../dist/modules/mining/ocr/layout.js';
 import { cleanNumber, matchOre, resolvePercents, zeroEightVariants, massScuPlausible } from '../dist/modules/mining/ocr/parse.js';
 import { readScan } from '../dist/modules/mining/ocr/pipeline.js';
 import { noReader } from '../dist/modules/mining/ocr/engine.js';
-import { createPaddleReader } from '../dist/modules/mining/ocr/paddle.js';
+import { createPaddleDetector, createPaddleReader } from '../dist/modules/mining/ocr/paddle.js';
 
 const fixture = (p) => readFileSync(new URL(`./fixtures/${p}`, import.meta.url));
 const data = JSON.parse(readFileSync(new URL('../src/modules/mining/data/dataset.json', import.meta.url), 'utf8'));
@@ -109,27 +109,62 @@ test('API: Screenshot einlesen, in den gemeinsamen Scan übernehmen, Beispiel sp
   }
 });
 
-test('PaddleOCR am echten Screenshot: Werte gelesen, und kein falscher Wert bleibt unmarkiert', async () => {
-  const reader = createPaddleReader(new URL('../src/modules/mining/data/ocr', import.meta.url).pathname);
-  const truth = JSON.parse(readFileSync(new URL('./fixtures/hud/prospector-helix1-20pct.json', import.meta.url), 'utf8')).scan;
-  const { result } = await readScan(fixture(HUD[0]), reader, data.ores);
+const OCR_DIR = new URL('../src/modules/mining/data/ocr', import.meta.url).pathname;
+const paddle = { reader: createPaddleReader(OCR_DIR), detector: createPaddleDetector(OCR_DIR) };
+
+/** Ganzen Screenshot um dx/dy verschieben (so wie das Panel im Spiel wandert). */
+async function shiftScreen(buf, dx, dy) {
+  const src = await sharp(buf).removeAlpha().extract({ left: Math.max(0, -dx), top: Math.max(0, -dy), width: 1920 - Math.abs(dx), height: 1080 - Math.abs(dy) }).png().toBuffer();
+  return sharp({ create: { width: 1920, height: 1080, channels: 3, background: '#202020' } }).composite([{ input: src, left: Math.max(0, dx), top: Math.max(0, dy) }]).png().toBuffer();
+}
+
+/** Sicherheitsregel: Jeder Wert, der vom echten Wert abweicht, ist zum Prüfen markiert. */
+function silentErrors(result, truth) {
   const d = result.draft;
-  // Was sicher gelesen werden muss
-  assert.equal(d.mass, String(truth.mass));
-  assert.deepEqual(d.parts.map((p) => p.ore), ['Raw_Silicon', 'Raw_Hephaestanite', 'Raw_Hephaestanite', 'Raw_Quartz', 'inert']);
-  assert.deepEqual(d.parts.map((p) => Number(p.pct)), truth.parts.map((p) => p.pct));
-  // Sicherheitsregel: Jeder Wert, der vom echten Wert abweicht, ist zum Prüfen markiert
   const expected = {
-    mass: String(truth.mass),
-    resistance: String(truth.resistance.value),
-    instability: String(truth.instability.value),
-    scu: String(truth.scu),
-    ...Object.fromEntries(truth.parts.map((p, i) => [`parts.${i}.quality`, String(p.quality)])),
+    mass: truth.mass, resistance: truth.resistance.value, instability: truth.instability.value, scu: truth.scu,
+    ...Object.fromEntries(truth.parts.flatMap((p, i) => [[`parts.${i}.pct`, p.pct], [`parts.${i}.quality`, p.quality]])),
   };
-  const read = { mass: d.mass, resistance: d.resistance, instability: d.instability, scu: d.scu, ...Object.fromEntries(d.parts.map((p, i) => [`parts.${i}.quality`, p.quality])) };
-  const silent = Object.keys(expected).filter((k) => Number(read[k]) !== Number(expected[k]) && !result.marks[k]);
-  assert.deepEqual(silent, [], `falsch und nicht markiert: ${silent.map((k) => `${k}=${read[k]} (echt ${expected[k]})`).join(', ')}`);
-  assert.ok(!result.marks['parts.0.ore'] && !result.marks['parts.4.ore'], 'eindeutige Erznamen nicht markiert');
+  const read = {
+    mass: d.mass, resistance: d.resistance, instability: d.instability, scu: d.scu,
+    ...Object.fromEntries(d.parts.flatMap((p, i) => [[`parts.${i}.pct`, p.pct], [`parts.${i}.quality`, p.quality]])),
+  };
+  const wrong = Object.keys(expected).filter((k) => Number(read[k] ?? NaN) !== Number(expected[k]) && !result.marks[k]);
+  return wrong.map((k) => `${k}=${read[k]} (echt ${expected[k]})`);
+}
+
+for (const [name, dx, dy] of [['Standard-Lage', 0, 0], ['Panel verschoben wie im PC-Test', 12, 95]]) {
+  test(`PaddleOCR am echten Screenshot (${name}): Panel gefunden, Werte gelesen, kein falscher Wert unmarkiert`, async () => {
+    const truth = JSON.parse(readFileSync(new URL('./fixtures/hud/prospector-helix1-20pct.json', import.meta.url), 'utf8')).scan;
+    const screen = await shiftScreen(await sharp(fixture(HUD[0])).resize(1920, 1080, { fit: 'fill' }).png().toBuffer(), dx, dy);
+    const { result, panelPng } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector });
+    assert.ok(result.panelFound);
+    assert.ok(Math.abs(result.offset[0] - dx) <= 4 && Math.abs(result.offset[1] - dy) <= 4, `Versatz ${result.offset}`);
+    const d = result.draft;
+    assert.equal(d.mass, String(truth.mass));
+    assert.deepEqual(d.parts.map((p) => p.ore), ['Raw_Silicon', 'Raw_Hephaestanite', 'Raw_Hephaestanite', 'Raw_Quartz', 'inert']);
+    assert.deepEqual(silentErrors(result, truth), []);
+    assert.ok(!result.marks['parts.0.ore'] && !result.marks['parts.4.ore'], `eindeutige Erznamen nicht markiert: ${result.raw['parts.0.ore']} / ${result.raw['parts.4.ore']}`);
+    // Beispielbild enthält den ganzen Suchbereich
+    const meta = await sharp(panelPng).metadata();
+    assert.equal(`${meta.width}x${meta.height}`, '576x608');
+  });
+}
+
+test('Panel finden in den Scans vom PC-Test (heller Planet, Panel bis 96 px verschoben)', async () => {
+  // Gespeicherte Panel-Ausschnitte (200x265 ab 1355,475) zurück an ihre Stelle im Bild
+  const expected = [[1, -2], [-3, 15], [16, 94], [7, 96], [12, 92]];
+  for (const [i, [ex, ey]] of expected.entries()) {
+    const screen = await sharp({ create: { width: 1920, height: 1080, channels: 3, background: '#787878' } })
+      .composite([{ input: fixture(`hud/panel-2026-11-26/scan-${i + 1}.png`), left: 1355, top: 475 }]).png().toBuffer();
+    const { result } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector });
+    assert.ok(result.panelFound, `Scan ${i + 1}`);
+    assert.ok(Math.abs(result.offset[0] - ex) <= 4 && Math.abs(result.offset[1] - ey) <= 4, `Scan ${i + 1}: Versatz ${result.offset}`);
+    assert.ok(result.anchors.length >= 3, `Scan ${i + 1}: ${result.anchors}`);
+  }
+  // Ohne Panel: nichts gefunden
+  const empty = await sharp({ create: { width: 1920, height: 1080, channels: 3, background: '#787878' } }).png().toBuffer();
+  assert.equal((await readScan(empty, paddle.reader, data.ores, { detector: paddle.detector })).result.panelFound, false);
 });
 
 test('API: "Am PC einlesen" nimmt über die Desktop-App auf, ohne Desktop-App 501', async () => {
