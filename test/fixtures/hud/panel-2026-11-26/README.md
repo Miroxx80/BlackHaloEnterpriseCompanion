@@ -8,3 +8,5 @@
 - `region-dark-ice-3312kg.png` (verlustfrei, dunkler Boden) und `region-headlight-ice-2296kg.webp` (Scheinwerfer):
   Werte aus dem Bild, bei reinem Eis bestätigt über Masse = SCU x 142,857 (Dichte 1). Erster Scan zeigte die
   weiße Schrift als "grün" (Farbsaum der HUD-Schrift) -> Farberkennung über den Mittelwert.
+- `region-*-ice-2296kg/460kg`: zwei Eis-Steine je ohne/mit Scheinwerfer (PC-Test 4). Mit Licht erschien eine leere
+  Phantom-Zeile in der Zusammensetzung -> Zeilen ohne lesbaren Inhalt werden ausgelassen.

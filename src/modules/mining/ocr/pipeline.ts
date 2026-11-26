@@ -270,7 +270,8 @@ export async function readScan(
       else if (!last ? cy(b) - top < 40 : cy(b) - cy(union(last)) < 26) lines.push([b]);
       else break;
     }
-    for (const [i, line] of lines.slice(0, layout.rows.max).entries()) {
+    for (const line of lines.slice(0, layout.rows.max)) {
+      const i = rows.length;
       line.sort((a, b) => a[0] - b[0]);
       // Qualität: Kasten ganz rechts (rechtsbündige Spalte); der Rest ist Anteil + Name
       const q = line.length > 1 && line[line.length - 1][0] > comp[0] + 120 ? line[line.length - 1] : null;
@@ -284,6 +285,12 @@ export async function readScan(
       if (!ore || !ore.exact) marks[`parts.${i}.ore`] = 'check';
       const quality = cleanNumber(qualityText?.text, { int: true });
       if (quality == null && ore?.id !== 'inert') marks[`parts.${i}.quality`] = 'check';
+      // Nichts Lesbares (z. B. Teil des Balkens vor hellem Boden): keine Zeile daraus machen
+      if (!pctText?.text && !oreText?.text && !qualityText?.text) {
+        for (const k of Object.keys(marks)) if (k.startsWith(`parts.${i}.`)) delete marks[k];
+        for (const k of Object.keys(raw)) if (k.startsWith(`parts.${i}.`)) delete raw[k];
+        continue;
+      }
       let pct = cleanNumber(pctText?.text);
       // Punkt nicht gelesen ("2750" statt "27.50"): Anteile haben immer zwei Nachkommastellen
       if (pct && !pct.includes('.') && Number(pct) > 100 && pct.length >= 3) {

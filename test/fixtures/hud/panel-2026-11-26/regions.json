@@ -116,5 +116,86 @@
         "quality": 0
       }
     ]
+  },
+  "region-dark-ice-2296kg.png": {
+    "mass": 2296,
+    "resistance": {
+      "value": 0
+    },
+    "instability": {
+      "value": 0
+    },
+    "scu": 16.07,
+    "parts": [
+      {
+        "pct": 12.3,
+        "ore": "Raw_Ice",
+        "quality": 714
+      },
+      {
+        "pct": 77.82,
+        "ore": "Raw_Ice",
+        "quality": 322
+      },
+      {
+        "pct": 9.87,
+        "ore": "inert",
+        "quality": 0
+      }
+    ]
+  },
+  "region-dark-ice-460kg.png": {
+    "mass": 460,
+    "resistance": {
+      "value": 0
+    },
+    "instability": {
+      "value": 0
+    },
+    "scu": 3.22,
+    "parts": [
+      {
+        "pct": 15.13,
+        "ore": "Raw_Ice",
+        "quality": 659
+      },
+      {
+        "pct": 57.36,
+        "ore": "Raw_Ice",
+        "quality": 561
+      },
+      {
+        "pct": 27.5,
+        "ore": "inert",
+        "quality": 0
+      }
+    ]
+  },
+  "region-headlight-ice-460kg.webp": {
+    "mass": 460,
+    "resistance": {
+      "value": 0
+    },
+    "instability": {
+      "value": 0
+    },
+    "scu": 3.22,
+    "parts": [
+      {
+        "pct": 15.13,
+        "ore": "Raw_Ice",
+        "quality": 659
+      },
+      {
+        "pct": 57.36,
+        "ore": "Raw_Ice",
+        "quality": 561
+      },
+      {
+        "pct": 27.5,
+        "ore": "inert",
+        "quality": 0
+      }
+    ]
   }
 }
