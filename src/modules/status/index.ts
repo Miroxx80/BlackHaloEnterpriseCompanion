@@ -14,7 +14,7 @@ const mod: BhModule = {
     name: 'Status',
     version: '0.1.0',
     roles: ['companion', 'hub'],
-    nav: { label: 'Status', icon: '📊' },
+    nav: { label: 'Status', icon: 'status', description: 'System' },
     ui: true,
   },
 

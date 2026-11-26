@@ -12,7 +12,7 @@ const mod: BhModule = {
     name: 'Gerät verbinden',
     version: '0.1.0',
     roles: ['companion'],
-    nav: { label: 'Verbinden', icon: '📱' },
+    nav: { label: 'Verbinden', icon: 'pairing', description: 'Geräte koppeln' },
     ui: true,
   },
 

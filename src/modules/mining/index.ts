@@ -45,7 +45,7 @@ const mod: BhModule = {
     name: 'Mining',
     version: '0.1.0',
     roles: ['companion'],
-    nav: { label: 'Mining', icon: '⛏️' },
+    nav: { label: 'Mining', icon: 'mining', description: 'Mining Companion' },
     ui: true,
   },
 

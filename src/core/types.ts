@@ -19,8 +19,11 @@ export interface ModuleManifest {
   roles: Role[];
   /** Module, die vorher geladen sein müssen. */
   dependsOn?: string[];
-  /** Eintrag in der Navigation. Ohne nav taucht das Modul dort nicht auf. */
-  nav?: { label: string; icon?: string };
+  /**
+   * Eintrag in der Navigation. Ohne nav taucht das Modul dort nicht auf.
+   * icon: Name aus web/icons.js (z. B. "mining"), description: Unterzeile im Seitenkopf.
+   */
+  nav?: { label: string; icon?: string; description?: string };
   /** true, wenn das Modul einen Ordner ui/ mit index.js mitbringt. */
   ui?: boolean;
 }
@@ -80,7 +83,7 @@ export interface ModuleStatus {
   name: string;
   version: string;
   state: ModuleState;
-  nav?: { label: string; icon?: string };
+  nav?: { label: string; icon?: string; description?: string };
   ui: boolean;
   error?: string;
 }

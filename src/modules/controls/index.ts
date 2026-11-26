@@ -12,6 +12,8 @@ interface Button {
   combo: KeyCombo;
   /** Taste so lange halten (ms). Ohne: kurzer Druck. */
   hold?: number;
+  /** Icon-Name aus web/icons.js (z. B. "gear"). Unbekannte Namen zeigt die Oberfläche als neutrales Icon. */
+  icon?: string;
 }
 
 /** Service "input" für andere Module (z. B. spätere Makros). */
@@ -42,15 +44,18 @@ function parseButtons(raw: unknown): Button[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<string>();
   return raw.map((b, i) => {
-    const { id, label, key, hold } = (b ?? {}) as Record<string, unknown>;
+    const { id, label, key, hold, icon } = (b ?? {}) as Record<string, unknown>;
     const where = `Button #${i + 1}${typeof id === 'string' ? ` ("${id}")` : ''}`;
     if (typeof id !== 'string' || typeof label !== 'string' || typeof key !== 'string') {
       throw new Error(`${where}: id, label und key müssen Strings sein`);
     }
+    if (icon !== undefined && (typeof icon !== 'string' || !/^[A-Za-z][A-Za-z0-9]{0,31}$/.test(icon))) {
+      throw new Error(`${where}: icon muss ein Icon-Name sein (z. B. "gear")`);
+    }
     if (seen.has(id)) throw new Error(`Button-ID "${id}" kommt doppelt vor`);
     seen.add(id);
     try {
-      return { id, label, combo: parseCombo(key), hold: num(hold, 'hold', 10, 10000) };
+      return { id, label, combo: parseCombo(key), hold: num(hold, 'hold', 10, 10000), icon: icon as string | undefined };
     } catch (err) {
       throw new Error(`${where}: ${(err as Error).message}`);
     }
@@ -91,7 +96,7 @@ const mod: BhModule = {
     name: 'Controls',
     version: '0.2.0',
     roles: ['companion'],
-    nav: { label: 'Controls', icon: '🎛️' },
+    nav: { label: 'Controls', icon: 'controls', description: 'Fernbedienung' },
     ui: true,
   },
 
@@ -134,7 +139,7 @@ const mod: BhModule = {
     ctx.http.get('/buttons', async () => ({
       driver: driver.name,
       target: options.target.process,
-      buttons: buttons.map(({ id, label, combo, hold }) => ({ id, label, keys: combo.spec, hold })),
+      buttons: buttons.map(({ id, label, combo, hold, icon }) => ({ id, label, keys: combo.spec, hold, icon })),
     }));
 
     ctx.http.post<{ Params: { id: string } }>('/press/:id', async (req, reply) => {

@@ -1,12 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
-  <defs>
-    <radialGradient id="core" cx="50%" cy="50%" r="50%">
-      <stop offset="0" stop-color="#05070f"/>
-      <stop offset="1" stop-color="#151c33"/>
-    </radialGradient>
-  </defs>
-  <circle cx="128" cy="128" r="120" fill="#0b1020"/>
-  <circle cx="128" cy="128" r="92" fill="none" stroke="#f2a93b" stroke-width="22"/>
-  <circle cx="128" cy="128" r="68" fill="url(#core)"/>
-  <ellipse cx="128" cy="128" rx="118" ry="30" fill="none" stroke="#f2a93b" stroke-width="8" opacity="0.55" transform="rotate(-20 128 128)"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <circle cx="24" cy="24" r="23" fill="#1b1f23" stroke="#454c53" stroke-width="1"/>
+  <path d="M24 2.5v4M24 41.5v4M2.5 24h4M41.5 24h4" stroke="#868c92" stroke-width="2"/>
+  <circle cx="24" cy="24" r="15.5" fill="none" stroke="#ff8f1f" stroke-width="4" stroke-dasharray="83 14.4" transform="rotate(-18 24 24)"/>
+  <circle cx="24" cy="24" r="15.5" fill="none" stroke="#ffd28c" stroke-width="1.5" stroke-dasharray="6 91.4" transform="rotate(-62 24 24)"/>
+  <circle cx="24" cy="24" r="10.5" fill="#0a0b0d"/>
 </svg>

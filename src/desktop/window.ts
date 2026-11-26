@@ -4,13 +4,13 @@ import type { SettingsStore, WindowBounds } from './settings.js';
 
 const DEFAULT_SIZE = { width: 1100, height: 760 };
 const MIN_VISIBLE = { width: 120, height: 60 };
-const BG = '#0b1020';
+const BG = '#0e1012';
 
 function page(title: string, text: string) {
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
   const html = `<!doctype html><meta charset="utf-8"><title>Black Halo</title>
-<body style="margin:0;height:100vh;display:grid;place-items:center;background:${BG};color:#e6e9f5;font:16px system-ui,'Segoe UI',sans-serif">
-<div style="text-align:center;max-width:520px;padding:16px"><h2 style="color:#f2a93b">${esc(title)}</h2><p>${esc(text)}</p></div>`;
+<body style="margin:0;height:100vh;display:grid;place-items:center;background:${BG};color:#ece9e2;font:16px 'Segoe UI',system-ui,sans-serif">
+<div style="text-align:center;max-width:520px;padding:16px"><h2 style="color:#ff8f1f;font-family:Bahnschrift,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.08em">${esc(title)}</h2><p>${esc(text)}</p></div>`;
   return 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
 }
 

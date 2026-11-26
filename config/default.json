@@ -21,22 +21,26 @@
         {
           "id": "landing-gear",
           "label": "Fahrwerk",
-          "key": "n"
+          "key": "n",
+          "icon": "gear"
         },
         {
           "id": "lights",
           "label": "Lichter",
-          "key": "l"
+          "key": "l",
+          "icon": "lights"
         },
         {
           "id": "quantum",
           "label": "Quantum-Modus",
-          "key": "b"
+          "key": "b",
+          "icon": "quantum"
         },
         {
           "id": "scan",
           "label": "Scan-Modus",
-          "key": "tab"
+          "key": "tab",
+          "icon": "scan"
         }
       ]
     }

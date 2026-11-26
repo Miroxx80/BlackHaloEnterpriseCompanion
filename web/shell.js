@@ -1,4 +1,11 @@
 // Die Shell: Verbindung, Navigation und Laden der Modul-UIs. Kennt keine konkreten Module.
+import { installIcons } from '/icons.js';
+import { icon } from '/ui.js';
+
+installIcons();
+for (const slot of document.querySelectorAll('.mark-slot')) {
+  slot.replaceWith(document.getElementById('brand-mark-tpl').content.cloneNode(true));
+}
 
 const store = {
   get(k) {
@@ -57,28 +64,45 @@ const get = (path) => request('GET', path);
 const post = (path, body) => request('POST', path, body ?? {});
 const put = (path, body) => request('PUT', path, body ?? {});
 
+// ---- Verbindungsanzeige ----
+const connState = document.querySelector('#conn .conn-state');
+const connMeta = document.getElementById('conn-meta');
+const pillText = document.querySelector('#conn-pill .pill-text');
+let everConnected = false;
+
+function setOnline(online) {
+  // Vor dem ersten Verbindungsaufbau kein Alarm, nur "Verbinde"
+  document.body.classList.toggle('offline', !online && everConnected);
+  connState.textContent = online ? 'Verbunden' : everConnected ? 'Getrennt' : 'Verbinde';
+  pillText.textContent = online ? 'Online' : everConnected ? 'Offline' : 'Verbinde';
+}
+connMeta.textContent = location.host;
+
 // ---- WebSocket mit Auto-Reconnect ----
 const listeners = new Map(); // type -> Set<fn>
 let socket = null;
 let retry = 1000;
-const connEl = document.getElementById('conn');
 
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   socket = new WebSocket(`${proto}://${location.host}/ws${token ? '?token=' + encodeURIComponent(token) : ''}`);
   socket.onopen = () => {
     retry = 1000;
-    connEl.className = 'conn on';
+    everConnected = true;
+    setOnline(true);
   };
   socket.onclose = () => {
-    connEl.className = 'conn off';
+    setOnline(false);
     setTimeout(connect, retry);
     retry = Math.min(retry * 1.5, 5000);
   };
   socket.onmessage = (ev) => {
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
-    if (msg.type === 'core:hello') buildNav(msg.payload.modules);
+    if (msg.type === 'core:hello') {
+      buildNav(msg.payload.modules);
+      document.getElementById('rail-foot').textContent = `BHE-COMPANION · ${msg.payload.role}`;
+    }
     for (const fn of listeners.get(msg.type) ?? []) {
       try { fn(msg.payload); } catch (err) { console.error(err); }
     }
@@ -86,9 +110,11 @@ function connect() {
 }
 
 // ---- API, das jedes Modul bekommt ----
-function createApi(moduleId, subs) {
+function createApi(moduleId, subs, meta) {
   return {
     moduleId,
+    /** Für den Seitenkopf: { index: '02', label: 'Mining', description: 'Mining Companion', icon } */
+    meta,
     get,
     post,
     put,
@@ -110,10 +136,10 @@ function createApi(moduleId, subs) {
 
 // ---- Navigation ----
 const nav = document.getElementById('nav');
-const main = document.getElementById('main');
+const view = document.getElementById('view');
 let current = null; // { id, cleanup, subs }
-
 let navKey = '';
+let metaById = new Map();
 
 let generation = 0; // jeder show()-Aufruf bekommt eine Nummer; nur der neueste darf die Ansicht ändern
 
@@ -129,10 +155,14 @@ async function show(id) {
   }
   if (stale()) return;
 
-  for (const a of nav.querySelectorAll('a')) a.classList.toggle('active', a.dataset.id === id);
-  main.replaceChildren();
+  for (const a of nav.querySelectorAll('a.nav-item')) {
+    if (a.dataset.id === id) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  }
+  document.body.dataset.view = id ?? '';
+  view.replaceChildren();
   if (!id) {
-    main.innerHTML = '<p class="muted">Keine Module mit Oberfläche aktiv.</p>';
+    view.innerHTML = '<p class="empty">Keine Module mit Oberfläche aktiv.</p>';
     return;
   }
 
@@ -140,12 +170,14 @@ async function show(id) {
   const entry = { id, cleanup: null, subs };
   current = entry;
   // Eigener Container pro Modul: schreibt ein altes Modul verspätet hinein, landet das im Leeren
-  const root = document.createElement('div');
-  main.append(root);
+  const root = document.createElement('section');
+  root.className = 'view';
+  root.setAttribute('aria-labelledby', `h-${id}`);
+  view.append(root);
   try {
     const m = await import(`/modules/${id}/index.js`);
     if (stale()) return;
-    const cleanup = await m.mount(root, createApi(id, subs));
+    const cleanup = await m.mount(root, createApi(id, subs, metaById.get(id)));
     if (stale()) {
       // Zu spät fertig geworden: sofort wieder abbauen, ohne die neue Ansicht anzufassen
       subs.forEach((off) => off());
@@ -157,7 +189,7 @@ async function show(id) {
     console.error(err);
     if (stale()) return;
     const p = document.createElement('p');
-    p.className = 'state-failed';
+    p.className = 'alert view-error';
     p.textContent = `Modul "${id}" konnte nicht angezeigt werden: ${err.message}`;
     root.replaceChildren(p);
   }
@@ -168,12 +200,25 @@ function buildNav(modules) {
   const key = items.map((m) => m.id).join(',');
   if (key === navKey) return; // nichts geändert (z. B. nach Reconnect)
   navKey = key;
-  nav.replaceChildren();
+  metaById = new Map(
+    items.map((m, i) => [
+      m.id,
+      { index: String(i + 1).padStart(2, '0'), label: m.nav.label, description: m.nav.description ?? m.name, icon: m.nav.icon },
+    ]),
+  );
+  for (const a of nav.querySelectorAll('a.nav-item')) a.remove();
   for (const m of items) {
+    const meta = metaById.get(m.id);
     const a = document.createElement('a');
+    a.className = 'nav-item';
     a.href = `#${m.id}`;
     a.dataset.id = m.id;
-    a.textContent = `${m.nav.icon ? m.nav.icon + ' ' : ''}${m.nav.label}`;
+    const label = document.createElement('span');
+    label.textContent = m.nav.label;
+    const idx = document.createElement('span');
+    idx.className = 'nav-idx';
+    idx.textContent = meta.index;
+    a.append(icon(m.nav.icon ?? 'module'), label, idx);
     nav.append(a);
   }
   route();
@@ -181,7 +226,7 @@ function buildNav(modules) {
 
 function route() {
   const wanted = location.hash.slice(1);
-  const ids = [...nav.querySelectorAll('a')].map((a) => a.dataset.id);
+  const ids = [...nav.querySelectorAll('a.nav-item')].map((a) => a.dataset.id);
   const id = ids.includes(wanted) ? wanted : ids[0] || null;
   if (!current || current.id !== id) show(id);
 }
@@ -193,6 +238,10 @@ get('/api/modules')
   .then((d) => buildNav(d.modules))
   .catch((err) => {
     // Schlüssel-Fehler sind schon verständlich formuliert, alles andere ist meist ein Netzwerkproblem
-    main.textContent = err.auth ? err.message : `Server nicht erreichbar: ${err.message}`;
+    const p = document.createElement('p');
+    p.className = 'alert view-error';
+    p.textContent = err.auth ? err.message : `Server nicht erreichbar: ${err.message}`;
+    view.replaceChildren(p);
   });
+setOnline(false);
 connect();
