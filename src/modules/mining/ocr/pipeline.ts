@@ -4,8 +4,8 @@
 import type { ScanDraft } from '../scanState.js';
 import { emptyDraft } from '../scanState.js';
 import type { Ore } from '../types.js';
-import type { LineReader } from './engine.js';
-import { crop, loadScreen, textColor, toPng, type Rgb } from './image.js';
+import type { LineReader, ReadKind } from './engine.js';
+import { crop, cropPadded, findBand, loadScreen, splitColumns, textColor, toPng, type Rgb } from './image.js';
 import { PROSPECTOR_1080, type Box, type HudLayout } from './layout.js';
 import { cleanNumber, massScuPlausible, matchOre, resolvePercents, zeroEightVariants } from './parse.js';
 
@@ -53,10 +53,17 @@ export async function readScan(
     return { result: { layout: layout.id, engine: reader.name, panelFound, draft, marks, notes, raw, ms: Date.now() - t0 }, panelPng };
   }
 
-  const read = async (key: string, box: Box, kind: 'number' | 'text') => {
-    const r = await reader.read(crop(img, box), kind);
+  /** Eine Zeile lesen: Text im Suchfenster finden (oder fertige Box), mit Rand ausschneiden, erkennen. */
+  const read = async (key: string, where: { window?: Box; box?: Box | null }, kind: ReadKind) => {
+    const box = where.box ?? (where.window ? findBand(img, where.window) : null);
+    if (!box) {
+      raw[key] = null;
+      return null;
+    }
+    const r = await reader.read(cropPadded(img, box), kind);
     raw[key] = r?.text ?? null;
-    if (r && r.confidence < MIN_CONFIDENCE) marks[key] = 'check';
+    // Namen werden über die Erzliste geprüft (siehe unten), nicht über die Zeichensicherheit
+    if (r && r.text && kind !== 'text' && (r.confidence < MIN_CONFIDENCE || r.ambiguous)) marks[key] = 'check';
     return r?.text ?? null;
   };
 
@@ -72,10 +79,12 @@ export async function readScan(
   }
 
   // Hauptwerte
-  const mass = cleanNumber(await read('mass', layout.mass, 'number'), { int: true });
-  const res = cleanNumber(await read('resistance', layout.resistance, 'number'));
-  const inst = cleanNumber(await read('instability', layout.instability, 'number'));
-  const scu = cleanNumber(await read('scu', layout.scu, 'number'));
+  const mass = cleanNumber(await read('mass', { window: layout.mass }, 'integer'), { int: true });
+  const res = cleanNumber(await read('resistance', { window: layout.resistance }, 'number'));
+  const inst = cleanNumber(await read('instability', { window: layout.instability }, 'number'));
+  // "9.84 SCU" bzw. "901.80m SCU": mit Buchstaben lesen, dann nur die Zahl nehmen
+  const scuText = await read('scu', { window: layout.scu }, 'scu');
+  const scu = cleanNumber(scuText?.match(/\d+(\.\d+)?m?(?=\s*S|$)/)?.[0] ?? scuText?.match(/\d+(\.\d+)?/)?.[0] ?? null);
   draft.mass = mass ?? '';
   draft.resistance = res ?? '';
   draft.instability = inst ?? '';
@@ -97,15 +106,22 @@ export async function readScan(
     notes.push('Masse und SCU passen nicht zusammen. Bitte beide Werte prüfen.');
   }
 
-  // Zusammensetzung: Zeilen lesen, bis eine leer ist
+  // Zusammensetzung: Zeile für Zeile nach unten, bis keine mehr kommt; jede Zeile an Lücken teilen
   const rows: { pct: string | null; ore: string | null; quality: string | null }[] = [];
+  let top = layout.rows.firstTop;
   for (let i = 0; i < layout.rows.max; i++) {
-    const top = layout.rows.top + i * layout.rows.step;
-    const box = (x: [number, number]): Box => [x[0], top, x[1], layout.rows.height];
-    const oreText = await read(`parts.${i}.ore`, box(layout.rows.ore), 'text');
-    const pctText = await read(`parts.${i}.pct`, box(layout.rows.pct), 'number');
-    if (!oreText && !pctText) break;
-    const qualityText = await read(`parts.${i}.quality`, box(layout.rows.quality), 'number');
+    const band = findBand(img, [layout.rows.x, top, layout.rows.width, i === 0 ? layout.rows.firstHeight : layout.rows.nextHeight]);
+    if (!band || band[3] < 6) break;
+    top = band[1] + band[3] + 2;
+    const cols = splitColumns(img, band);
+    if (cols.length < 2) break;
+    const pctBox = cols[0];
+    const qualityBox = cols[cols.length - 1];
+    const nameBox: Box | null =
+      cols.length > 2 ? [cols[1][0], band[1], cols[cols.length - 2][0] + cols[cols.length - 2][2] - cols[1][0], band[3]] : null;
+    const pctText = await read(`parts.${i}.pct`, { box: pctBox }, 'number');
+    const oreText = await read(`parts.${i}.ore`, { box: nameBox }, 'text');
+    const qualityText = await read(`parts.${i}.quality`, { box: qualityBox }, 'integer');
     const ore = matchOre(oreText, ores);
     if (oreText && (!ore || !ore.exact)) marks[`parts.${i}.ore`] = 'check';
     rows.push({ pct: cleanNumber(pctText), ore: ore?.id ?? null, quality: cleanNumber(qualityText, { int: true }) });
@@ -116,6 +132,11 @@ export async function readScan(
     if (!resolved.ok) {
       rows.forEach((_, i) => (marks[`parts.${i}.pct`] = 'check'));
       notes.push('Die gelesenen Anteile ergeben keine 100 %. Bitte die Zusammensetzung prüfen.');
+    } else {
+      // Summe stimmt: Anteile gelten als bestätigt, außer den eben korrigierten
+      rows.forEach((_, i) => {
+        if (!resolved.changed.includes(i)) delete marks[`parts.${i}.pct`];
+      });
     }
     draft.parts = rows.map((r, i) => ({ pct: resolved.values[i] ?? '', ore: r.ore ?? '', quality: r.quality ?? '' }));
   }

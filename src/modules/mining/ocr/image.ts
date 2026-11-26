@@ -63,6 +63,83 @@ export function textColor(img: Rgb): { color: TextColor; share: number } | null 
   return { color, share: votes[color] / total };
 }
 
+const ink = (img: Rgb, x: number, y: number, thr: number) => {
+  const o = (y * img.width + x) * 3;
+  return Math.max(img.data[o], img.data[o + 1], img.data[o + 2]) > thr;
+};
+
+/**
+ * Textzeile in einem Suchfenster finden (helle Pixel zeilen- und spaltenweise). Das Panel steht nicht
+ * pixelgenau fest (gemessen: bis 5 px Versatz zwischen Screenshots), deshalb Fenster statt fester Kästen.
+ */
+export function findBand(img: Rgb, [wx, wy, ww, wh]: Box, thr = 110, expectH = 9): Box | null {
+  const rows: number[] = [];
+  for (let y = wy; y < wy + wh; y++) {
+    let c = 0;
+    for (let x = wx; x < wx + ww; x++) if (ink(img, x, y, thr)) c++;
+    rows.push(c);
+  }
+  const runs: { s: number; e: number; score: number }[] = [];
+  let s = -1;
+  let sum = 0;
+  for (let i = 0; i <= rows.length; i++) {
+    const v = i < rows.length ? rows[i] : 0;
+    if (v > 0) {
+      if (s < 0) [s, sum] = [i, 0];
+      sum += v;
+    } else if (s >= 0) {
+      const h = i - s;
+      runs.push({ s, e: i - 1, score: sum * (h >= expectH - 3 && h <= expectH + 6 ? 1 : 0.2) });
+      s = -1;
+    }
+  }
+  if (!runs.length) return null;
+  const r = runs.sort((a, b) => b.score - a.score)[0];
+  const y0 = wy + r.s;
+  const y1 = wy + r.e;
+  let x0 = -1;
+  let x1 = -1;
+  for (let x = wx; x < wx + ww; x++) {
+    for (let y = y0; y <= y1; y++) {
+      if (ink(img, x, y, thr)) {
+        if (x0 < 0) x0 = x;
+        x1 = x;
+        break;
+      }
+    }
+  }
+  return x0 < 0 ? null : [x0, y0, x1 - x0 + 1, y1 - y0 + 1];
+}
+
+/** Zeile an Lücken (mind. minGap leere Spalten) in Gruppen teilen: Anteil | Erzname | Qualität. */
+export function splitColumns(img: Rgb, [bx, by, bw, bh]: Box, minGap = 4, thr = 110): Box[] {
+  const out: Box[] = [];
+  let s = -1;
+  let last = -1;
+  for (let x = bx; x < bx + bw; x++) {
+    let has = false;
+    for (let y = by; y < by + bh; y++) if (ink(img, x, y, thr)) { has = true; break; }
+    if (!has) continue;
+    if (s < 0) s = x;
+    else if (x - last - 1 >= minGap) {
+      out.push([s, by, last - s + 1, bh]);
+      s = x;
+    }
+    last = x;
+  }
+  if (s >= 0) out.push([s, by, last - s + 1, bh]);
+  return out;
+}
+
+/** Ausschnitt mit Rand (für die Texterkennung), am Bildrand begrenzt. */
+export function cropPadded(img: Rgb, [x, y, w, h]: Box, pad = 3): Rgb {
+  const x0 = Math.max(0, x - pad);
+  const y0 = Math.max(0, y - pad);
+  const x1 = Math.min(img.width, x + w + pad);
+  const y1 = Math.min(img.height, y + h + pad);
+  return crop(img, [x0, y0, x1 - x0, y1 - y0]);
+}
+
 /** Als PNG (z. B. für gespeicherte Beispielbilder). */
 export function toPng(img: Rgb): Promise<Buffer> {
   return sharp(img.data, { raw: { width: img.width, height: img.height, channels: 3 } }).png().toBuffer();

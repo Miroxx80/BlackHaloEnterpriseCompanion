@@ -33,14 +33,17 @@ export function zeroEightVariants(s: string): string[] {
 export function matchOre(raw: string | null | undefined, ores: Ore[]): { id: string; exact: boolean } | null {
   if (!raw) return null;
   const t = raw.toUpperCase().replace(/[^A-Z() ]/g, ' ').replace(/\s+/g, ' ').trim();
-  if (/^INERT/.test(t) || /MATERIALS?$/.test(t)) return { id: 'inert', exact: /^INERT MATERIALS?$/.test(t) };
+  // "INERT MATERIALS": das erste Wort reicht (eindeutig)
+  if (/^INERT/.test(t)) return { id: 'inert', exact: true };
+  if (/MATERIALS?$/.test(t)) return { id: 'inert', exact: false };
   const form = /\(RAW\)/.test(t) ? 'RAW' : /\(ORE\)/.test(t) ? 'ORE' : null;
   const word = t.replace(/\((RAW|ORE)\)/g, '').trim().replace(/\s+/g, '');
   if (word.length < 3) return null;
   const pool = ores.filter((o) => !form || o.form === form);
   // 1. Name beginnt mit dem gelesenen Wort (Abkürzungen der Prospector, z. B. HEPH -> Hephaestanite)
   const prefix = pool.filter((o) => o.name.toUpperCase().startsWith(word));
-  if (prefix.length === 1) return { id: prefix[0].id, exact: prefix[0].name.toUpperCase() === word };
+  // Eindeutige Abkürzung (z. B. HEPH) gilt als sicher erkannt
+  if (prefix.length === 1) return { id: prefix[0].id, exact: true };
   // 2. Ähnlichster Name (Lesefehler einzelner Buchstaben), höchstens ein Drittel der Buchstaben anders
   let best: { o: Ore; d: number } | null = null;
   for (const o of pool) {

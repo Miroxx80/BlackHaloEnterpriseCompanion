@@ -166,8 +166,22 @@ Die Buttons stehen unter `modules.controls` in der Config. Eigene Buttons gehör
 
 Es wird nichts in das Spiel eingeschleust und kein Speicher gelesen. Das Tool sendet nur Tastendrücke über die normale Windows-Schnittstelle (`SendInput`), wie ein Makro-Programm.
 
+## Mining Companion
+
+Rechner für die Prospector: Steinwerte eingeben (oder einlesen), Loadout wählen, das Tool sagt, ob der Stein brechbar ist und mit wie viel Laserleistung. Der aktuelle Scan ist zwischen PC, Handy und zweitem Bildschirm synchron.
+
+**Scan einlesen (OCR, Stufe 2):** Das Tool liest das Scan-Panel aus einem Screenshot (1920×1080, englisches HUD).
+- In der Desktop-App: im Spiel **Alt+Shift+S** drücken (oder Tray, „Scan einlesen“). Das Tool fotografiert den Bildschirm und trägt die Werte ein.
+- Im Rechner: Knopf „Screenshot einlesen“ oder ein Bild mit **Strg+V** einfügen.
+- Unsichere Werte (v. a. 0/6/8, die durchgestrichene Null) sind **gelb markiert**, auf allen Geräten. Bitte prüfen und ggf. korrigieren, dann „Alles geprüft“.
+- Die Texterkennung (PaddleOCR) läuft lokal auf der CPU, ca. 0,2–0,4 s pro Bild. Es wird nur der Bildschirm fotografiert, nichts im Spiel gelesen oder gesteuert.
+- Die letzten 100 Screenshots mit Ergebnis liegen in `%APPDATA%\BlackHalo\data\mining\ocr-samples` (zum Verbessern der Erkennung).
+- Ausschalten: in `config\local.json` unter `modules.mining` `"ocr": false`.
+
+Entwickeln unter Linux: `ONNXRUNTIME_NODE_INSTALL=skip npm install` (sonst lädt onnxruntime CUDA-Dateien herunter). Unter Windows ist nichts extra nötig.
+
 ## Stand
 
-- Fertig: Kern, Modul-System, Web-Shell, Desktop-App (Tray, Fenster, Server-Prozess mit Neustart), Module `status`, `pairing` (QR-Code) und `controls` mit Windows-Treiber (Scancodes, Kombinationen, Halten, Vordergrund-Prüfung) und Mock-Treiber.
-- Als Nächstes: Installer und Auto-Update.
+- Fertig: Kern, Modul-System, Web-Shell, Desktop-App (Tray, Fenster, Server-Prozess mit Neustart), Windows-Installer, Module `status`, `pairing` (QR-Code), `controls` mit Windows-Treiber (Scancodes, Kombinationen, Halten, Vordergrund-Prüfung) und `mining` (Rechner, Sync, Crafting-Bonus, OCR).
+- Als Nächstes: OCR am PC testen und verbessern, danach Live-Scan und Overlay (Mining Stufe 3).
 - Die Tasten in `config/default.json` sind Beispiele. Passe sie an deine Keybinds an.

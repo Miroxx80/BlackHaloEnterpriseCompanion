@@ -12,6 +12,7 @@ import { PROSPECTOR_1080 } from '../dist/modules/mining/ocr/layout.js';
 import { cleanNumber, matchOre, resolvePercents, zeroEightVariants, massScuPlausible } from '../dist/modules/mining/ocr/parse.js';
 import { readScan } from '../dist/modules/mining/ocr/pipeline.js';
 import { noReader } from '../dist/modules/mining/ocr/engine.js';
+import { createPaddleReader } from '../dist/modules/mining/ocr/paddle.js';
 
 const fixture = (p) => readFileSync(new URL(`./fixtures/${p}`, import.meta.url));
 const data = JSON.parse(readFileSync(new URL('../src/modules/mining/data/dataset.json', import.meta.url), 'utf8'));
@@ -39,7 +40,7 @@ test('Zahlen und Erznamen aus gelesenen Texten', () => {
   assert.equal(cleanNumber('901.80m'), '901.80m');
   assert.equal(cleanNumber('12a'), null);
   const ore = (t) => matchOre(t, data.ores);
-  assert.deepEqual(ore('HEPH (RAW)'), { id: 'Raw_Hephaestanite', exact: false }); // Abkürzung der Prospector
+  assert.deepEqual(ore('HEPH (RAW)'), { id: 'Raw_Hephaestanite', exact: true }); // eindeutige Abkürzung der Prospector
   assert.deepEqual(ore('TITANIUM (ORE)'), { id: 'Ore_Titanium', exact: true });
   assert.deepEqual(ore('QUARTZ (RAW)'), { id: 'Raw_Quartz', exact: true });
   assert.equal(ore('SILICON (RAW)').id, 'Raw_Silicon');
@@ -106,4 +107,27 @@ test('API: Screenshot einlesen, in den gemeinsamen Scan übernehmen, Beispiel sp
   } finally {
     await app.stop();
   }
+});
+
+test('PaddleOCR am echten Screenshot: Werte gelesen, und kein falscher Wert bleibt unmarkiert', async () => {
+  const reader = createPaddleReader(new URL('../src/modules/mining/data/ocr', import.meta.url).pathname);
+  const truth = JSON.parse(readFileSync(new URL('./fixtures/hud/prospector-helix1-20pct.json', import.meta.url), 'utf8')).scan;
+  const { result } = await readScan(fixture(HUD[0]), reader, data.ores);
+  const d = result.draft;
+  // Was sicher gelesen werden muss
+  assert.equal(d.mass, String(truth.mass));
+  assert.deepEqual(d.parts.map((p) => p.ore), ['Raw_Silicon', 'Raw_Hephaestanite', 'Raw_Hephaestanite', 'Raw_Quartz', 'inert']);
+  assert.deepEqual(d.parts.map((p) => Number(p.pct)), truth.parts.map((p) => p.pct));
+  // Sicherheitsregel: Jeder Wert, der vom echten Wert abweicht, ist zum Prüfen markiert
+  const expected = {
+    mass: String(truth.mass),
+    resistance: String(truth.resistance.value),
+    instability: String(truth.instability.value),
+    scu: String(truth.scu),
+    ...Object.fromEntries(truth.parts.map((p, i) => [`parts.${i}.quality`, String(p.quality)])),
+  };
+  const read = { mass: d.mass, resistance: d.resistance, instability: d.instability, scu: d.scu, ...Object.fromEntries(d.parts.map((p, i) => [`parts.${i}.quality`, p.quality])) };
+  const silent = Object.keys(expected).filter((k) => Number(read[k]) !== Number(expected[k]) && !result.marks[k]);
+  assert.deepEqual(silent, [], `falsch und nicht markiert: ${silent.map((k) => `${k}=${read[k]} (echt ${expected[k]})`).join(', ')}`);
+  assert.ok(!result.marks['parts.0.ore'] && !result.marks['parts.4.ore'], 'eindeutige Erznamen nicht markiert');
 });

@@ -7,6 +7,7 @@ import { createScanValidator, emptyDraft, type ScanDraft } from './scanState.js'
 import { noReader, type LineReader } from './ocr/engine.js';
 import { ScreenError } from './ocr/image.js';
 import { readScan } from './ocr/pipeline.js';
+import { createPaddleReader } from './ocr/paddle.js';
 import type { CalcOptions, Dataset, LoadoutInput, ScanInput } from './types.js';
 
 /** Service "mining.scan" für andere Module (z. B. OCR): aktuellen Scan lesen oder ersetzen. */
@@ -229,7 +230,8 @@ const mod: BhModule = {
     ctx.http.get('/scan', async () => current);
 
     // ---------- OCR: Screenshot einlesen ----------
-    const reader: LineReader = noReader; // wird durch die gewählte Texterkennung ersetzt
+    // Texterkennung: PaddleOCR (Modell in data/ocr). Abschaltbar per Config modules.mining.ocr = false.
+    const reader: LineReader = ctx.config.ocr === false ? noReader : createPaddleReader(join(ctx.dir, 'data', 'ocr'));
     const samplesDir = join(ctx.dataDir, 'ocr-samples');
     const MAX_SAMPLES = 100;
     /** Panel-Ausschnitt + Ergebnis aufheben: verlustfreie Beispiele, um die Erkennung zu verbessern. */

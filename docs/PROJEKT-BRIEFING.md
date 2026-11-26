@@ -39,12 +39,14 @@
   - Sicherheit: Markierungen nur zeichnen, wenn die OCR das Scan-Panel an der erwarteten Stelle findet (sonst z. B. Freecam oder Menü). Overlay von Bildschirmaufnahmen ausnehmen, damit die OCR es nicht mitliest.
   - Offen: Vermessung des Energie-Bogens aus Screenshots in Originalauflösung (20 %, 50 %, 100 % Leistung) und Platz der Infobox (Screenshot mit eingebauten Modulen).
 
-## Stand (2026-11-25)
+## Stand (2026-11-26)
 - Grundgerüst fertig und getestet: Core, Modul-System, Web-Shell, Module `status`, `pairing` und `controls` (Mock-Treiber)
 - Desktop-Hülle (Electron) fertig: Tray, Hauptfenster mit gemerkter Position, Server als eigener Prozess mit automatischem Neustart, Nutzerordner `%APPDATA%\BlackHalo`, automatisch erzeugter Zugangsschlüssel, QR-Code zum Verbinden (ohne Link-Local-Adressen, mit Adapternamen). Unter Windows getestet (2 Durchläufe): Start, Firewall, Tablet-Verbindung per QR (nur noch die richtige Adresse), Fenster in allen Ansichten normal bedienbar, Fensterposition, Tray, Beenden. Buttons per Handy lösen aus (Mock-Treiber).
 - Windows-Eingabetreiber gebaut: SendInput mit Scancodes (Tastennamen im US-Layout wie in den SC-Keybinds), Kombinationen, Halten, Warteschlange, Vordergrund-Prüfung mit Wiederherstellen aus der Minimierung. Unter Windows mit Notepad getestet: Eingabe im Vordergrund, Wechsel aus dem Hintergrund, Wiederherstellen aus der Minimierung, Fehlermeldung bei geschlossenem Ziel. Test in Star Citizen steht aus.
 - Ungültige Zugangsschlüssel (z. B. mit „…“) werden abgefangen bzw. automatisch ersetzt.
 - Mining Companion Stufe 1 gebaut (Modul `mining`): Rechner mit manueller Eingabe, Loadouts (Prospector), Ergebnis wie Bedrock (schaffbar/Grenzfall/zu stark/unmöglich, Leistungsspanne, Surge, Gadget-Rat, SCU und Qualität je Erz). Spieldaten 4.10.3 aus scunpacked-data (`scripts/mining-data.mjs`). Unabhängig geprüft, 17 Funde behoben, darunter eine Lücke im Token-Schutz des Kerns. Test am PC steht aus.
-- Mining Stufe 2 (Screenshot + OCR) und Stufe 3 (Live-Scan) geplant, siehe `docs/research/mining-companion.md`.
+- Mining: Sync des aktuellen Scans zwischen allen Geräten (Server hält den Scan, Änderungen feldweise), Crafting-Bonus je Loadout (z. B. Helix I +10,5 %), Farbregel aus dem Spiel bestätigt (weiß = Stein, farbig = mit Laser/Modulen/Gadget), Rechenmodell am Spiel bestätigt („zu stark“ bei 20 % stimmte).
+- Mining Stufe 2 (OCR) gebaut, Test am PC steht aus: Screenshot per Hotkey Alt+Shift+S (Desktop-App), Knopf oder Strg+V. Texterkennung PaddleOCR PP-OCRv4 (nur Zeilenerkennung, onnxruntime, lokal auf der CPU), im Vergleich mit Tesseract und eigenen Glyph-Vorlagen am besten (86 % der Felder auf verlustbehafteten Screenshots, Erznamen 10/10). Unsichere Felder und jede 0/6/8 mit Zweifel werden gelb markiert; Prüfungen: Anteile ergeben 100 % (löst 0/8 auf), Masse/SCU-Dichte, Resistenz ≤ 100 %, Erznamen gegen den Datensatz. Die letzten 100 Screenshots werden zum Verbessern gespeichert.
+- Mining Stufe 3 (Live-Scan, Overlay am Energie-Bogen) geplant, siehe `docs/research/mining-companion.md`.
 - Windows-Installer eingerichtet (`npm run dist`), Version im Tool sichtbar. Gepackte App unter Linux getestet, Installer-Bau unter Windows steht aus.
-- Nächste Schritte: Installer unter Windows bauen und testen, PC-Test Mining, Test der Tasten in Star Citizen, Hub-Anbindung, Org Storage
+- Nächste Schritte: OCR am PC testen (Muster sammeln), Stampede-Farbtest, Test der Tasten in Star Citizen, Hub-Anbindung, Org Storage

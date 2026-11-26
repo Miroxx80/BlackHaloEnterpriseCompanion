@@ -14,13 +14,14 @@ export interface HudLayout {
   panel: Box;
   /** Erzname in der Titelzeile, z. B. "HEPH (RAW)". */
   title: Box;
+  /** Suchfenster für die Werte (die Zeile wird darin gesucht, weil das Panel um einige Pixel wandern kann). */
   mass: Box;
   resistance: Box;
   instability: Box;
-  /** Nur die Zahl vor "SCU" in der COMP.-Zeile. */
+  /** "x.xx SCU" in der COMP.-Zeile. */
   scu: Box;
-  /** Zusammensetzung: erste Zeile, Abstand, Spalten (Anteil, Erz, Qualität). */
-  rows: { top: number; step: number; height: number; max: number; pct: [number, number]; ore: [number, number]; quality: [number, number] };
+  /** Zusammensetzung: Suchfenster der ersten Zeile, folgende Zeilen direkt darunter. */
+  rows: { x: number; width: number; firstTop: number; firstHeight: number; nextHeight: number; max: number };
 }
 
 export const PROSPECTOR_1080: HudLayout = {
@@ -29,9 +30,9 @@ export const PROSPECTOR_1080: HudLayout = {
   height: 1080,
   panel: [1355, 475, 200, 265],
   title: [1365, 508, 110, 16],
-  mass: [1450, 527, 70, 18],
-  resistance: [1450, 546, 70, 18],
-  instability: [1450, 566, 70, 18],
-  scu: [1478, 619, 40, 18],
-  rows: { top: 656, step: 15, height: 14, max: 8, pct: [1364, 48], ore: [1412, 92], quality: [1505, 42] },
+  mass: [1445, 524, 85, 22],
+  resistance: [1445, 545, 85, 20],
+  instability: [1445, 565, 85, 20],
+  scu: [1470, 615, 90, 22],
+  rows: { x: 1358, width: 195, firstTop: 655, firstHeight: 20, nextHeight: 15, max: 8 },
 };
