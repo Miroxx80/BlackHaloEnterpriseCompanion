@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
@@ -14,6 +14,8 @@ import type { AppConfig, ModuleStatus } from './types.js';
 
 export interface BhApp {
   config: AppConfig;
+  /** Version des Tools (aus package.json). */
+  version: string;
   /** Tatsächlich genutzter Port (wichtig bei port: 0). */
   port: number;
   modules: ModuleStatus[];
@@ -36,6 +38,16 @@ function tokenMatches(given: unknown, expected: string): boolean {
   if (typeof given !== 'string') return false;
   const h = (v: string) => createHash('sha256').update(v).digest();
   return timingSafeEqual(h(given), h(expected));
+}
+
+/** Version aus package.json; ohne Datei (z. B. in Tests mit eigenem Ordner) "0.0.0". */
+function readVersion(rootDir: string): string {
+  try {
+    const v = JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf8')).version;
+    return typeof v === 'string' ? v : '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
 }
 
 /**
@@ -64,6 +76,7 @@ export async function startApp(options: CreateAppOptions = {}): Promise<BhApp> {
 
   const log = createLogger('core');
   const config = loadConfig(rootDir, options.overrides, options.localConfigPath);
+  const version = readVersion(rootDir);
   const events = createEventBus(log);
   const services = createServiceRegistry();
   const ws = createWsHub(log);
@@ -94,10 +107,10 @@ export async function startApp(options: CreateAppOptions = {}): Promise<BhApp> {
     log,
   });
 
-  app.get('/api/modules', async () => ({ role: config.role, modules: result.statuses }));
+  app.get('/api/modules', async () => ({ role: config.role, version, modules: result.statuses }));
 
   app.get('/ws', { websocket: true }, (socket) => {
-    ws.attach(socket as unknown as RawSocket, () => ({ role: config.role, modules: result.statuses }));
+    ws.attach(socket as unknown as RawSocket, () => ({ role: config.role, version, modules: result.statuses }));
   });
 
   // UI-Dateien der Module unter /modules/<id>/
@@ -123,6 +136,7 @@ export async function startApp(options: CreateAppOptions = {}): Promise<BhApp> {
 
   return {
     config,
+    version,
     port,
     modules: result.statuses,
     async stop() {
