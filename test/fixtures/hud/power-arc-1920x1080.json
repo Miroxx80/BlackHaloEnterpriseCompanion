@@ -23,5 +23,16 @@
     ]
   },
   "check": "Gegenproben: 20-%-Bild Füllung bis ca. 16,3 %, 50-%-Bild (anderer Stein) bis ca. 47,9 %. Abweichung 2-4 % (3-5 px) durch das gestrichelte Füllmuster, kleiner als das angezeigte ±4-%-Band.",
-  "mapping": "Winkel = 49,1 + (11,2 - 49,1) * Prozent / 100 (linear, durch 20/50/100 % bestätigt)"
+  "mapping": "Winkel = 49,1 + (11,2 - 49,1) * Prozent / 100 (linear, durch 20/50/100 % bestätigt)",
+  "otherShots": {
+    "prospector-helix1-100pct.webp": {
+      "laserRangeM": 38,
+      "labelUnderOre": "51.1m"
+    },
+    "prospector-helix1-50pct.webp": {
+      "laserRangeM": 42,
+      "labelUnderOre": "54.7m",
+      "rock": "neuer Stein, HEPH (RAW) 1587 kg"
+    }
+  }
 }

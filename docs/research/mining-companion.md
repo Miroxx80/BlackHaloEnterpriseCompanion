@@ -454,7 +454,13 @@ From `test/fixtures/hud/prospector-helix1-100pct.webp`; the values are in `test/
   - the grey track outside it is the **laser power**, filled green from the bottom ("CHARGE LEVEL") to the top (below "LASER IN").
 - **Geometry:** the power track is a clean circular arc. Centre (1061.6, 607.2), radius 209.5 px, mean deviation 1.2 px. 0 % sits at 49.1° and 100 % at 11.2°, so the arc spans about 38° (about 140 px of arc length, about 1.4 px per percent).
 - **Check:** in the 20 % screenshot the fill ends at about 16.3 % of the arc. In the 50 % screenshot (a different rock, `prospector-helix1-50pct.webp`) it ends at about 47.9 %. The 2–4 % (3–5 px) offset comes from the dashed fill pattern. The **linear mapping is confirmed**. The HUD was in exactly the same place on the second rock.
-- **Field observation:** the first rock **exploded at 50 % power** (overcharge). The calculator had predicted "laser too strong" for it (only about 10 % needed with 2× Rieger-C3, minimum 20 %). The laser was therefore effective at the roughly 51 m shown, although the Helix I data says zero power beyond 45 m. Range falloff needs checking.
+- **Field observation:** the first rock **exploded at 50 % power** (overcharge). The org leader reports that **even 20 % was too strong**. This matches the calculator's prediction of "laser too strong": only about 10 % is needed with 2× Rieger-C3, and the Helix I minimum is 20 %.
+- **Distance (corrected):** the number under the ore name (89.0 m / 51.1 m / 54.7 m) is **not** the laser distance, probably the distance to the rock's centre. The laser distance is the marker on the **left LASER RANGE arc**:
+  - 76 m in the 20 % shot (not firing)
+  - 38 m in the 100 % shot
+  - 42 m in the 50 % shot
+  The org leader confirms they were never further than 45 m while firing. The OCR must read the distance from that arc.
+- **Range falloff matters:** at 38 m and 42 m the Helix I is in its falloff zone (full power up to 15 m, zero at 45 m). If the falloff is linear, only about 23 % and 10 % of the power arrive. The calculator currently assumes full power (distance within the optimal range). Reading the distance (OCR) and including the falloff is a candidate for stage 3, and the falloff shape is still unverified.
 - **Proof of concept:** ticks and a band drawn at these coordinates sit cleanly next to the power track. The marker "here is roughly the neutral point" is therefore feasible.
 
 ---
