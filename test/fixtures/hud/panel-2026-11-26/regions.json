@@ -1,0 +1,20 @@
+{
+  "region-snow-32240kg.webp": {
+    "mass": 32240, "resistance": { "value": 0 }, "instability": { "value": 31.26 }, "scu": 33.95,
+    "parts": [
+      { "pct": 8.23, "ore": "Ore_Tin", "quality": 537 },
+      { "pct": 8.78, "ore": "Ore_Copper", "quality": 652 },
+      { "pct": 57.25, "ore": "Ore_Copper", "quality": 359 },
+      { "pct": 25.73, "ore": "inert", "quality": 0 }
+    ]
+  },
+  "region-rock-3698kg.webp": {
+    "mass": 3698, "resistance": { "value": 0 }, "instability": { "value": 3.79 }, "scu": 3.32,
+    "parts": [
+      { "pct": 5.61, "ore": "Ore_Tin", "quality": 537 },
+      { "pct": 11.19, "ore": "Ore_Copper", "quality": 652 },
+      { "pct": 70.71, "ore": "Ore_Copper", "quality": 359 },
+      { "pct": 12.46, "ore": "inert", "quality": 0 }
+    ]
+  }
+}

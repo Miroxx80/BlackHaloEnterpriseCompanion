@@ -32,12 +32,12 @@ export interface ReadResult {
   text: string;
   confidence: number;
   /**
-   * true, wenn eine 0, 6 oder 8 nicht eindeutig ist (durchgestrichene Null der HUD-Schrift). Gemessen:
+   * true, wenn eine 0, 6, 8 oder 9 nicht eindeutig ist (durchgestrichene Null der HUD-Schrift). Gemessen:
    * Selbst bei 93 % Sicherheit für "0" stand im Spiel eine 8. Solche Werte immer prüfen lassen.
    */
   ambiguous?: boolean;
   /** Lage jedes Zeichens im Ausschnitt (0..1 der Breite), z. B. um eine Zeile in Spalten zu teilen. */
-  chars?: { c: string; at: number }[];
+  chars?: { c: string; at: number; p: number }[];
 }
 
 /** Platzhalter: liest nichts. Farben, Plausibilität und Beispielbilder funktionieren trotzdem. */

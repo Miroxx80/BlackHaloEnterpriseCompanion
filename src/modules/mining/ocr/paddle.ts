@@ -62,8 +62,16 @@ function toTensorData(img: Rgb, variant: ReadOptions['variant'] = 'normal'): { d
   return { data: out, width };
 }
 
-/** Unter diesem Anteil (unter 0/6/8) gilt eine gelesene 0, 6 oder 8 als nicht eindeutig. */
+/**
+ * Unter diesem Anteil (unter 0/6/8/9) gilt eine gelesene 0, 6, 8 oder 9 als nicht eindeutig. Die 9 ist dabei,
+ * seit im PC-Test eine durchgestrichene Null sicher als 9 gelesen wurde (Masse 32240 -> 32249).
+ */
 const LOOKALIKE_SURE = 0.98;
+/**
+ * Außerdem muss jede 0/6/8/9 für sich mindestens so sicher sein. Gemessen an 4 Screenshots: richtig gelesene
+ * liegen fast immer bei 0,99 oder darüber, die beiden falschen (32240 -> 32249, 58.23 -> 50.23) bei 0,983/0,985.
+ */
+const LOOKALIKE_MIN_P = 0.99;
 
 /** Gieriges CTC-Dekodieren, nur erlaubte Zeichen. Sicherheit = kleinste Zeichen-Wahrscheinlichkeit. */
 function decode(probs: Float32Array, steps: number, classes: number, chars: string[], allowed: number[], lookalike: number[]) {
@@ -71,7 +79,7 @@ function decode(probs: Float32Array, steps: number, classes: number, chars: stri
   let prev = -1;
   let conf = 1;
   let ambiguous = false;
-  const pos: { c: string; at: number }[] = [];
+  const pos: { c: string; at: number; p: number }[] = [];
   for (let t = 0; t < steps; t++) {
     let best = 0;
     let bestP = probs[t * classes];
@@ -84,11 +92,11 @@ function decode(probs: Float32Array, steps: number, classes: number, chars: stri
     }
     if (best !== 0 && best !== prev) {
       text += chars[best];
-      pos.push({ c: chars[best], at: (t + 0.5) / steps });
+      pos.push({ c: chars[best], at: (t + 0.5) / steps, p: bestP });
       conf = Math.min(conf, bestP);
       if (lookalike.includes(best)) {
         const total = lookalike.reduce((s, i) => s + probs[t * classes + i], 0);
-        if (bestP / total < LOOKALIKE_SURE) ambiguous = true;
+        if (bestP / total < LOOKALIKE_SURE || bestP < LOOKALIKE_MIN_P) ambiguous = true;
       }
     }
     prev = best;
@@ -111,7 +119,7 @@ export function createPaddleReader(modelDir: string): LineReader {
       if (keys[keys.length - 1] === '') keys.pop();
       const chars = ['<blank>', ...keys, ' '];
       const indices = (set: string) => chars.map((c, i) => (i > 0 && set.includes(c) ? i : -1)).filter((i) => i > 0);
-      const lookalike = ['0', '6', '8'].map((c) => chars.indexOf(c));
+      const lookalike = ['0', '6', '8', '9'].map((c) => chars.indexOf(c));
       const allow = Object.fromEntries(Object.entries(CHARSETS).map(([k, set]) => [k, indices(set)])) as Record<ReadKind, number[]>;
       return { ort, session, chars, lookalike, allow };
     })());
@@ -128,7 +136,7 @@ export function createPaddleReader(modelDir: string): LineReader {
       // Die Breite des Tensors kann größer sein als das Bild (Mindestbreite): Lage auf das Bild umrechnen
       const r = decode(out.data as Float32Array, steps, classes, m.chars, m.allow[kind], kind === 'text' || kind === 'label' ? [] : m.lookalike);
       const used = (img.width * HEIGHT) / img.height / width;
-      return { ...r, chars: r.chars.map((p) => ({ c: p.c, at: Math.min(1, p.at / used) })) };
+      return { ...r, chars: r.chars.map((p) => ({ ...p, at: Math.min(1, p.at / used) })) };
     },
   };
 }

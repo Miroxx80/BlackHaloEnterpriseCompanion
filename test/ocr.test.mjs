@@ -151,6 +151,20 @@ for (const [name, dx, dy] of [['Standard-Lage', 0, 0], ['Panel verschoben wie im
   });
 }
 
+test('PC-Test-Bilder mit bekannten Werten: kein falscher Wert und kein falsches Erz unmarkiert', async () => {
+  const truths = JSON.parse(readFileSync(new URL('./fixtures/hud/panel-2026-11-26/regions.json', import.meta.url), 'utf8'));
+  for (const [file, truth] of Object.entries(truths)) {
+    // Suchbereich (576x608 ab 1184,392) zurück an seine Stelle im Bild
+    const screen = await sharp({ create: { width: 1920, height: 1080, channels: 3, background: '#787878' } })
+      .composite([{ input: await sharp(fixture(`hud/panel-2026-11-26/${file}`)).png().toBuffer(), left: 1184, top: 392 }]).png().toBuffer();
+    const { result } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector });
+    assert.ok(result.panelFound, file);
+    assert.deepEqual(silentErrors(result, truth), [], file);
+    const wrongOre = truth.parts.map((p, i) => i).filter((i) => result.draft.parts[i]?.ore !== truth.parts[i].ore && !result.marks[`parts.${i}.ore`]);
+    assert.deepEqual(wrongOre, [], `${file}: falsches Erz unmarkiert`);
+  }
+});
+
 test('Panel finden in den Scans vom PC-Test (heller Planet, Panel bis 96 px verschoben)', async () => {
   // Gespeicherte Panel-Ausschnitte (200x265 ab 1355,475) zurück an ihre Stelle im Bild
   const expected = [[1, -2], [-3, 15], [16, 94], [7, 96], [12, 92]];
