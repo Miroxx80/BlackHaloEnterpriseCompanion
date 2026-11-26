@@ -1,12 +1,27 @@
 {
   "_comment": "Vermessung der Laserleistungs-Spur (rechter Bogen, äußere graue Spur mit grüner Füllung) im Prospector-HUD, 1920x1080, aus prospector-helix1-100pct.webp. Kreisanpassung an die grüne Füllung bei 100 %, mittlere Abweichung 1,2 px.",
-  "resolution": [1920, 1080],
-  "center": [1061.6, 607.2],
+  "resolution": [
+    1920,
+    1080
+  ],
+  "center": [
+    1061.6,
+    607.2
+  ],
   "radius": 209.5,
   "angleDegAt0Pct": 49.1,
   "angleDegAt100Pct": 11.2,
   "angleConvention": "Grad, atan2(y - cy, x - cx), y nach unten",
-  "endpoints": { "0pct": [1199, 766], "100pct": [1267, 648] },
-  "check": "20-%-Bild: Füllung endet bei ca. 16 % des Bogens (gestricheltes Muster; ca. 5 px). 50-%-Bild fehlt noch als Datei.",
-  "mapping": "Winkel = 49,1 + (11,2 - 49,1) * Prozent / 100 (vorerst linear angenommen)"
+  "endpoints": {
+    "0pct": [
+      1199,
+      766
+    ],
+    "100pct": [
+      1267,
+      648
+    ]
+  },
+  "check": "Gegenproben: 20-%-Bild Füllung bis ca. 16,3 %, 50-%-Bild (anderer Stein) bis ca. 47,9 %. Abweichung 2-4 % (3-5 px) durch das gestrichelte Füllmuster, kleiner als das angezeigte ±4-%-Band.",
+  "mapping": "Winkel = 49,1 + (11,2 - 49,1) * Prozent / 100 (linear, durch 20/50/100 % bestätigt)"
 }

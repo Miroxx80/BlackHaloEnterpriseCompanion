@@ -453,9 +453,9 @@ From `test/fixtures/hud/prospector-helix1-100pct.webp`; the values are in `test/
   - the thin yellow line is the rock's **charge**, with the OPTIMAL (green) and OVERCHARGE (red) blocks at the top;
   - the grey track outside it is the **laser power**, filled green from the bottom ("CHARGE LEVEL") to the top (below "LASER IN").
 - **Geometry:** the power track is a clean circular arc. Centre (1061.6, 607.2), radius 209.5 px, mean deviation 1.2 px. 0 % sits at 49.1° and 100 % at 11.2°, so the arc spans about 38° (about 140 px of arc length, about 1.4 px per percent).
-- **Check:** in the 20 % screenshot the fill ends at about 16 % of the arc. The roughly 5 px difference comes from the dashed fill pattern. The mapping is assumed linear for now; the 50 % screenshot as a file would confirm it.
+- **Check:** in the 20 % screenshot the fill ends at about 16.3 % of the arc. In the 50 % screenshot (a different rock, `prospector-helix1-50pct.webp`) it ends at about 47.9 %. The 2–4 % (3–5 px) offset comes from the dashed fill pattern. The **linear mapping is confirmed**. The HUD was in exactly the same place on the second rock.
+- **Field observation:** the first rock **exploded at 50 % power** (overcharge). The calculator had predicted "laser too strong" for it (only about 10 % needed with 2× Rieger-C3, minimum 20 %). The laser was therefore effective at the roughly 51 m shown, although the Helix I data says zero power beyond 45 m. Range falloff needs checking.
 - **Proof of concept:** ticks and a band drawn at these coordinates sit cleanly next to the power track. The marker "here is roughly the neutral point" is therefore feasible.
-- **Open question:** the Helix I data has no power beyond 45 m, but the rock in the 50 %/100 % shots was about 51 m away. Did the charge rise anyway?
 
 ---
 
