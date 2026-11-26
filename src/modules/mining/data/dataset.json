@@ -1,0 +1,1104 @@
+{
+  "_comment": "Generiert von scripts/mining-data.mjs aus scunpacked-data. Nicht von Hand ändern.",
+  "build": "4.10.3-LIVE.13165946",
+  "source": {
+    "repo": "https://github.com/StarCitizenWiki/scunpacked-data.git",
+    "commit": "3cc8072b24df2a2d71eb6207708e2039f909b342"
+  },
+  "ruleset": {
+    "decayPerMass": 0.2
+  },
+  "ships": [
+    {
+      "id": "MISC_Prospector",
+      "name": "MISC Prospector",
+      "heads": [
+        {
+          "position": "FRONT",
+          "size": 1,
+          "stockLaser": "mining_laser_grin_arbor_s1"
+        }
+      ]
+    }
+  ],
+  "lasers": [
+    {
+      "id": "mining_laser_grin_arbor_s1",
+      "name": "Arbor MH1",
+      "size": 1,
+      "power": 2340,
+      "throttleMin": 0.05,
+      "extraction": 1850,
+      "rangeFull": 60,
+      "rangeZero": 180,
+      "slots": 1,
+      "requiredTags": [
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": 25,
+        "instability": -35,
+        "window": 40,
+        "rate": 0
+      },
+      "inertFilter": 30
+    },
+    {
+      "id": "mining_laser_grin_arbor_s2",
+      "name": "Arbor MH2",
+      "size": 2,
+      "power": 2900,
+      "throttleMin": 0.05,
+      "extraction": 2590,
+      "rangeFull": 90,
+      "rangeZero": 270,
+      "slots": 2,
+      "requiredTags": [
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": 25,
+        "instability": -35,
+        "window": 40,
+        "rate": 0
+      },
+      "inertFilter": 40
+    },
+    {
+      "id": "mining_laser_gama_hyun_s1",
+      "name": "Gama Hyun S1",
+      "size": 1,
+      "power": 3150,
+      "throttleMin": 0.2,
+      "extraction": 1295,
+      "rangeFull": 40,
+      "rangeZero": 45,
+      "slots": 2,
+      "requiredTags": [
+        "GAMA_Hyun",
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": 25,
+        "instability": 35,
+        "window": 40,
+        "rate": -40
+      },
+      "inertFilter": 40
+    },
+    {
+      "id": "mining_laser_thcn_helix_s1",
+      "name": "Helix I",
+      "size": 1,
+      "power": 3900,
+      "throttleMin": 0.2,
+      "extraction": 1850,
+      "rangeFull": 15,
+      "rangeZero": 45,
+      "slots": 2,
+      "requiredTags": [
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": -30,
+        "instability": 0,
+        "window": -40,
+        "rate": 0
+      },
+      "inertFilter": 30
+    },
+    {
+      "id": "mining_laser_thcn_helix_s2",
+      "name": "Helix II",
+      "size": 2,
+      "power": 4930,
+      "throttleMin": 0.3,
+      "extraction": 2590,
+      "rangeFull": 30,
+      "rangeZero": 90,
+      "slots": 3,
+      "requiredTags": [
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": -30,
+        "instability": 0,
+        "window": -40,
+        "rate": 0
+      },
+      "inertFilter": 40
+    },
+    {
+      "id": "mining_laser_shin_hofstede_s1",
+      "name": "Hofstede-S1",
+      "size": 1,
+      "power": 2600,
+      "throttleMin": 0.05,
+      "extraction": 1295,
+      "rangeFull": 45,
+      "rangeZero": 135,
+      "slots": 1,
+      "requiredTags": [
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": -30,
+        "instability": 10,
+        "window": 60,
+        "rate": 20
+      },
+      "inertFilter": 30
+    },
+    {
+      "id": "mining_laser_shin_hofstede_s2",
+      "name": "Hofstede-S2",
+      "size": 2,
+      "power": 4060,
+      "throttleMin": 0.1,
+      "extraction": 1295,
+      "rangeFull": 60,
+      "rangeZero": 180,
+      "slots": 2,
+      "requiredTags": [
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": -30,
+        "instability": 10,
+        "window": 60,
+        "rate": 20
+      },
+      "inertFilter": 40
+    },
+    {
+      "id": "mining_laser_thcn_impact_s1",
+      "name": "Impact I",
+      "size": 1,
+      "power": 2600,
+      "throttleMin": 0.2,
+      "extraction": 2775,
+      "rangeFull": 45,
+      "rangeZero": 135,
+      "slots": 2,
+      "requiredTags": [
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": 10,
+        "instability": -10,
+        "window": 20,
+        "rate": -40
+      },
+      "inertFilter": 30
+    },
+    {
+      "id": "mining_laser_thcn_impact_s2",
+      "name": "Impact II",
+      "size": 2,
+      "power": 4060,
+      "throttleMin": 0.3,
+      "extraction": 3145,
+      "rangeFull": 60,
+      "rangeZero": 180,
+      "slots": 3,
+      "requiredTags": [
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": 10,
+        "instability": -10,
+        "window": 20,
+        "rate": -40
+      },
+      "inertFilter": 40
+    },
+    {
+      "id": "mining_laser_shin_klein_s1",
+      "name": "Klein-S1",
+      "size": 1,
+      "power": 3120,
+      "throttleMin": 0.15,
+      "extraction": 2220,
+      "rangeFull": 45,
+      "rangeZero": 135,
+      "slots": 0,
+      "requiredTags": [
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": -45,
+        "instability": 35,
+        "window": 20,
+        "rate": 0
+      },
+      "inertFilter": 30
+    },
+    {
+      "id": "mining_laser_shin_klein_s2",
+      "name": "Klein-S2",
+      "size": 2,
+      "power": 4350,
+      "throttleMin": 0.2,
+      "extraction": 2775,
+      "rangeFull": 60,
+      "rangeZero": 180,
+      "slots": 1,
+      "requiredTags": [
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": -45,
+        "instability": 35,
+        "window": 20,
+        "rate": 0
+      },
+      "inertFilter": 40
+    },
+    {
+      "id": "mining_laser_grin_lancet_s1",
+      "name": "Lancet MH1",
+      "size": 1,
+      "power": 3120,
+      "throttleMin": 0.2,
+      "extraction": 1850,
+      "rangeFull": 30,
+      "rangeZero": 90,
+      "slots": 1,
+      "requiredTags": [
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": 0,
+        "instability": -10,
+        "window": -60,
+        "rate": 40
+      },
+      "inertFilter": 30
+    },
+    {
+      "id": "mining_laser_grin_lancet_s2",
+      "name": "Lancet MH2",
+      "size": 2,
+      "power": 4350,
+      "throttleMin": 0.3,
+      "extraction": 2590,
+      "rangeFull": 45,
+      "rangeZero": 135,
+      "slots": 2,
+      "requiredTags": [
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": 0,
+        "instability": -10,
+        "window": -60,
+        "rate": 40
+      },
+      "inertFilter": 40
+    },
+    {
+      "id": "mining_laser_drak_golem_s1",
+      "name": "Pitman",
+      "size": 1,
+      "power": 3900,
+      "throttleMin": 0.2,
+      "extraction": 1295,
+      "rangeFull": 40,
+      "rangeZero": 45,
+      "slots": 0,
+      "requiredTags": [
+        "DRAK_Golem",
+        "miningMount"
+      ],
+      "mods": {
+        "resistance": 25,
+        "instability": 35,
+        "window": 40,
+        "rate": -40
+      },
+      "inertFilter": 40
+    }
+  ],
+  "modules": [
+    {
+      "id": "mining_modules_active_brandt",
+      "name": "Brandt",
+      "active": true,
+      "power": 1.35,
+      "extraction": 1,
+      "mods": {
+        "resistance": 15.5,
+        "instability": 0,
+        "window": 0,
+        "rate": 0,
+        "shatter": -30,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": 5,
+      "durationS": 60,
+      "canInterrupt": true,
+      "isInterruptible": true
+    },
+    {
+      "id": "mining_modules_active_clearcut",
+      "name": "Clearcut",
+      "active": true,
+      "power": 1.15,
+      "extraction": 1,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 30,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": 6,
+      "durationS": 30,
+      "canInterrupt": true,
+      "isInterruptible": true
+    },
+    {
+      "id": "mining_modules_passive_deluge",
+      "name": "Deluge",
+      "active": false,
+      "power": 1.15,
+      "extraction": 0.85,
+      "mods": {
+        "resistance": -15.5,
+        "instability": 0,
+        "window": 0,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_fltr_mk1",
+      "name": "FLTR",
+      "active": false,
+      "power": 1,
+      "extraction": 0.85,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 0,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 20
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_fltr_mk2",
+      "name": "FLTR-L",
+      "active": false,
+      "power": 1,
+      "extraction": 0.9,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 0,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 23
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_fltr_mk3",
+      "name": "FLTR-XL",
+      "active": false,
+      "power": 1,
+      "extraction": 0.95,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 0,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 24
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_focus_mk1",
+      "name": "Focus",
+      "active": false,
+      "power": 0.85,
+      "extraction": 1,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 30,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_focus_mk2",
+      "name": "Focus II",
+      "active": false,
+      "power": 0.9,
+      "extraction": 1,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 37,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_focus_mk3",
+      "name": "Focus III",
+      "active": false,
+      "power": 0.95,
+      "extraction": 1,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 40,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_active_forel",
+      "name": "Forel",
+      "active": true,
+      "power": 1,
+      "extraction": 1.5,
+      "mods": {
+        "resistance": 15.5,
+        "instability": 0,
+        "window": 0,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": -60,
+        "inertFilter": 0
+      },
+      "uses": 6,
+      "durationS": 60,
+      "canInterrupt": true,
+      "isInterruptible": true
+    },
+    {
+      "id": "mining_modules_active_lifeline",
+      "name": "Lifeline",
+      "active": true,
+      "power": 1,
+      "extraction": 1,
+      "mods": {
+        "resistance": -15.5,
+        "instability": -20,
+        "window": 0,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 60,
+        "inertFilter": 0
+      },
+      "uses": 3,
+      "durationS": 15,
+      "canInterrupt": true,
+      "isInterruptible": true
+    },
+    {
+      "id": "mining_modules_active_optimum",
+      "name": "Optimum",
+      "active": true,
+      "power": 0.85,
+      "extraction": 1,
+      "mods": {
+        "resistance": 0,
+        "instability": -10,
+        "window": 0,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": -80,
+        "inertFilter": 0
+      },
+      "uses": 5,
+      "durationS": 60,
+      "canInterrupt": true,
+      "isInterruptible": true
+    },
+    {
+      "id": "mining_modules_passive_overrun",
+      "name": "Overrun",
+      "active": false,
+      "power": 1.02,
+      "extraction": 0.85,
+      "mods": {
+        "resistance": -24.8,
+        "instability": 0,
+        "window": 0,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_rieger_mk1",
+      "name": "Rieger",
+      "active": false,
+      "power": 1.15,
+      "extraction": 1,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": -10,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_rieger_mk2",
+      "name": "Rieger-C2",
+      "active": false,
+      "power": 1.2,
+      "extraction": 1,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": -3,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_rieger_mk3",
+      "name": "Rieger-C3",
+      "active": false,
+      "power": 1.25,
+      "extraction": 1,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": -1,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_active_rime",
+      "name": "Rime",
+      "active": true,
+      "power": 0.85,
+      "extraction": 1,
+      "mods": {
+        "resistance": -24.8,
+        "instability": 0,
+        "window": 0,
+        "rate": 0,
+        "shatter": -10,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": 10,
+      "durationS": 20,
+      "canInterrupt": true,
+      "isInterruptible": true
+    },
+    {
+      "id": "mining_modules_active_stampede",
+      "name": "Stampede",
+      "active": true,
+      "power": 1.35,
+      "extraction": 0.85,
+      "mods": {
+        "resistance": 0,
+        "instability": -10,
+        "window": 0,
+        "rate": 0,
+        "shatter": -10,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": 6,
+      "durationS": 30,
+      "canInterrupt": true,
+      "isInterruptible": true
+    },
+    {
+      "id": "mining_modules_active_surge",
+      "name": "Surge",
+      "active": true,
+      "power": 1.5,
+      "extraction": 1,
+      "mods": {
+        "resistance": -15.5,
+        "instability": 10,
+        "window": 0,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": 7,
+      "durationS": 15,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_active_torpid",
+      "name": "Torpid",
+      "active": true,
+      "power": 1,
+      "extraction": 1,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 0,
+        "rate": 60,
+        "shatter": 40,
+        "catastrophic": -60,
+        "inertFilter": 0
+      },
+      "uses": 5,
+      "durationS": 60,
+      "canInterrupt": true,
+      "isInterruptible": true
+    },
+    {
+      "id": "mining_modules_passive_torrent_mk1",
+      "name": "Torrent",
+      "active": false,
+      "power": 1,
+      "extraction": 1,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": -10,
+        "rate": 30,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_torrent_mk2",
+      "name": "Torrent II",
+      "active": false,
+      "power": 1,
+      "extraction": 1,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": -3,
+        "rate": 35,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_torrent_mk3",
+      "name": "Torrent III",
+      "active": false,
+      "power": 1,
+      "extraction": 1,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": -1,
+        "rate": 45,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_vaux_mk1",
+      "name": "Vaux",
+      "active": false,
+      "power": 1,
+      "extraction": 1.15,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 0,
+        "rate": -20,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_vaux_mk2",
+      "name": "Vaux-C2",
+      "active": false,
+      "power": 1,
+      "extraction": 1.2,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 0,
+        "rate": -15,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_vaux_mk3",
+      "name": "Vaux-C3",
+      "active": false,
+      "power": 1,
+      "extraction": 1.25,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 0,
+        "rate": -5,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 0
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_xtr_mk1",
+      "name": "XTR",
+      "active": false,
+      "power": 1,
+      "extraction": 0.85,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 15,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 5
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_xtr_mk2",
+      "name": "XTR-L",
+      "active": false,
+      "power": 1,
+      "extraction": 0.9,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 22,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 5.75
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    },
+    {
+      "id": "mining_modules_passive_xtr_mk3",
+      "name": "XTR-XL",
+      "active": false,
+      "power": 1,
+      "extraction": 0.95,
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 25,
+        "rate": 0,
+        "shatter": 0,
+        "catastrophic": 0,
+        "inertFilter": 6
+      },
+      "uses": null,
+      "durationS": null,
+      "canInterrupt": false,
+      "isInterruptible": false
+    }
+  ],
+  "gadgets": [
+    {
+      "id": "mining_gadget_thcn_boremax",
+      "name": "BoreMax",
+      "mods": {
+        "resistance": 10,
+        "instability": -70,
+        "window": 0,
+        "rate": 0,
+        "cluster": 30
+      }
+    },
+    {
+      "id": "mining_gadget_shin_okunis",
+      "name": "Okunis",
+      "mods": {
+        "resistance": 0,
+        "instability": 0,
+        "window": 50,
+        "rate": 100,
+        "cluster": -20
+      }
+    },
+    {
+      "id": "mining_gadget_grin_optimax",
+      "name": "OptiMax",
+      "mods": {
+        "resistance": -25,
+        "instability": 0,
+        "window": -30,
+        "rate": 0,
+        "cluster": 60
+      }
+    },
+    {
+      "id": "mining_gadget_shin_sabir",
+      "name": "Sabir",
+      "mods": {
+        "resistance": -50,
+        "instability": 15,
+        "window": 50,
+        "rate": 0,
+        "cluster": 0
+      }
+    },
+    {
+      "id": "mining_gadget_thcn_stalwart",
+      "name": "Stalwart",
+      "mods": {
+        "resistance": 0,
+        "instability": -35,
+        "window": -30,
+        "rate": 50,
+        "cluster": 30
+      }
+    },
+    {
+      "id": "mining_gadget_grin_waveshift",
+      "name": "Waveshift",
+      "mods": {
+        "resistance": 0,
+        "instability": -35,
+        "window": 100,
+        "rate": -30,
+        "cluster": 0
+      }
+    }
+  ],
+  "ores": [
+    {
+      "id": "Ore_Agricium",
+      "name": "Agricium",
+      "form": "ORE"
+    },
+    {
+      "id": "Ore_Aluminum",
+      "name": "Aluminum",
+      "form": "ORE"
+    },
+    {
+      "id": "Raw_Aslarite",
+      "name": "Aslarite",
+      "form": "RAW"
+    },
+    {
+      "id": "Raw_Beryl",
+      "name": "Beryl",
+      "form": "RAW"
+    },
+    {
+      "id": "Raw_Bexalite",
+      "name": "Bexalite",
+      "form": "RAW"
+    },
+    {
+      "id": "Ore_Borase",
+      "name": "Borase",
+      "form": "ORE"
+    },
+    {
+      "id": "Ore_Copper",
+      "name": "Copper",
+      "form": "ORE"
+    },
+    {
+      "id": "Raw_Corundum",
+      "name": "Corundum",
+      "form": "RAW"
+    },
+    {
+      "id": "Ore_Gold",
+      "name": "Gold",
+      "form": "ORE"
+    },
+    {
+      "id": "Raw_Hephaestanite",
+      "name": "Hephaestanite",
+      "form": "RAW"
+    },
+    {
+      "id": "Raw_Ice",
+      "name": "Ice",
+      "form": "RAW"
+    },
+    {
+      "id": "Ore_Iron",
+      "name": "Iron",
+      "form": "ORE"
+    },
+    {
+      "id": "Raw_Laranite",
+      "name": "Laranite",
+      "form": "RAW"
+    },
+    {
+      "id": "Ore_Lindinium",
+      "name": "Lindinium",
+      "form": "ORE"
+    },
+    {
+      "id": "Raw_Ouratite",
+      "name": "Ouratite",
+      "form": "RAW"
+    },
+    {
+      "id": "Raw_Quantainium",
+      "name": "Quantainium",
+      "form": "RAW"
+    },
+    {
+      "id": "Raw_Quartz",
+      "name": "Quartz",
+      "form": "RAW"
+    },
+    {
+      "id": "Ore_Riccite",
+      "name": "Riccite",
+      "form": "ORE"
+    },
+    {
+      "id": "Ore_Savrilium",
+      "name": "Savrilium",
+      "form": "ORE"
+    },
+    {
+      "id": "Raw_Silicon",
+      "name": "Silicon",
+      "form": "RAW"
+    },
+    {
+      "id": "Ore_Stileron",
+      "name": "Stileron",
+      "form": "ORE"
+    },
+    {
+      "id": "Raw_Taranite",
+      "name": "Taranite",
+      "form": "RAW"
+    },
+    {
+      "id": "Ore_Tin",
+      "name": "Tin",
+      "form": "ORE"
+    },
+    {
+      "id": "Ore_Titanium",
+      "name": "Titanium",
+      "form": "ORE"
+    },
+    {
+      "id": "Ore_Torite",
+      "name": "Torite",
+      "form": "ORE"
+    },
+    {
+      "id": "Ore_Tungsten",
+      "name": "Tungsten",
+      "form": "ORE"
+    }
+  ]
+}
