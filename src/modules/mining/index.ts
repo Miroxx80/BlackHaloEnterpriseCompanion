@@ -1,9 +1,12 @@
-import { copyFileSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import type { BhModule } from '../../core/types.js';
 import { calculate, DEFAULT_OPTIONS, InputError, POWER_BONUS_RANGE } from './calc.js';
 import { createScanValidator, emptyDraft, type ScanDraft } from './scanState.js';
+import { noReader, type LineReader } from './ocr/engine.js';
+import { ScreenError } from './ocr/image.js';
+import { readScan } from './ocr/pipeline.js';
 import type { CalcOptions, Dataset, LoadoutInput, ScanInput } from './types.js';
 
 /** Service "mining.scan" für andere Module (z. B. OCR): aktuellen Scan lesen oder ersetzen. */
@@ -224,6 +227,56 @@ const mod: BhModule = {
     });
 
     ctx.http.get('/scan', async () => current);
+
+    // ---------- OCR: Screenshot einlesen ----------
+    const reader: LineReader = noReader; // wird durch die gewählte Texterkennung ersetzt
+    const samplesDir = join(ctx.dataDir, 'ocr-samples');
+    const MAX_SAMPLES = 100;
+    /** Panel-Ausschnitt + Ergebnis aufheben: verlustfreie Beispiele, um die Erkennung zu verbessern. */
+    function keepSample(panelPng: Buffer, result: unknown) {
+      try {
+        mkdirSync(samplesDir, { recursive: true });
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        writeFileSync(join(samplesDir, `${stamp}-panel.png`), panelPng);
+        writeFileSync(join(samplesDir, `${stamp}-result.json`), JSON.stringify(result, null, 2));
+        const files = readdirSync(samplesDir).filter((f) => f.endsWith('-panel.png')).sort();
+        for (const old of files.slice(0, Math.max(0, files.length - MAX_SAMPLES))) {
+          rmSync(join(samplesDir, old), { force: true });
+          rmSync(join(samplesDir, old.replace('-panel.png', '-result.json')), { force: true });
+        }
+      } catch (err) {
+        ctx.log.warn(`OCR-Beispiel nicht gespeichert: ${(err as Error).message}`);
+      }
+    }
+
+    // Bilder kommen als rohe Bytes (Content-Type image/png, image/jpeg, image/webp)
+    ctx.http.addContentTypeParser(
+      ['image/png', 'image/jpeg', 'image/webp', 'application/octet-stream'],
+      { parseAs: 'buffer', bodyLimit: 20 * 1024 * 1024 },
+      (_req, body, done) => done(null, body),
+    );
+
+    /** POST /api/mining/ocr[?apply=1] mit dem Screenshot als Body. apply: Ergebnis in den gemeinsamen Scan übernehmen. */
+    ctx.http.post<{ Querystring: { apply?: string } }>('/ocr', async (req, reply) => {
+      if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+        return reply.code(400).send({ error: 'Screenshot fehlt (PNG, JPG oder WebP als Body senden)' });
+      }
+      try {
+        const { result, panelPng } = await readScan(req.body, reader, data.ores);
+        keepSample(panelPng, result);
+        let applied = false;
+        if (req.query.apply === '1' && result.panelFound) {
+          commitScan(validator.validateDraft({ ...result.draft, marks: result.marks }), 'ocr');
+          applied = true;
+        }
+        ctx.log.info(`OCR (${result.engine}, ${result.ms} ms): Panel ${result.panelFound ? 'gefunden' : 'nicht gefunden'}, ${Object.keys(result.marks).length} Feld(er) zu prüfen`);
+        return { ...result, applied };
+      } catch (err) {
+        if (err instanceof ScreenError) return reply.code(400).send({ error: err.message });
+        ctx.log.error('OCR fehlgeschlagen:', err);
+        return reply.code(500).send({ error: `Screenshot konnte nicht gelesen werden: ${(err as Error).message}` });
+      }
+    });
 
     /** Änderungen als Befehle: { ops: [...], origin: "<geräte-id>" }. Antwort: neuer Stand. */
     ctx.http.post('/scan', async (req, reply) => {

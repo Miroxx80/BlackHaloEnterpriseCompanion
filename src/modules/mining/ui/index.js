@@ -16,6 +16,11 @@ const STYLE = `
 .mn-empty { margin: 0; padding: 18px; color: var(--text-dim); }
 .mn-sync { margin-left: auto; font-size: var(--fs-xs); color: var(--text-faint); }
 .mn-sync.bad { color: var(--bad); }
+.mn .mn-check { border-color: var(--warn) !important; box-shadow: 0 0 0 1px var(--warn), 0 0 0 4px color-mix(in srgb, var(--warn) 18%, transparent); }
+.mn-checkbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 16px; padding: 10px 12px; border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--s1)); font-size: 14px; }
+.mn-checkbar b { color: var(--warn); font-family: var(--font-head); letter-spacing: .08em; text-transform: uppercase; }
+.mn-checkbar .grow { flex: 1; min-width: 160px; }
+.mn-ocr-notes { display: grid; gap: 8px; margin: 0 0 16px; }
 .mn-variants { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: var(--fs-s); color: var(--text-dim); }
 .mn-variants b { font-family: var(--font-head); letter-spacing: .06em; text-transform: uppercase; font-weight: 700; }
 .mn-c-ok { color: var(--ok); }
@@ -87,6 +92,7 @@ const emptyScan = () => ({
   scu: '',
   gadget: '',
   parts: [emptyPart()],
+  marks: {},
 });
 
 // ---- Zahlen aus der Eingabe (HUD-Schreibweisen erlaubt) ----
@@ -229,7 +235,7 @@ export async function mount(root, api) {
 
   // ---------- Scan-Eingabe ----------
   function segmented(key, name) {
-    const seg = el('div', { class: 'seg', role: 'group', 'aria-label': name });
+    const seg = el('div', { class: `seg${scan.marks?.[key] ? ' mn-check' : ''}`, role: 'group', 'aria-label': name, 'data-mark': key });
     const buttons = [['white', 'Weiß'], ['green', 'Grün'], ['red', 'Rot']].map(([v, label]) =>
       el(
         'button',
@@ -244,6 +250,7 @@ export async function mount(root, api) {
             // An Ort und Stelle umschalten, damit der Fokus auf dem Knopf bleibt
             for (const b of buttons) b.setAttribute('aria-pressed', String(b.dataset.v === v));
             queue({ op: 'set', field: key, value: v });
+            clearMark(key);
             changed();
           },
         },
@@ -262,6 +269,7 @@ export async function mount(root, api) {
     const set = (key) => (e) => {
       scan[key] = e.target.value;
       queue({ op: 'set', field: key, value: e.target.value });
+      clearMark(key);
       changed();
     };
     // Ungültige Eingaben rot markieren statt still zu ignorieren
@@ -341,6 +349,7 @@ export async function mount(root, api) {
       const setPart = (key, parse) => (e) => {
         scan.parts[i][key] = e.target.value;
         queue({ op: 'part', index: i, field: key, value: e.target.value });
+        clearMark(`parts.${i}.${key}`);
         if (parse) markInvalid(e.target, parse);
         if (key === 'pct') updateSum();
         changed();
@@ -401,7 +410,7 @@ export async function mount(root, api) {
 
     scanPanel.replaceChildren(
       el('div', { class: 'panel-head' }, el('h2', {}, el('span', { class: 'idx' }, '01'), 'Scan', el('span', { class: 'tag' }, 'auf allen Geräten gleich')), syncState, resetButton),
-      el('div', { class: 'panel-body' }, fields),
+      el('div', { class: 'panel-body' }, el('div', { class: 'mn-actions', style: { marginBottom: '16px' } }, ocrButton, fileInput), ocrNotes, checkBar, fields),
       el('hr', { class: 'panel-sep' }),
       el('div', { class: 'panel-head' }, el('h2', {}, el('span', { class: 'idx' }, '02'), 'Zusammensetzung', el('span', { class: 'tag' }, 'optional')), addButton),
       el(
@@ -417,6 +426,11 @@ export async function mount(root, api) {
         ),
       ),
     );
+    // Unsicher gelesene Felder (OCR) gelb markieren
+    for (const path of Object.keys(scan.marks ?? {})) {
+      scanPanel.querySelector(`[data-path="${path}"]`)?.classList.add('mn-check');
+    }
+    updateCheckBar();
   }
 
   // ---------- Rechnen ----------
@@ -450,6 +464,56 @@ export async function mount(root, api) {
 
   function changed() {
     schedule();
+  }
+
+  // ---------- Screenshot einlesen (OCR) ----------
+  const fileInput = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', hidden: true });
+  const ocrButton = button('Screenshot einlesen', { iconName: 'scan', onclick: () => fileInput.click() });
+  ocrButton.title = 'Screenshot (1920x1080) auswählen oder mit Strg+V einfügen';
+  const ocrNotes = el('div', { class: 'mn-ocr-notes' });
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files?.[0];
+    fileInput.value = '';
+    if (f) readScreenshot(f);
+  });
+  // Strg+V: Bild aus der Zwischenablage (z. B. nach Druck-Taste oder Snipping-Tool)
+  const onPaste = (e) => {
+    const item = [...(e.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'));
+    if (!item) return;
+    e.preventDefault();
+    readScreenshot(item.getAsFile());
+  };
+  document.addEventListener('paste', onPaste);
+
+  async function readScreenshot(file) {
+    ocrButton.disabled = true;
+    ocrNotes.replaceChildren(notice('note', 'Screenshot wird gelesen ...', { iconName: 'scan' }));
+    try {
+      const res = await api.postRaw('/api/mining/ocr?apply=1', file, file.type || 'application/octet-stream');
+      const notes = [...res.notes];
+      if (res.applied) notes.unshift(`Gelesen in ${res.ms} ms (Erkennung: ${res.engine}). Gelb markierte Felder bitte prüfen.`);
+      ocrNotes.replaceChildren(...notes.map((n) => notice('note', n, { iconName: res.panelFound ? 'info' : 'edge' })));
+      if (res.applied) await refreshShared();
+    } catch (err) {
+      ocrNotes.replaceChildren(notice('alert', err.message));
+    } finally {
+      ocrButton.disabled = false;
+    }
+  }
+
+  // Leiste "bitte prüfen": solange Felder markiert sind
+  const checkCount = el('span', { class: 'grow' });
+  const checkBar = el(
+    'div',
+    { class: 'mn-checkbar', role: 'status', hidden: true },
+    el('b', {}, 'Bitte prüfen'),
+    checkCount,
+    button('Alles geprüft', { iconName: 'check', onclick: () => { queue({ op: 'unmark' }); scan.marks = {}; renderScan(); } }),
+  );
+  function updateCheckBar() {
+    const n = Object.keys(scan.marks ?? {}).length;
+    checkBar.hidden = n === 0;
+    checkCount.textContent = `${n} Feld${n === 1 ? '' : 'er'} unsicher gelesen (gelb markiert). Wert ändern oder bestätigen.`;
   }
 
   // ---------- Abgleich mit dem Server ----------
@@ -527,13 +591,36 @@ export async function mount(root, api) {
   /** Dieselben Befehle wie der Server, für die Anzeige noch nicht bestätigter Eingaben. */
   function applyLocal(d, op) {
     const n = structuredClone(d);
-    if (op.op === 'set') n[op.field] = op.value;
-    else if (op.op === 'part' && n.parts[op.index]) n.parts[op.index][op.field] = op.value;
+    n.marks = { ...(n.marks ?? {}) };
+    if (op.op === 'set') { n[op.field] = op.value; delete n.marks[op.field]; }
+    else if (op.op === 'part' && n.parts[op.index]) { n.parts[op.index][op.field] = op.value; delete n.marks[`parts.${op.index}.${op.field}`]; }
     else if (op.op === 'addPart') n.parts.push(emptyPart());
-    else if (op.op === 'removePart') { n.parts.splice(op.index, 1); if (!n.parts.length) n.parts.push(emptyPart()); }
+    else if (op.op === 'removePart') {
+      n.parts.splice(op.index, 1);
+      if (!n.parts.length) n.parts.push(emptyPart());
+      // Markierungen der folgenden Zeilen rutschen nach oben (wie auf dem Server)
+      const m = {};
+      for (const k of Object.keys(n.marks)) {
+        const hit = /^parts\.(\d+)\.(.+)$/.exec(k);
+        if (!hit) m[k] = 'check';
+        else if (+hit[1] !== op.index) m[+hit[1] > op.index ? `parts.${+hit[1] - 1}.${hit[2]}` : k] = 'check';
+      }
+      n.marks = m;
+    }
     else if (op.op === 'reset') return emptyScan();
+    else if (op.op === 'unmark') n.marks = {};
     else if (op.op === 'replace') return structuredClone(op.scan);
     return n;
+  }
+
+  /** Lokale Änderung an einem Feld entfernt dessen Markierung sofort (Server macht dasselbe). */
+  function clearMark(path) {
+    if (scan.marks?.[path]) {
+      delete scan.marks[path];
+      scanPanel.querySelector(`[data-path="${path}"]`)?.classList.remove('mn-check');
+      scanPanel.querySelector(`[data-mark="${path}"]`)?.classList.remove('mn-check');
+      updateCheckBar();
+    }
   }
 
   function setPath(d, path, value) {
@@ -1055,6 +1142,7 @@ export async function mount(root, api) {
     clearTimeout(flushTimer);
     flush();
     document.removeEventListener('visibilitychange', onVisible);
+    document.removeEventListener('paste', onPaste);
     seq++; // späte Antworten nicht mehr anzeigen
     observer?.disconnect();
     style.remove();
