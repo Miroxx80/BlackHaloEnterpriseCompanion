@@ -14,6 +14,8 @@ const STYLE = `
 .mn-msg:empty { display: none; }
 .mn-msg { margin: 0; font-size: var(--fs-s); color: var(--bad); }
 .mn-empty { margin: 0; padding: 18px; color: var(--text-dim); }
+.mn-sync { margin-left: auto; font-size: var(--fs-xs); color: var(--text-faint); }
+.mn-sync.bad { color: var(--bad); }
 .mn-variants { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: var(--fs-s); color: var(--text-dim); }
 .mn-variants b { font-family: var(--font-head); letter-spacing: .06em; text-transform: uppercase; font-weight: 700; }
 .mn-c-ok { color: var(--ok); }
@@ -43,7 +45,8 @@ const ORE_COLORS = [
   'var(--text-dim)',
 ];
 
-const SCAN_KEY = 'bh-mining-scan';
+/** Früher pro Gerät gespeicherter Scan; wird einmalig auf den Server übernommen, dann gelöscht. */
+const LEGACY_SCAN_KEY = 'bh-mining-scan';
 const OPTIONS_KEY = 'bh-mining-options';
 
 const storage = {
@@ -62,7 +65,17 @@ const storage = {
       /* Speicher nicht verfügbar */
     }
   },
+  remove(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* Speicher nicht verfügbar */
+    }
+  },
 };
+
+const isEmptyDraft = (d) =>
+  !d.mass && !d.resistance && !d.instability && !d.scu && !d.gadget && d.parts.every((p) => !p.pct && !p.ore && !p.quality);
 
 const emptyPart = () => ({ pct: '', ore: '', quality: '' });
 const emptyScan = () => ({
@@ -113,15 +126,23 @@ export async function mount(root, api) {
 
   let data;
   let store;
+  let shared; // { revision, scan } vom Server
   try {
-    [data, store] = await Promise.all([api.get('/api/mining/data'), api.get('/api/mining/loadouts')]);
+    [data, store, shared] = await Promise.all([api.get('/api/mining/data'), api.get('/api/mining/loadouts'), api.get('/api/mining/scan')]);
   } catch (err) {
     root.append(pageHead(api, { title: 'Mining' }), notice('alert', `Mining-Daten nicht ladbar: ${err.message}`));
     return () => style.remove();
   }
 
-  let scan = { ...emptyScan(), ...storage.load(SCAN_KEY, {}) };
-  if (!Array.isArray(scan.parts) || !scan.parts.length) scan.parts = [emptyPart()];
+  // Der aktuelle Scan liegt auf dem PC-Server und ist auf allen Geräten gleich (PC-Fenster, Handy, später OCR).
+  let scan = structuredClone(shared.scan);
+  // Kennung dieses Geräts/Fensters, damit eigene Änderungen beim Verteilen nicht doppelt ankommen.
+  // (crypto.randomUUID gibt es im LAN über http nicht, daher Math.random)
+  const origin = `ui-${Math.random().toString(36).slice(2, 12)}`;
+  let pending = []; // noch nicht gesendete Änderungen
+  let inflight = false;
+  let flushTimer = null;
+  let retryTimer = null;
   let options = { ...data.defaults, ...storage.load(OPTIONS_KEY, {}) };
   let editing = null; // Kopie des Loadouts im Editor
   let timer = null;
@@ -210,10 +231,12 @@ export async function mount(root, api) {
           class: 'seg-btn',
           'data-v': v,
           'aria-pressed': String(v === scan[key]),
+          'data-path': `${key}:${v}`,
           onclick: () => {
             scan[key] = v;
             // An Ort und Stelle umschalten, damit der Fokus auf dem Knopf bleibt
             for (const b of buttons) b.setAttribute('aria-pressed', String(b.dataset.v === v));
+            queue({ op: 'set', field: key, value: v });
             changed();
           },
         },
@@ -231,12 +254,13 @@ export async function mount(root, api) {
   function renderScan() {
     const set = (key) => (e) => {
       scan[key] = e.target.value;
+      queue({ op: 'set', field: key, value: e.target.value });
       changed();
     };
     // Ungültige Eingaben rot markieren statt still zu ignorieren
     const parsers = { mass: parseInt0, resistance: parseDec, instability: parseDec, scu: parseScu };
     const num = (key, placeholder, mode = 'decimal', id) => {
-      const input = el('input', { class: 'input', id, value: scan[key], placeholder, inputmode: mode, autocomplete: 'off' });
+      const input = el('input', { class: 'input', id, value: scan[key], placeholder, inputmode: mode, autocomplete: 'off', 'data-path': key });
       input.addEventListener('input', (e) => {
         set(key)(e);
         markInvalid(input, parsers[key]);
@@ -247,7 +271,7 @@ export async function mount(root, api) {
 
     const gadgetSelect = el(
       'select',
-      { class: 'select', onchange: set('gadget') },
+      { class: 'select', onchange: set('gadget'), 'data-path': 'gadget' },
       el('option', { value: '' }, 'keins'),
       data.gadgets.map((g) => el('option', { value: g.id, selected: g.id === scan.gadget }, g.name)),
     );
@@ -292,7 +316,9 @@ export async function mount(root, api) {
       variant: 'ghost',
       iconName: 'plus',
       onclick: () => {
+        if (scan.parts.length >= 12) return; // wie der Server
         scan.parts.push(emptyPart());
+        queue({ op: 'addPart' });
         renderScan();
         scanPanel.querySelector('.comp-row:last-child .input')?.focus();
       },
@@ -307,12 +333,13 @@ export async function mount(root, api) {
     scan.parts.forEach((p, i) => {
       const setPart = (key, parse) => (e) => {
         scan.parts[i][key] = e.target.value;
+        queue({ op: 'part', index: i, field: key, value: e.target.value });
         if (parse) markInvalid(e.target, parse);
         if (key === 'pct') updateSum();
         changed();
       };
-      const pct = el('input', { class: 'input', value: p.pct, placeholder: '%', inputmode: 'decimal', autocomplete: 'off', 'aria-label': 'Anteil in %', oninput: setPart('pct', parseDec) });
-      const quality = el('input', { class: 'input', value: p.quality, placeholder: 'Qual.', inputmode: 'numeric', autocomplete: 'off', 'aria-label': 'Qualität', oninput: setPart('quality', parseInt0) });
+      const pct = el('input', { class: 'input', value: p.pct, placeholder: '%', inputmode: 'decimal', autocomplete: 'off', 'aria-label': 'Anteil in %', 'data-path': `parts.${i}.pct`, oninput: setPart('pct', parseDec) });
+      const quality = el('input', { class: 'input', value: p.quality, placeholder: 'Qual.', inputmode: 'numeric', autocomplete: 'off', 'aria-label': 'Qualität', 'data-path': `parts.${i}.quality`, oninput: setPart('quality', parseInt0) });
       markInvalid(pct, parseDec);
       markInvalid(quality, parseInt0);
       comp.append(
@@ -322,7 +349,7 @@ export async function mount(root, api) {
           pct,
           el(
             'select',
-            { class: 'select', 'aria-label': 'Erz', onchange: setPart('ore') },
+            { class: 'select', 'aria-label': 'Erz', 'data-path': `parts.${i}.ore`, onchange: setPart('ore') },
             el('option', { value: '' }, 'Erz wählen'),
             el('option', { value: 'inert', selected: p.ore === 'inert' }, 'Inert (taubes Gestein)'),
             data.ores.map((o) => el('option', { value: o.id, selected: o.id === p.ore }, `${o.name} (${o.form === 'RAW' ? 'Raw' : 'Ore'})`)),
@@ -338,6 +365,7 @@ export async function mount(root, api) {
               onclick: () => {
                 scan.parts.splice(i, 1);
                 if (!scan.parts.length) scan.parts.push(emptyPart());
+                queue({ op: 'removePart', index: i });
                 renderScan();
                 changed();
                 // Fokus nicht verlieren: auf die nächste Zeile, sonst auf "+ Zeile"
@@ -357,6 +385,7 @@ export async function mount(root, api) {
       iconName: 'reset',
       onclick: () => {
         scan = emptyScan();
+        queue({ op: 'reset' });
         renderScan();
         changed();
         scanPanel.querySelector('.input')?.focus();
@@ -364,7 +393,7 @@ export async function mount(root, api) {
     });
 
     scanPanel.replaceChildren(
-      el('div', { class: 'panel-head' }, el('h2', {}, el('span', { class: 'idx' }, '01'), 'Scan'), resetButton),
+      el('div', { class: 'panel-head' }, el('h2', {}, el('span', { class: 'idx' }, '01'), 'Scan', el('span', { class: 'tag' }, 'auf allen Geräten gleich')), syncState, resetButton),
       el('div', { class: 'panel-body' }, fields),
       el('hr', { class: 'panel-sep' }),
       el('div', { class: 'panel-head' }, el('h2', {}, el('span', { class: 'idx' }, '02'), 'Zusammensetzung', el('span', { class: 'tag' }, 'optional')), addButton),
@@ -413,9 +442,123 @@ export async function mount(root, api) {
   }
 
   function changed() {
-    storage.save(SCAN_KEY, scan);
     schedule();
   }
+
+  // ---------- Abgleich mit dem Server ----------
+  const syncState = el('span', { class: 'mn-sync', role: 'status' });
+  function setSync(ok, text) {
+    syncState.textContent = text ?? (ok ? '' : 'Nicht synchronisiert – neuer Versuch läuft');
+    syncState.classList.toggle('bad', !ok);
+  }
+
+  /** Änderung merken und gebündelt senden. Mehrere Eingaben ins selbe Feld werden zusammengefasst. */
+  function queue(op) {
+    const last = pending[pending.length - 1];
+    const sameField = last && last.op === op.op && last.field === op.field && last.index === op.index && (op.op === 'set' || op.op === 'part');
+    if (sameField) pending[pending.length - 1] = op;
+    else pending.push(op);
+    clearTimeout(flushTimer);
+    flushTimer = setTimeout(flush, 120);
+  }
+
+  async function flush() {
+    if (inflight || !pending.length) return;
+    inflight = true;
+    const ops = pending;
+    pending = [];
+    try {
+      const res = await api.post('/api/mining/scan', { ops, origin });
+      setSync(true);
+      shared = res;
+      // Antwort ist der volle aktuelle Stand: holt auch verpasste Änderungen anderer Geräte nach
+      if (!pending.length) adoptRemote(res.scan);
+    } catch (err) {
+      if (err.status === 400) {
+        // Ungültig (z. B. Erz nach Daten-Update unbekannt): verwerfen und aktuellen Stand holen
+        setSync(false, `Nicht übernommen: ${err.message}`);
+        refreshShared();
+      } else {
+        pending = [...ops, ...pending];
+        setSync(false);
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(flush, 2000);
+      }
+    } finally {
+      inflight = false;
+      if (pending.length) flush();
+    }
+  }
+
+  /**
+   * Stand von außen übernehmen (anderes Gerät, Serverantwort, später OCR).
+   * Noch nicht gesendete eigene Eingaben bleiben erhalten, ebenso das Feld, in dem gerade getippt wird.
+   */
+  function adoptRemote(remote) {
+    let next = structuredClone(remote);
+    for (const op of pending) next = applyLocal(next, op);
+    if (JSON.stringify(next) === JSON.stringify(scan)) return;
+    const active = document.activeElement;
+    const path = active && scanPanel.contains(active) ? active.dataset.path : null;
+    const caret = path && 'selectionStart' in active ? [active.selectionStart, active.selectionEnd] : null;
+    const typed = path && active.tagName === 'INPUT' ? active.value : null;
+    scan = next;
+    if (typed != null) setPath(scan, path, typed);
+    renderScan();
+    if (path) {
+      const again = scanPanel.querySelector(`[data-path="${path}"]`);
+      if (again) {
+        again.focus();
+        if (caret && again.setSelectionRange) {
+          try { again.setSelectionRange(caret[0], caret[1]); } catch { /* nicht jedes Feld */ }
+        }
+      }
+    }
+    schedule();
+  }
+
+  /** Dieselben Befehle wie der Server, für die Anzeige noch nicht bestätigter Eingaben. */
+  function applyLocal(d, op) {
+    const n = structuredClone(d);
+    if (op.op === 'set') n[op.field] = op.value;
+    else if (op.op === 'part' && n.parts[op.index]) n.parts[op.index][op.field] = op.value;
+    else if (op.op === 'addPart') n.parts.push(emptyPart());
+    else if (op.op === 'removePart') { n.parts.splice(op.index, 1); if (!n.parts.length) n.parts.push(emptyPart()); }
+    else if (op.op === 'reset') return emptyScan();
+    else if (op.op === 'replace') return structuredClone(op.scan);
+    return n;
+  }
+
+  function setPath(d, path, value) {
+    const m = /^parts\.(\d+)\.(pct|ore|quality)$/.exec(path);
+    if (m) { if (d.parts[+m[1]]) d.parts[+m[1]][m[2]] = value; }
+    else if (path in d) d[path] = value;
+  }
+
+  async function refreshShared() {
+    try {
+      const [s, l] = await Promise.all([api.get('/api/mining/scan'), api.get('/api/mining/loadouts')]);
+      shared = s;
+      store = l;
+      renderLoadoutSelect();
+      if (!pending.length) adoptRemote(s.scan);
+    } catch { /* nächster Versuch beim nächsten Ereignis */ }
+  }
+
+  // Änderungen anderer Geräte live übernehmen
+  api.on('scan', (msg) => {
+    if (msg.origin === origin) return; // eigene Änderung, schon angezeigt
+    shared = { revision: msg.revision, scan: msg.scan };
+    adoptRemote(msg.scan);
+  });
+  api.on('loadouts', (next) => {
+    store = next;
+    renderLoadoutSelect();
+    schedule();
+  });
+  // Handy aus dem Standby zurück: Verbindung war evtl. weg, aktuellen Stand holen
+  const onVisible = () => { if (document.visibilityState === 'visible') refreshShared(); };
+  document.addEventListener('visibilitychange', onVisible);
 
   function schedule() {
     clearTimeout(timer);
@@ -847,12 +990,28 @@ export async function mount(root, api) {
     if (focusKey) editorPanel.querySelector(`[data-k="${focusKey}"]`)?.focus({ preventScroll: true });
   }
 
+  // Einmalig: Scan, der früher nur auf diesem Gerät gespeichert war, auf den Server übernehmen
+  const legacy = storage.load(LEGACY_SCAN_KEY, null);
+  if (legacy) {
+    storage.remove(LEGACY_SCAN_KEY);
+    if (isEmptyDraft(scan) && Array.isArray(legacy.parts)) {
+      const migrated = { ...emptyScan(), ...legacy, parts: legacy.parts.length ? legacy.parts.slice(0, 12) : [emptyPart()] };
+      scan = migrated;
+      queue({ op: 'replace', scan: migrated });
+    }
+  }
+
   renderLoadoutSelect();
   renderScan();
   run();
 
   return () => {
     clearTimeout(timer);
+    clearTimeout(retryTimer);
+    // Noch nicht gesendete Eingaben nicht verlieren
+    clearTimeout(flushTimer);
+    flush();
+    document.removeEventListener('visibilitychange', onVisible);
     seq++; // späte Antworten nicht mehr anzeigen
     observer?.disconnect();
     style.remove();
