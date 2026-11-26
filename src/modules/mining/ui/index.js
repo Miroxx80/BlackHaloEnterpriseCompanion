@@ -1099,7 +1099,7 @@ export async function mount(root, api) {
           el(
             'label',
             { class: 'field' },
-            el('span', { class: 'field-label' }, 'Crafting-Bonus Leistung', el('small', {}, '% · optional')),
+            el('span', { class: 'field-label' }, 'Crafting-Bonus', el('small', {}, 'optional')),
             el('span', { class: 'unit', 'data-unit': '%' }, bonusInput),
           ),
           ...slots,
