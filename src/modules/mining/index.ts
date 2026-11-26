@@ -236,21 +236,49 @@ const mod: BhModule = {
     const reader: LineReader = ctx.config.ocr === false ? noReader : createPaddleReader(ocrDir);
     const detector: TextDetector = ctx.config.ocr === false ? noDetector : createPaddleDetector(ocrDir);
     const samplesDir = join(ctx.dataDir, 'ocr-samples');
+    const confirmedDir = join(samplesDir, 'confirmed');
     const MAX_SAMPLES = 60;
-    /** Panel-Ausschnitt + Ergebnis aufheben: verlustfreie Beispiele, um die Erkennung zu verbessern. */
-    function keepSample(panelPng: Buffer, result: unknown) {
+    const MAX_CONFIRMED = 200;
+    /** Älteste Beispiele (Bild + JSON-Dateien mit derselben Kennung) über der Grenze löschen. */
+    function rotate(dir: string, max: number) {
+      const files = readdirSync(dir).filter((f) => f.endsWith('-panel.png')).sort();
+      for (const old of files.slice(0, Math.max(0, files.length - max))) {
+        const id = old.slice(0, -'-panel.png'.length);
+        for (const f of readdirSync(dir)) if (f.startsWith(id + '-')) rmSync(join(dir, f), { force: true });
+      }
+    }
+    /** Panel-Ausschnitt + Ergebnis aufheben: verlustfreie Beispiele, um die Erkennung zu verbessern. Gibt die Kennung zurück. */
+    function keepSample(panelPng: Buffer, result: unknown): string | undefined {
       try {
         mkdirSync(samplesDir, { recursive: true });
-        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-        writeFileSync(join(samplesDir, `${stamp}-panel.png`), panelPng);
-        writeFileSync(join(samplesDir, `${stamp}-result.json`), JSON.stringify(result, null, 2));
-        const files = readdirSync(samplesDir).filter((f) => f.endsWith('-panel.png')).sort();
-        for (const old of files.slice(0, Math.max(0, files.length - MAX_SAMPLES))) {
-          rmSync(join(samplesDir, old), { force: true });
-          rmSync(join(samplesDir, old.replace('-panel.png', '-result.json')), { force: true });
-        }
+        const id = new Date().toISOString().replace(/[:.]/g, '-');
+        writeFileSync(join(samplesDir, `${id}-panel.png`), panelPng);
+        writeFileSync(join(samplesDir, `${id}-result.json`), JSON.stringify(result, null, 2));
+        rotate(samplesDir, MAX_SAMPLES);
+        return id;
       } catch (err) {
         ctx.log.warn(`OCR-Beispiel nicht gespeichert: ${(err as Error).message}`);
+        return undefined;
+      }
+    }
+    /**
+     * "Alles geprüft" nach einer OCR: Beispiel nach confirmed/ verschieben und den bestätigten Scan als Wahrheit
+     * daneben legen (Trainingsdaten). Bestätigte Beispiele werden nicht mit den übrigen rotiert.
+     */
+    function confirmSample(id: string, scan: ScanDraft) {
+      try {
+        const panel = join(samplesDir, `${id}-panel.png`);
+        if (!existsSync(panel)) return; // schon rotiert
+        mkdirSync(confirmedDir, { recursive: true });
+        for (const suffix of ['-panel.png', '-result.json']) {
+          if (existsSync(join(samplesDir, id + suffix))) renameSync(join(samplesDir, id + suffix), join(confirmedDir, id + suffix));
+        }
+        const { marks: _m, ocrSample: _o, ...truth } = scan;
+        writeFileSync(join(confirmedDir, `${id}-truth.json`), JSON.stringify({ confirmedAt: new Date().toISOString(), scan: truth }, null, 2));
+        rotate(confirmedDir, MAX_CONFIRMED);
+        ctx.log.info(`OCR-Beispiel ${id} bestätigt (Trainingsdaten)`);
+      } catch (err) {
+        ctx.log.warn(`OCR-Beispiel nicht bestätigt: ${(err as Error).message}`);
       }
     }
 
@@ -265,10 +293,10 @@ const mod: BhModule = {
     async function ocrImage(image: Buffer, apply: boolean, reply: FastifyReply) {
       try {
         const { result, panelPng } = await readScan(image, reader, data.ores, { detector });
-        keepSample(panelPng, result);
+        const sample = keepSample(panelPng, result);
         let applied = false;
         if (apply && result.panelFound) {
-          commitScan(validator.validateDraft({ ...result.draft, marks: result.marks }), 'ocr');
+          commitScan(validator.validateDraft({ ...result.draft, marks: result.marks, ocrSample: sample }), 'ocr');
           applied = true;
         }
         ctx.log.info(`OCR (${result.engine}, ${result.ms} ms): Panel ${result.panelFound ? 'gefunden' : 'nicht gefunden'}, ${Object.keys(result.marks).length} Feld(er) zu prüfen`);
@@ -319,7 +347,13 @@ const mod: BhModule = {
       try {
         const body = (req.body ?? {}) as { ops?: unknown; origin?: unknown };
         const origin = typeof body.origin === 'string' && /^[\w-]{1,64}$/.test(body.origin) ? body.origin : 'unbekannt';
-        return commitScan(validator.apply(current.scan, body.ops), origin);
+        const before = current.scan;
+        const next = validator.apply(before, body.ops);
+        // "Alles geprüft" nach einer OCR: korrigierten Scan als Wahrheit zum Beispiel speichern
+        if (before.ocrSample && Array.isArray(body.ops) && body.ops.some((o) => (o as { op?: unknown })?.op === 'unmark')) {
+          confirmSample(before.ocrSample, next);
+        }
+        return commitScan(next, origin);
       } catch (err) {
         return badRequest(reply, err);
       }

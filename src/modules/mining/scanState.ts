@@ -31,6 +31,11 @@ export interface ScanDraft {
    * "parts.2.pct". Eine Änderung am Feld entfernt die Markierung.
    */
   marks?: Record<string, 'check'>;
+  /**
+   * Kennung des OCR-Beispiels, aus dem dieser Scan stammt, solange er noch nicht bestätigt ist. "Alles geprüft"
+   * speichert den (korrigierten) Scan dann als Wahrheit zum Beispiel (Trainingsdaten für die Erkennung).
+   */
+  ocrSample?: string;
 }
 
 export type ScanOp =
@@ -87,6 +92,13 @@ function shiftRowMarks(m: Record<string, 'check'>, removed: number): Record<stri
   return out;
 }
 
+const SAMPLE_ID = /^[\w-]{1,64}$/;
+function sampleId(v: unknown): string | undefined {
+  if (v === undefined || v === null || v === '') return undefined;
+  if (typeof v !== 'string' || !SAMPLE_ID.test(v)) throw new InputError('OCR-Beispiel ungültig');
+  return v;
+}
+
 function text(v: unknown, what: string): string {
   if (typeof v !== 'string') throw new InputError(`${what}: Text erwartet`);
   if (v.length > MAX_TEXT) throw new InputError(`${what}: höchstens ${MAX_TEXT} Zeichen`);
@@ -138,6 +150,7 @@ export function createScanValidator(data: Dataset) {
       gadget: gadget(d.gadget),
       parts: parts.length ? parts : [emptyPart()],
       marks: marks(d.marks),
+      ...(sampleId(d.ocrSample) ? { ocrSample: sampleId(d.ocrSample) } : {}),
     };
   }
 
@@ -178,13 +191,18 @@ export function createScanValidator(data: Dataset) {
         }
         case 'unmark':
           d.marks = {}; // alle Markierungen als geprüft bestätigen
+          delete d.ocrSample; // Bestätigung der OCR (die Wahrheit speichert der Server)
           break;
         case 'reset':
           Object.assign(d, emptyDraft());
+          delete d.ocrSample;
           break;
-        case 'replace':
-          Object.assign(d, validateDraft(op.scan));
+        case 'replace': {
+          const next = validateDraft(op.scan);
+          delete d.ocrSample;
+          Object.assign(d, next);
           break;
+        }
         default:
           throw new InputError('Unbekannter Befehl');
       }

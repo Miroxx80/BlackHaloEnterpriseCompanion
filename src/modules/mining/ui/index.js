@@ -517,19 +517,30 @@ export async function mount(root, api) {
     }
   }
 
-  // Leiste "bitte prüfen": solange Felder markiert sind
+  // Leiste "bitte prüfen": solange Felder markiert sind oder ein OCR-Scan noch nicht bestätigt ist.
+  // "Alles geprüft" speichert den korrigierten Scan als Wahrheit zum Beispielbild (Trainingsdaten).
   const checkCount = el('span', { class: 'grow' });
   const checkBar = el(
     'div',
     { class: 'mn-checkbar', role: 'status', hidden: true },
     el('b', {}, 'Bitte prüfen'),
     checkCount,
-    button('Alles geprüft', { iconName: 'check', onclick: () => { queue({ op: 'unmark' }); scan.marks = {}; renderScan(); } }),
+    button('Alles geprüft', {
+      iconName: 'check',
+      onclick: () => {
+        queue({ op: 'unmark' });
+        scan.marks = {};
+        delete scan.ocrSample;
+        renderScan();
+      },
+    }),
   );
   function updateCheckBar() {
     const n = Object.keys(scan.marks ?? {}).length;
-    checkBar.hidden = n === 0;
-    checkCount.textContent = `${n} Feld${n === 1 ? '' : 'er'} unsicher gelesen (gelb markiert). Wert ändern oder bestätigen.`;
+    checkBar.hidden = n === 0 && !scan.ocrSample;
+    checkCount.textContent = n
+      ? `${n} Feld${n === 1 ? '' : 'er'} unsicher gelesen (gelb markiert). Falsche Werte korrigieren, dann bestätigen.`
+      : 'Per Screenshot gelesen. Mit dem Spiel vergleichen, falsche Werte korrigieren, dann bestätigen.';
   }
 
   // ---------- Abgleich mit dem Server ----------
@@ -624,7 +635,10 @@ export async function mount(root, api) {
       n.marks = m;
     }
     else if (op.op === 'reset') return emptyScan();
-    else if (op.op === 'unmark') n.marks = {};
+    else if (op.op === 'unmark') {
+      n.marks = {};
+      delete n.ocrSample;
+    }
     else if (op.op === 'replace') return structuredClone(op.scan);
     return n;
   }

@@ -217,3 +217,41 @@ test('API: "Am PC einlesen" nimmt über die Desktop-App auf, ohne Desktop-App 50
     await app.stop();
   }
 });
+
+test('API: "Alles geprüft" nach einer OCR speichert den korrigierten Scan als Wahrheit (Trainingsdaten)', async () => {
+  const dataRoot = mkdtempSync(join(tmpdir(), 'bh-truth-'));
+  const app = await startApp({ overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' } } }, dataRoot });
+  const base = `http://127.0.0.1:${app.port}/api/mining`;
+  const post = (ops) => fetch(`${base}/scan`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ origin: 't', ops }) });
+  try {
+    const out = await (await fetch(`${base}/ocr?apply=1`, { method: 'POST', headers: { 'content-type': 'image/webp' }, body: fixture(HUD[0]) })).json();
+    assert.equal(out.applied, true);
+    let shared = await (await fetch(`${base}/scan`)).json();
+    const id = shared.scan.ocrSample;
+    assert.match(id, /^[\w-]+$/, 'Scan kennt sein Beispiel, solange er nicht bestätigt ist');
+    // Korrigieren lässt die Kennung stehen
+    shared = await (await post([{ op: 'set', field: 'instability', value: '58.23' }])).json();
+    assert.equal(shared.scan.ocrSample, id);
+    // Bestätigen: Beispiel wandert nach confirmed/, Wahrheit = korrigierter Scan
+    shared = await (await post([{ op: 'set', field: 'mass', value: '2927' }, { op: 'unmark' }])).json();
+    assert.equal(shared.scan.ocrSample, undefined);
+    assert.deepEqual(shared.scan.marks, {});
+    const dir = join(dataRoot, 'mining', 'ocr-samples', 'confirmed');
+    assert.deepEqual(readdirSync(dir).sort(), [`${id}-panel.png`, `${id}-result.json`, `${id}-truth.json`]);
+    const truth = JSON.parse(readFileSync(join(dir, `${id}-truth.json`), 'utf8'));
+    assert.equal(truth.scan.instability, '58.23');
+    assert.equal(truth.scan.mass, '2927');
+    assert.equal(truth.scan.marks, undefined);
+    assert.ok(!readdirSync(join(dataRoot, 'mining', 'ocr-samples')).some((f) => f.startsWith(id)), 'nicht mehr bei den unbestätigten');
+    // Nochmal bestätigen oder ohne OCR: nichts passiert
+    assert.equal((await post([{ op: 'unmark' }])).status, 200);
+    assert.equal(readdirSync(dir).length, 3);
+    // Neue Werte von Hand (replace/reset) beenden den Bezug zum Beispiel; ungültige Kennungen werden abgelehnt
+    await fetch(`${base}/ocr?apply=1`, { method: 'POST', headers: { 'content-type': 'image/webp' }, body: fixture(HUD[1]) });
+    shared = await (await post([{ op: 'reset' }])).json();
+    assert.equal(shared.scan.ocrSample, undefined);
+    assert.equal((await post([{ op: 'replace', scan: { ...shared.scan, ocrSample: '../../x' } }])).status, 400);
+  } finally {
+    await app.stop();
+  }
+});
