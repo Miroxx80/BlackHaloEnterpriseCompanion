@@ -174,9 +174,10 @@ Rechner für die Prospector: Steinwerte eingeben (oder einlesen), Loadout wähle
 - **Am PC einlesen** (Knopf im Rechner, z. B. am Handy, während du im Spiel bist): Die Desktop-App fotografiert den Hauptbildschirm und trägt die Werte ein. Nur sichtbar, wenn Black Halo als Desktop-App läuft. Das Spiel sollte im Modus „Borderless“ laufen; im exklusiven Vollbild kann die Aufnahme schwarz sein.
 - Hotkeys (Alt+Shift+S) kommen **im Spiel nicht an**, Star Citizen blockiert sie. Sie funktionieren nur außerhalb des Spiels, z. B. am Desktop.
 - Im Rechner: Knopf „Screenshot einlesen“ (Bilddatei) oder ein Bild mit **Strg+V** einfügen.
-- Unsichere Werte (v. a. 0/6/8, die durchgestrichene Null) sind **gelb markiert**, auf allen Geräten. Bitte prüfen und ggf. korrigieren, dann „Alles geprüft“.
+- Das Scan-Panel steht nicht fest (im Test bis ~100 px verschoben). Das Tool sucht es anhand der Beschriftungen (MASS, RES, INST, COMP.).
+- Unsichere Werte (v. a. 0/6/8, die durchgestrichene Null) sind **gelb markiert**, auf allen Geräten. Bitte prüfen und ggf. korrigieren, dann „Alles geprüft“. Vor hellem Planetenboden ist die Erkennung deutlich schwächer, dort ist mehr gelb.
 - Die Texterkennung (PaddleOCR) läuft lokal auf der CPU, ca. 0,2–0,4 s pro Bild. Es wird nur der Bildschirm fotografiert, nichts im Spiel gelesen oder gesteuert.
-- Die letzten 100 Screenshots mit Ergebnis liegen in `%APPDATA%\BlackHalo\data\mining\ocr-samples` (zum Verbessern der Erkennung).
+- Die letzten 60 Lesungen (Ausschnitt um das Panel + Ergebnis) liegen in `%APPDATA%\BlackHalo\data\mining\ocr-samples` (zum Verbessern der Erkennung).
 - Ausschalten: in `config\local.json` unter `modules.mining` `"ocr": false`.
 
 Entwickeln unter Linux: `ONNXRUNTIME_NODE_INSTALL=skip npm install` (sonst lädt onnxruntime CUDA-Dateien herunter). Unter Windows ist nichts extra nötig.

@@ -5,10 +5,10 @@ import type { FastifyReply } from 'fastify';
 import { SCREEN_CAPTURE_SERVICE, type BhModule, type ScreenCaptureService } from '../../core/types.js';
 import { calculate, DEFAULT_OPTIONS, InputError, POWER_BONUS_RANGE } from './calc.js';
 import { createScanValidator, emptyDraft, type ScanDraft } from './scanState.js';
-import { noReader, type LineReader } from './ocr/engine.js';
+import { noDetector, noReader, type LineReader, type TextDetector } from './ocr/engine.js';
 import { ScreenError } from './ocr/image.js';
 import { readScan } from './ocr/pipeline.js';
-import { createPaddleReader } from './ocr/paddle.js';
+import { createPaddleDetector, createPaddleReader } from './ocr/paddle.js';
 import type { CalcOptions, Dataset, LoadoutInput, ScanInput } from './types.js';
 
 /** Service "mining.scan" für andere Module (z. B. OCR): aktuellen Scan lesen oder ersetzen. */
@@ -232,9 +232,11 @@ const mod: BhModule = {
 
     // ---------- OCR: Screenshot einlesen ----------
     // Texterkennung: PaddleOCR (Modell in data/ocr). Abschaltbar per Config modules.mining.ocr = false.
-    const reader: LineReader = ctx.config.ocr === false ? noReader : createPaddleReader(join(ctx.dir, 'data', 'ocr'));
+    const ocrDir = join(ctx.dir, 'data', 'ocr');
+    const reader: LineReader = ctx.config.ocr === false ? noReader : createPaddleReader(ocrDir);
+    const detector: TextDetector = ctx.config.ocr === false ? noDetector : createPaddleDetector(ocrDir);
     const samplesDir = join(ctx.dataDir, 'ocr-samples');
-    const MAX_SAMPLES = 100;
+    const MAX_SAMPLES = 60;
     /** Panel-Ausschnitt + Ergebnis aufheben: verlustfreie Beispiele, um die Erkennung zu verbessern. */
     function keepSample(panelPng: Buffer, result: unknown) {
       try {
@@ -262,7 +264,7 @@ const mod: BhModule = {
     /** Screenshot lesen; apply: Ergebnis in den gemeinsamen Scan übernehmen (nur wenn das Panel gefunden wurde). */
     async function ocrImage(image: Buffer, apply: boolean, reply: FastifyReply) {
       try {
-        const { result, panelPng } = await readScan(image, reader, data.ores);
+        const { result, panelPng } = await readScan(image, reader, data.ores, { detector });
         keepSample(panelPng, result);
         let applied = false;
         if (apply && result.panelFound) {

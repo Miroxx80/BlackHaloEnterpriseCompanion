@@ -44,14 +44,20 @@ export type TextColor = 'white' | 'green' | 'red';
 /**
  * Farbe eines HUD-Werts: helle Pixel einzeln als weiß/grün/rot einordnen, Mehrheit entscheidet.
  * Getestet an echten Scans (weiß vor dunklem All, grün/rot vor heller Planetenoberfläche).
+ * Vor hellem Boden (Schnee) zählen nur Pixel deutlich heller als der Hintergrund (Median), sonst würde der
+ * Boden als "weiß" mitgezählt.
  * share: Anteil der Stimmen für die gewählte Farbe (0..1); null, wenn kaum Text zu sehen ist.
  */
 export function textColor(img: Rgb): { color: TextColor; share: number } | null {
   const votes = { white: 0, green: 0, red: 0 };
+  const maxima: number[] = [];
+  for (let i = 0; i < img.data.length; i += 3) maxima.push(Math.max(img.data[i], img.data[i + 1], img.data[i + 2]));
+  const background = maxima.sort((a, b) => a - b)[maxima.length >> 1] ?? 0;
+  const from = Math.min(245, Math.max(150, background + 25));
   for (let i = 0; i < img.data.length; i += 3) {
     const r = img.data[i], g = img.data[i + 1], b = img.data[i + 2];
     const max = Math.max(r, g, b);
-    if (max <= 150) continue;
+    if (max <= from) continue;
     const min = Math.min(r, g, b);
     if (max - min < 50) votes.white++;
     else if (g > r + 40 && g >= b) votes.green++;
@@ -109,26 +115,6 @@ export function findBand(img: Rgb, [wx, wy, ww, wh]: Box, thr = 110, expectH = 9
     }
   }
   return x0 < 0 ? null : [x0, y0, x1 - x0 + 1, y1 - y0 + 1];
-}
-
-/** Zeile an Lücken (mind. minGap leere Spalten) in Gruppen teilen: Anteil | Erzname | Qualität. */
-export function splitColumns(img: Rgb, [bx, by, bw, bh]: Box, minGap = 4, thr = 110): Box[] {
-  const out: Box[] = [];
-  let s = -1;
-  let last = -1;
-  for (let x = bx; x < bx + bw; x++) {
-    let has = false;
-    for (let y = by; y < by + bh; y++) if (ink(img, x, y, thr)) { has = true; break; }
-    if (!has) continue;
-    if (s < 0) s = x;
-    else if (x - last - 1 >= minGap) {
-      out.push([s, by, last - s + 1, bh]);
-      s = x;
-    }
-    last = x;
-  }
-  if (s >= 0) out.push([s, by, last - s + 1, bh]);
-  return out;
 }
 
 /** Ausschnitt mit Rand (für die Texterkennung), am Bildrand begrenzt. */
