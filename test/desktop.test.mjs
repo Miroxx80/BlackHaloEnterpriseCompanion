@@ -53,8 +53,10 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
   const mark = (name) => (step = name);
   try {
     const win = await app.firstWindow();
+    // Verbindungsanzeige der Shell: Text der Kopf-/Seitenleiste ('Verbunden' / 'Getrennt')
+    const isOnline = () => win.evaluate(() => document.querySelector('#conn .conn-state')?.textContent === 'Verbunden');
     await win.waitForSelector('nav a[data-id="pairing"]', { timeout: 15000 });
-    await win.waitForSelector('#grid button'); // Controls hat seine Buttons per REST geladen (Token im Header ok)
+    await win.waitForSelector('.keys .key'); // Controls hat seine Buttons per REST geladen (Token im Header ok)
 
     mark('Token');
     // Token wurde erzeugt, gespeichert und aus der Adresszeile entfernt
@@ -68,17 +70,17 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
     mark('Fokus');
     // Fenster ist in allen Ansichten ein normales, fokussierbares Fenster
     await win.evaluate(() => (location.hash = 'controls'));
-    await win.waitForSelector('#grid button');
+    await win.waitForSelector('.keys .key');
     assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFocusable()), true);
 
     mark('QR');
     // QR-Code-Ansicht
     await win.evaluate(() => (location.hash = 'pairing'));
-    await win.waitForSelector('#list img, #note:not(:empty)');
+    await win.waitForSelector('.pair img, .view .note, .view .alert');
 
     mark('Absturz-Neustart');
     // Server-Prozess abschießen: wird neu gestartet, die Shell verbindet sich wieder
-    await until(() => win.$('#conn.on'), 'verbunden');
+    await until(() => isOnline(), 'verbunden');
     const killed = await app.evaluate(({ app: a }) => {
       const m = a.getAppMetrics().find((p) => p.serviceName === 'Black Halo Server' || p.name === 'Black Halo Server');
       if (!m) return false;
@@ -86,8 +88,8 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
       return true;
     });
     assert.ok(killed, 'Server-Prozess gefunden');
-    await until(() => win.$('#conn.off'), 'Verbindung weg');
-    await until(() => win.$('#conn.on'), 'wieder verbunden', 20000);
+    await until(async () => !(await isOnline()), 'Verbindung weg');
+    await until(() => isOnline(), 'wieder verbunden', 20000);
     assert.equal((await api('/api/status')).status, 200);
 
     mark('Fenster schließen');

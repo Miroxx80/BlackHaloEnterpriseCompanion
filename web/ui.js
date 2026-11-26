@@ -80,7 +80,8 @@ export function button(label, { variant, iconName, onclick, title, type = 'butto
       class: `btn${variant ? ' btn-' + variant : ''}${iconOnly ? ' btn-icon' : ''}`,
       onclick,
       title: title ?? (iconOnly ? label : null),
-      'aria-label': iconOnly ? label : null,
+      // Immer benennen: Auf dem Handy wird die Beschriftung (.lbl) teils ausgeblendet
+      'aria-label': label,
     },
     iconName ? icon(iconName, 's') : null,
     iconOnly ? null : el('span', { class: 'lbl' }, label),

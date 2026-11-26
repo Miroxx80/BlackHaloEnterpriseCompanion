@@ -89,7 +89,7 @@ const mod: BhModule = {
     name: 'Mein Modul',
     version: '0.1.0',
     roles: ['companion'],            // oder ['hub'] oder beides
-    nav: { label: 'Mein Modul' },    // Eintrag in der Navigation
+    nav: { label: 'Mein Modul', icon: 'module', description: 'Kurzbeschreibung' },  // Navigation (Icon-Namen: web/icons.js)
     ui: true,                        // hat einen Ordner ui/
   },
   setup(ctx) {
@@ -100,7 +100,8 @@ const mod: BhModule = {
 export default mod;
 ```
 
-3. Optional `ui/index.js` mit `export function mount(root, api) { ... }`. Die API bietet `get(path)`, `send(name, payload)` und `on(name, handler)`. Die Navigation erscheint automatisch.
+3. Optional `ui/index.js` mit `export function mount(root, api) { ... }` (optional eine Aufräum-Funktion zurückgeben). Die API bietet `get(path)`, `post(path, body)`, `put(path, body)`, `send(name, payload)`, `on(name, handler)` und `meta` (Nummer, Name, Beschreibung für den Seitenkopf). Die Navigation erscheint automatisch.
+   Für das Aussehen gibt es gemeinsame Bausteine: `import { el, icon, pageHead, panel, button, chip, notice } from '/ui.js'` und die Klassen in `web/shell.css` (Design „Industrial“: `.panel`, `.btn`, `.field`, `.input`, `.select`, `.seg`, `.note`, `.alert`, `.kv` ...). Keine Emojis, Icons kommen aus `web/icons.js`.
 4. Optional Einstellungen unter `modules.<id>` in der Config. Sie kommen als `ctx.config` an.
    Für eigene Dateien gibt es `ctx.dataDir` (`data/<id>/`). Der Ordner existiert schon, wenn `setup()` läuft.
 5. `npm run dev`.

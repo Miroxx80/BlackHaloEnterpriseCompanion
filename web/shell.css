@@ -421,7 +421,7 @@ body.offline .key { opacity: .55; }
 .pair { padding: 18px; display: grid; gap: 12px; justify-items: center; text-align: center; }
 .pair h3 { margin: 0; font-family: var(--font-head); font-stretch: 87.5%; font-size: 17px; letter-spacing: .1em; text-transform: uppercase; }
 .qr { width: 200px; height: 200px; padding: 10px; background: #fff; }
-.qr svg { display: block; width: 100%; height: 100%; }
+.qr svg, .qr img { display: block; width: 100%; height: 100%; }
 .pair code { font-family: var(--font-mono); font-size: 13px; color: var(--amber-hi); overflow-wrap: anywhere; }
 .pair.virtual { opacity: .6; }
 .pair .badge { font-size: var(--fs-xs); color: var(--text-faint); }
@@ -535,6 +535,11 @@ body.offline .key { opacity: .55; }
 }
 
 /* ===================== Shell-Ergänzungen ===================== */
+/* Urteil als reine Anzeige (div statt button) */
+div.verdict { cursor: default; }
+/* Sprungziele nicht unter der festen Kopfzeile (Handy) verstecken */
+.panel { scroll-margin-top: 16px; }
+@media (max-width: 520px) { .panel { scroll-margin-top: 72px; } }
 .view-loading { color: var(--text-faint); padding: 24px 0; }
 .view-error { margin: 0; }
 .empty { color: var(--text-dim); }
