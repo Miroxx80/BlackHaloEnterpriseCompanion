@@ -48,8 +48,11 @@ export function matchOre(raw: string | null | undefined, ores: Ore[]): { id: str
   const pool = ores.filter((o) => !form || o.form === form);
   // 1. Name beginnt mit dem gelesenen Wort (Abkürzungen der Prospector, z. B. HEPH -> Hephaestanite)
   const prefix = word.length >= 3 ? pool.filter((o) => o.name.toUpperCase().startsWith(word)) : [];
-  // Eindeutige Abkürzung mit sauber gelesener Form (z. B. "HEPH (RAW)") gilt als sicher erkannt
-  if (prefix.length === 1) return { id: prefix[0].id, exact: clean };
+  // Eindeutige Abkürzung mit sauber gelesener Form (z. B. "HEPH (RAW)") gilt als sicher erkannt, aber nur, wenn
+  // kein anderes Erz einen Buchstaben entfernt ist ("QUAR" vs. "QUAN", "LARA" vs. "TARA": ein Lesefehler genügt)
+  const near = (o: Ore) =>
+    [word.length - 1, word.length, word.length + 1].some((n) => n >= 2 && levenshtein(word, o.name.toUpperCase().slice(0, n)) <= 1);
+  if (prefix.length === 1) return { id: prefix[0].id, exact: clean && !pool.some((o) => o !== prefix[0] && near(o)) };
   // 2. Ähnlichster Name (Lesefehler einzelner Buchstaben), höchstens ein Drittel der Buchstaben anders
   // (Anfang des Namens mit Länge ±1, weil Buchstaben fehlen oder doppelt gelesen werden). Gleichstand: keine Wahl.
   const scored = pool.map((o) => {

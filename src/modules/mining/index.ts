@@ -347,12 +347,11 @@ const mod: BhModule = {
       try {
         const body = (req.body ?? {}) as { ops?: unknown; origin?: unknown };
         const origin = typeof body.origin === 'string' && /^[\w-]{1,64}$/.test(body.origin) ? body.origin : 'unbekannt';
-        const before = current.scan;
-        const next = validator.apply(before, body.ops);
-        // "Alles geprüft" nach einer OCR: korrigierten Scan als Wahrheit zum Beispiel speichern
-        if (before.ocrSample && Array.isArray(body.ops) && body.ops.some((o) => (o as { op?: unknown })?.op === 'unmark')) {
-          confirmSample(before.ocrSample, next);
-        }
+        // "Alles geprüft" nach einer OCR: korrigierten Scan (Stand beim Bestätigen) als Wahrheit speichern.
+        // Erst nach erfolgreicher Anwendung aller Befehle schreiben.
+        const confirmed: [string, ScanDraft][] = [];
+        const next = validator.apply(current.scan, body.ops, (sample, scan) => confirmed.push([sample, scan]));
+        for (const [sample, scan] of confirmed) confirmSample(sample, scan);
         return commitScan(next, origin);
       } catch (err) {
         return badRequest(reply, err);

@@ -70,7 +70,10 @@ export function textColor(img: Rgb): { color: TextColor; share: number } | null 
   const redRatio = r / Math.max(g, b);
   if (greenRatio >= 1.12) return { color: 'green', share: clamp((greenRatio - 1) / 0.25) };
   if (redRatio >= 1.12) return { color: 'red', share: clamp((redRatio - 1) / 0.3) };
-  return { color: 'white', share: clamp((Math.min(r, g, b) / Math.max(r, g, b) - 0.7) / 0.25) };
+  // Leicht grün/rot getönt (unter der Schwelle): eher weiß, aber nicht sicher. Echte weiße Werte liegen bei <= 1,05.
+  const tinted = Math.max(greenRatio, redRatio) > 1.07;
+  const share = clamp((Math.min(r, g, b) / Math.max(r, g, b) - 0.7) / 0.25);
+  return { color: 'white', share: tinted ? Math.min(share, 0.5) : share };
 }
 
 const ink = (img: Rgb, x: number, y: number, thr: number) => {

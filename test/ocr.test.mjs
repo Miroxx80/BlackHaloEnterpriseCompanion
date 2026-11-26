@@ -233,18 +233,27 @@ test('API: "Alles geprüft" nach einer OCR speichert den korrigierten Scan als W
     shared = await (await post([{ op: 'set', field: 'instability', value: '58.23' }])).json();
     assert.equal(shared.scan.ocrSample, id);
     // Bestätigen: Beispiel wandert nach confirmed/, Wahrheit = korrigierter Scan
-    shared = await (await post([{ op: 'set', field: 'mass', value: '2927' }, { op: 'unmark' }])).json();
+    shared = await (await post([{ op: 'set', field: 'mass', value: '2927' }, { op: 'unmark', sample: id }, { op: 'reset' }])).json();
+    assert.equal(shared.scan.mass, '', 'reset im selben Paket wirkt danach');
     assert.equal(shared.scan.ocrSample, undefined);
-    assert.deepEqual(shared.scan.marks, {});
     const dir = join(dataRoot, 'mining', 'ocr-samples', 'confirmed');
     assert.deepEqual(readdirSync(dir).sort(), [`${id}-panel.png`, `${id}-result.json`, `${id}-truth.json`]);
     const truth = JSON.parse(readFileSync(join(dir, `${id}-truth.json`), 'utf8'));
     assert.equal(truth.scan.instability, '58.23');
     assert.equal(truth.scan.mass, '2927');
     assert.equal(truth.scan.marks, undefined);
+    // Wahrheit = Stand im Moment der Bestätigung, nicht nach dem reset im selben Paket
+    assert.equal(truth.scan.parts.length > 1, true);
     assert.ok(!readdirSync(join(dataRoot, 'mining', 'ocr-samples')).some((f) => f.startsWith(id)), 'nicht mehr bei den unbestätigten');
     // Nochmal bestätigen oder ohne OCR: nichts passiert
-    assert.equal((await post([{ op: 'unmark' }])).status, 200);
+    assert.equal((await post([{ op: 'unmark', sample: id }])).status, 200);
+    assert.equal(readdirSync(dir).length, 3);
+    // Veraltete Bestätigung (Gerät hat noch das alte Beispiel): neue OCR bleibt unbestätigt und markiert
+    await fetch(`${base}/ocr?apply=1`, { method: 'POST', headers: { 'content-type': 'image/webp' }, body: fixture(HUD[2]) });
+    const fresh = (await (await fetch(`${base}/scan`)).json()).scan;
+    shared = await (await post([{ op: 'unmark', sample: id }])).json();
+    assert.equal(shared.scan.ocrSample, fresh.ocrSample);
+    assert.deepEqual(shared.scan.marks, fresh.marks);
     assert.equal(readdirSync(dir).length, 3);
     // Neue Werte von Hand (replace/reset) beenden den Bezug zum Beispiel; ungültige Kennungen werden abgelehnt
     await fetch(`${base}/ocr?apply=1`, { method: 'POST', headers: { 'content-type': 'image/webp' }, body: fixture(HUD[1]) });
@@ -254,4 +263,41 @@ test('API: "Alles geprüft" nach einer OCR speichert den korrigierten Scan als W
   } finally {
     await app.stop();
   }
+});
+
+test('Fremder Text direkt neben dem Panel wird nicht in Werte oder Qualität gelesen (Review-Fund)', async () => {
+  // Echtes Bild; die Ziffern der Masse ("2296") werden rechts neben das Panel kopiert, in die INST-Zeile und Zeile 2
+  const truth = JSON.parse(readFileSync(new URL('./fixtures/hud/panel-2026-11-26/regions.json', import.meta.url), 'utf8'))['region-dark-ice-2296kg.png'];
+  const base = await sharp({ create: { width: 1920, height: 1080, channels: 3, background: '#787878' } })
+    .composite([{ input: fixture('hud/panel-2026-11-26/region-dark-ice-2296kg.png'), left: 1184, top: 392 }]).png().toBuffer();
+  const digits = await sharp(base).extract({ left: 1455, top: 523, width: 38, height: 21 }).png().toBuffer();
+  for (const [x, y] of [[1560, 562], [1556, 668], [1555, 653]]) {
+    const screen = await sharp(base).composite([{ input: digits, left: x, top: y }]).png().toBuffer();
+    const { result } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector });
+    assert.deepEqual(silentErrors(result, truth), [], `Einfügung bei ${x},${y}`);
+  }
+});
+
+test('Erznamen: eindeutige Abkürzung nur sicher, wenn kein anderes Erz einen Buchstaben entfernt ist', () => {
+  assert.deepEqual(matchOre('HEPH (RAW)', data.ores), { id: 'Raw_Hephaestanite', exact: true });
+  assert.deepEqual(matchOre('QUARTZ (RAW)', data.ores), { id: 'Raw_Quartz', exact: true });
+  assert.equal(matchOre('QUAR (RAW)', data.ores)?.exact, false, 'QUAN (Quantainium) ist einen Buchstaben entfernt');
+  const lara = matchOre('LARA (RAW)', data.ores);
+  if (lara) assert.equal(lara.exact, false, 'TARA (Taranite) ist einen Buchstaben entfernt');
+});
+
+test('Farbe: leicht grün/rot getöntes Weiß ist unsicher (Review-Fund)', () => {
+  const solid = (r, g, b) => {
+    const data = Buffer.alloc(30 * 20 * 3);
+    for (let i = 0; i < 30 * 20; i++) {
+      const on = i % 30 > 5 && i % 30 < 25 && Math.floor(i / 30) > 5 && Math.floor(i / 30) < 15;
+      data.set(on ? [r, g, b] : [20, 20, 20], i * 3);
+    }
+    return { width: 30, height: 20, data };
+  };
+  for (const c of [[200, 222, 200], [222, 200, 200]]) {
+    const res = textColor(solid(...c));
+    assert.ok(res.color !== 'white' || res.share < 0.7, `${c}: ${JSON.stringify(res)}`);
+  }
+  assert.ok(textColor(solid(230, 232, 228)).share >= 0.7, 'echtes Weiß bleibt sicher');
 });

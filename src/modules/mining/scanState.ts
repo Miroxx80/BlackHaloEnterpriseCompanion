@@ -44,7 +44,8 @@ export type ScanOp =
   | { op: 'addPart' }
   | { op: 'removePart'; index: number }
   | { op: 'reset' }
-  | { op: 'unmark' }
+  /** sample: das OCR-Beispiel, das bestätigt wird (passt es nicht mehr zum Scan, wird nichts getan). */
+  | { op: 'unmark'; sample?: string }
   | { op: 'replace'; scan: ScanDraft };
 
 export const MAX_PARTS = 12;
@@ -154,8 +155,11 @@ export function createScanValidator(data: Dataset) {
     };
   }
 
-  /** Befehle der Reihe nach anwenden. Ungültige Befehle brechen alles ab (nichts wird halb übernommen). */
-  function apply(current: ScanDraft, rawOps: unknown): ScanDraft {
+  /**
+   * Befehle der Reihe nach anwenden. Ungültige Befehle brechen alles ab (nichts wird halb übernommen).
+   * onConfirm: wird bei "Alles geprüft" nach einer OCR mit dem Stand genau in diesem Moment aufgerufen.
+   */
+  function apply(current: ScanDraft, rawOps: unknown, onConfirm?: (sample: string, scan: ScanDraft) => void): ScanDraft {
     if (!Array.isArray(rawOps) || rawOps.length === 0) throw new InputError('Keine Änderungen');
     if (rawOps.length > MAX_OPS) throw new InputError(`Höchstens ${MAX_OPS} Änderungen auf einmal`);
     const d: ScanDraft = structuredClone(current);
@@ -189,10 +193,15 @@ export function createScanValidator(data: Dataset) {
           if (!d.parts.length) d.parts.push(emptyPart());
           break;
         }
-        case 'unmark':
+        case 'unmark': {
+          // Gilt nur für den Scan, den das Gerät gesehen hat: Kam inzwischen eine neue OCR, nichts bestätigen
+          const sample = sampleId(op.sample);
+          if (sample !== undefined && sample !== d.ocrSample) break;
+          if (d.ocrSample && sample === d.ocrSample) onConfirm?.(d.ocrSample, structuredClone(d));
           d.marks = {}; // alle Markierungen als geprüft bestätigen
-          delete d.ocrSample; // Bestätigung der OCR (die Wahrheit speichert der Server)
+          delete d.ocrSample;
           break;
+        }
         case 'reset':
           Object.assign(d, emptyDraft());
           delete d.ocrSample;

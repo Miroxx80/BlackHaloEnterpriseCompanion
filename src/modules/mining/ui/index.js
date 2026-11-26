@@ -528,7 +528,7 @@ export async function mount(root, api) {
     button('Alles geprüft', {
       iconName: 'check',
       onclick: () => {
-        queue({ op: 'unmark' });
+        queue(scan.ocrSample ? { op: 'unmark', sample: scan.ocrSample } : { op: 'unmark' });
         scan.marks = {};
         delete scan.ocrSample;
         renderScan();
@@ -636,6 +636,8 @@ export async function mount(root, api) {
     }
     else if (op.op === 'reset') return emptyScan();
     else if (op.op === 'unmark') {
+      // Wie auf dem Server: eine Bestätigung für ein älteres OCR-Beispiel ändert nichts
+      if (op.sample && op.sample !== n.ocrSample) return n;
       n.marks = {};
       delete n.ocrSample;
     }
