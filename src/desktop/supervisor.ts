@@ -20,7 +20,7 @@ export class ServerSupervisor extends EventEmitter {
   info: ServerInfo | null = null;
   lastError = '';
   /** Liefert einen Screenshot, wenn der Server danach fragt (gesetzt von main.ts). */
-  captureHandler: (() => Promise<Buffer>) | null = null;
+  captureHandler: ((region?: { x: number; y: number; width: number; height: number }) => Promise<Buffer>) | null = null;
 
   private child: UtilityProcess | null = null;
   private crashes: number[] = [];
@@ -103,7 +103,7 @@ export class ServerSupervisor extends EventEmitter {
       } else if (msg?.type === 'fatal') {
         this.lastError = msg.message;
       } else if (msg?.type === 'capture-request') {
-        void this.answerCapture(child, msg.id);
+        void this.answerCapture(child, msg.id, msg.region);
       }
     });
 
@@ -117,11 +117,11 @@ export class ServerSupervisor extends EventEmitter {
     });
   }
 
-  private async answerCapture(child: UtilityProcess, id: number) {
+  private async answerCapture(child: UtilityProcess, id: number, region?: { x: number; y: number; width: number; height: number }) {
     let reply: SupervisorMessage;
     try {
       if (!this.captureHandler) throw new Error('Bildschirmaufnahme nicht verfügbar');
-      reply = { type: 'capture-result', id, png: new Uint8Array(await this.captureHandler()) };
+      reply = { type: 'capture-result', id, png: new Uint8Array(await this.captureHandler(region)) };
     } catch (err) {
       reply = { type: 'capture-result', id, error: (err as Error).message };
     }

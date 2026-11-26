@@ -40,7 +40,7 @@ const CAPTURE_TIMEOUT_MS = 10_000;
 const captures = new Map<number, { resolve: (png: Buffer) => void; reject: (err: Error) => void; timer: NodeJS.Timeout }>();
 let nextCaptureId = 1;
 const screenCapture: ScreenCaptureService = {
-  capture: () =>
+  capture: (region) =>
     new Promise((resolve, reject) => {
       const id = nextCaptureId++;
       const timer = setTimeout(() => {
@@ -48,7 +48,7 @@ const screenCapture: ScreenCaptureService = {
         reject(new Error('Die Desktop-App hat keinen Screenshot geliefert'));
       }, CAPTURE_TIMEOUT_MS);
       captures.set(id, { resolve, reject, timer });
-      send({ type: 'capture-request', id });
+      send({ type: 'capture-request', id, ...(region ? { region } : {}) });
     }),
 };
 

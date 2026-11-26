@@ -89,6 +89,12 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
     assert.equal(capOut.applied, false);
     await win.evaluate(() => (location.hash = 'mining'));
     await win.waitForSelector('button[aria-label="Am PC einlesen"]:not([hidden])');
+    // Live-Lesen der Radar-Signaturen: Ausschnitt-Aufnahme über die Desktop-App läuft
+    const liveOn = await fetch(`http://127.0.0.1:${port}/api/mining/signature/live`, { method: 'POST', headers: { 'x-bh-token': local.security.token, 'content-type': 'application/json' }, body: '{"on":true}' });
+    assert.equal(liveOn.status, 200);
+    await until(async () => (await (await api('/api/mining/signature/live')).json()).status === 'läuft', 'Live läuft', 15000);
+    await win.waitForSelector('button[aria-label="Live aus"]');
+    await fetch(`http://127.0.0.1:${port}/api/mining/signature/live`, { method: 'POST', headers: { 'x-bh-token': local.security.token, 'content-type': 'application/json' }, body: '{"on":false}' });
 
     mark('Absturz-Neustart');
     // Server-Prozess abschießen: wird neu gestartet, die Shell verbindet sich wieder

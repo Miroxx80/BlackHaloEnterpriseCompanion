@@ -17,6 +17,14 @@ const STYLE = `
 .mn-sig td, .mn-sig th { padding: 3px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
 .mn-sig td:first-child, .mn-sig th:first-child, .mn-sig td.l { text-align: left; }
 .mn-sig .tbl { overflow-x: auto; }
+.mn-live { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 4px 0 12px; }
+.mn-live .mn-dim { margin: 0; }
+.mn-live-list { display: grid; gap: 6px; margin: 0 0 12px; padding: 0; list-style: none; }
+.mn-live-item { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); cursor: pointer; }
+.mn-live-item:hover, .mn-live-item:focus-visible { border-color: var(--accent, currentColor); }
+.mn-live-item .val { font-family: var(--font-mono, monospace); font-size: 18px; }
+.mn-live-item .age { font-size: var(--fs-s); color: var(--text-dim); }
+.mn-live-item.old { opacity: .55; }
 .mn .page-actions .select { min-width: 220px; }
 .mn .verdict { cursor: default; }
 .mn .result { scroll-margin-top: 20px; }
@@ -231,6 +239,7 @@ export async function mount(root, api) {
   );
   const observer = 'IntersectionObserver' in window ? new IntersectionObserver(([e]) => peek.classList.toggle('hide', e.isIntersecting), { threshold: 0.15 }) : null;
 
+  let liveClock = null;
   // ---------- Radar-Signatur deuten ----------
   // Zahl vom Radar eingeben -> mögliche Vorkommen (Erz x Steine, Bodenfelder, Wracks). Rechnet der PC.
   function signaturePanel() {
@@ -287,6 +296,67 @@ export async function mount(root, api) {
       storage.save(SIG_LOCATION_KEY, place.value);
       schedule();
     });
+    // Live: Zahlen vom Bildschirm (Desktop-App liest das Band um das Fadenkreuz); Tippen übernimmt den Wert oben
+    const liveButton = button('Live lesen', { iconName: 'scan', onclick: () => toggleLive() });
+    liveButton.hidden = true;
+    const liveStatus = el('span', { class: 'mn-dim', role: 'status' });
+    const liveList = el('ul', { class: 'mn-live-list', 'aria-label': 'Live gelesene Signaturen' });
+    let liveState = null;
+    const age = (t) => {
+      const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+      return s < 60 ? `vor ${s} s` : `vor ${Math.floor(s / 60)} min`;
+    };
+    const renderLive = () => {
+      if (!liveState) return;
+      liveButton.hidden = !liveState.capture;
+      const text = liveState.on ? 'Live aus' : 'Live lesen';
+      liveButton.querySelector('.lbl').textContent = text;
+      liveButton.setAttribute('aria-label', text);
+      liveButton.setAttribute('aria-pressed', String(liveState.on));
+      liveStatus.textContent = liveState.on ? `Live: ${liveState.status}${liveState.ms ? ` · ${liveState.ms} ms pro Bild` : ''}` : '';
+      liveList.replaceChildren(
+        ...liveState.contacts.map((c) => {
+          const top = c.candidates[0];
+          const item = el(
+            'li',
+            {
+              class: `mn-live-item${Date.now() - c.lastSeen > 15000 ? ' old' : ''}`,
+              tabindex: '0',
+              role: 'button',
+              title: 'Wert oben übernehmen',
+              onclick: () => {
+                input.value = fmtInt(c.value);
+                lookup();
+              },
+              onkeydown: (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  input.value = fmtInt(c.value);
+                  lookup();
+                }
+              },
+            },
+            el('span', { class: 'val' }, fmtInt(c.value)),
+            el('span', {}, top ? el('b', {}, top.label) : 'unbekannt', top && c.candidates.length > 1 ? el('span', { class: 'mn-sig-notes' }, `mehrdeutig: ${c.candidates.map((x) => x.label).join(' / ')}`) : null),
+            el('span', { class: 'age' }, age(c.lastSeen)),
+          );
+          return item;
+        }),
+      );
+    };
+    const toggleLive = async () => {
+      try {
+        liveState = await api.post('/api/mining/signature/live', { on: !liveState?.on });
+        renderLive();
+      } catch (err) {
+        liveStatus.textContent = err.message;
+      }
+    };
+    api.get('/api/mining/signature/live').then((s) => { liveState = s; renderLive(); }).catch(() => {});
+    api.on('signatures', (s) => { liveState = s; renderLive(); });
+    clearInterval(liveClock);
+    liveClock = setInterval(() => { if (liveState?.contacts.length) renderLive(); }, 1000);
+
     const rarityDe = { legendary: 'Legendär', epic: 'Episch', rare: 'Selten', uncommon: 'Ungewöhnlich', common: 'Häufig' };
     const maxCols = Math.max(...sig.table.map((t) => t.values.length));
     const table = el(
@@ -319,6 +389,8 @@ export async function mount(root, api) {
       el(
         'div',
         { class: 'panel-body' },
+        el('div', { class: 'mn-live' }, liveButton, liveStatus),
+        liveList,
         el('div', { class: 'fields' }, el('label', { class: 'field' }, el('span', { class: 'field-label' }, 'Signatur'), input), el('label', { class: 'field' }, el('span', { class: 'field-label' }, 'Ort', el('small', {}, 'optional')), place)),
         out,
         table,
@@ -1290,6 +1362,7 @@ export async function mount(root, api) {
   run();
 
   return () => {
+    clearInterval(liveClock);
     clearTimeout(timer);
     clearTimeout(retryTimer);
     // Noch nicht gesendete Eingaben nicht verlieren

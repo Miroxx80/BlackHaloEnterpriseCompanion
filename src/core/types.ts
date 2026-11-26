@@ -58,10 +58,16 @@ export interface ServiceRegistry {
  * Nur Aufnahme über Windows, kein Eingriff ins Spiel.
  */
 export interface ScreenCaptureService {
-  /** PNG des Hauptbildschirms (1920x1080). */
-  capture(): Promise<Buffer>;
+  /** PNG des Hauptbildschirms (1920x1080), oder nur ein Ausschnitt davon (Koordinaten in 1920x1080). */
+  capture(region?: CaptureRegion): Promise<Buffer>;
 }
 export const SCREEN_CAPTURE_SERVICE = 'desktop.screen';
+export interface CaptureRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 export interface ModuleContext {
   manifest: ModuleManifest;

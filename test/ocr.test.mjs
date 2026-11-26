@@ -13,6 +13,8 @@ import { cleanNumber, matchOre, resolvePercents, zeroEightVariants, massScuPlaus
 import { readScan } from '../dist/modules/mining/ocr/pipeline.js';
 import { noReader } from '../dist/modules/mining/ocr/engine.js';
 import { createPaddleDetector, createPaddleReader } from '../dist/modules/mining/ocr/paddle.js';
+import { parseSignatureText, readSignatures, SignatureTracker } from '../dist/modules/mining/ocr/signatures.js';
+import { matchSignature } from '../dist/modules/mining/signature.js';
 
 const fixture = (p) => readFileSync(new URL(`./fixtures/${p}`, import.meta.url));
 const data = JSON.parse(readFileSync(new URL('../src/modules/mining/data/dataset.json', import.meta.url), 'utf8'));
@@ -315,4 +317,88 @@ test('Farbe: leicht grün/rot getöntes Weiß ist unsicher (Review-Fund)', () =>
     assert.ok(res.color !== 'white' || res.share < 0.7, `${c}: ${JSON.stringify(res)}`);
   }
   assert.ok(textColor(solid(230, 232, 228)).share >= 0.7, 'echtes Weiß bleibt sicher');
+});
+
+test('Radar-Signatur: Zahl lesen, Pin abschneiden, Text ablehnen', () => {
+  assert.deepEqual(parseSignatureText('16,960'), { value: 16960, separator: true });
+  assert.deepEqual(parseSignatureText('7.200'), { value: 7200, separator: true });
+  assert.deepEqual(parseSignatureText('3400'), { value: 3400, separator: false });
+  assert.equal(parseSignatureText('UNKNOWN'), null);
+  assert.equal(parseSignatureText('11.4K'), null);
+  assert.equal(parseSignatureText('90'), null);
+  assert.equal(parseSignatureText('999,999'), null);
+});
+
+test('Radar-Signatur live: Marker im Band gefunden (orange und grün), kein Fehlgriff auf UNKNOWN/Entfernung', async () => {
+  const isKnown = (v) => matchSignature(v, data).exact;
+  for (const [file, want] of [['band-3400-orange.png', 3400], ['band-7200-green.png', 7200]]) {
+    const { data: px, info } = await sharp(fixture(`hud/signature/${file}`)).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const reads = await readSignatures({ width: info.width, height: info.height, data: px }, paddle.reader, paddle.detector, isKnown);
+    assert.deepEqual(reads.map((r) => r.value), [want], file);
+  }
+});
+
+test('Radar-Signatur: Bestätigung über mehrere Bilder, Halten, feste Anzeigen ignorieren', () => {
+  const isKnown = (v) => matchSignature(v, data).exact;
+  const r = (value, extra = {}) => ({ value, text: String(value), confidence: 0.9, separator: true, ambiguous: false, x: 900, y: 400, ...extra });
+  const t = new SignatureTracker(isKnown, { windowMs: 20000, holdMs: 45000, singleConfidence: 0.97, stuckFrames: 5 });
+  t.add([r(16960)], 0);
+  assert.equal(t.contacts(0).length, 0, 'eine unsichere Lesung reicht nicht');
+  t.add([r(16960)], 800);
+  assert.deepEqual(t.contacts(800).map((c) => c.value), [16960]);
+  // Einmal sehr sicher, mit Komma und bekannter Signatur: sofort
+  t.add([r(6370, { confidence: 0.99, x: 700 })], 1000);
+  assert.ok(t.contacts(1000).some((c) => c.value === 6370));
+  // Sicher, aber mit 0/6/8/9-Zweifel: nicht sofort
+  t.add([r(12000, { confidence: 0.99, ambiguous: true, x: 600 })], 1200);
+  assert.ok(!t.contacts(1200).some((c) => c.value === 12000));
+  // Halten und verfallen
+  assert.ok(t.contacts(40000).some((c) => c.value === 16960));
+  assert.ok(!t.contacts(50000).some((c) => c.value === 16960));
+  // Gleicher Wert an gleicher Stelle über viele Bilder: Cockpit-Anzeige, wird ignoriert
+  const s = new SignatureTracker(isKnown, { windowMs: 20000, holdMs: 45000, singleConfidence: 0.97, stuckFrames: 5 });
+  for (let i = 0; i < 6; i++) s.add([r(8390, { x: 1200, y: 300 })], i * 800);
+  assert.equal(s.contacts(5000).length, 0);
+});
+
+test('API: Live-Lesen über die Desktop-App (Attrappe), an/aus, Kontakte an alle Geräte', async () => {
+  const band = await sharp(fixture('hud/signature/band-3400-orange.png')).png().toBuffer();
+  const regions = [];
+  const capture = async (region) => {
+    regions.push(region);
+    return band;
+  };
+  const opts = { overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' }, mining: { signatureIntervalMs: 300 } } }, dataRoot: mkdtempSync(join(tmpdir(), 'bh-live-')) };
+  const app = await startApp({ ...opts, services: { 'desktop.screen': { capture } } });
+  const base = `http://127.0.0.1:${app.port}/api/mining`;
+  const post = (on) => fetch(`${base}/signature/live`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ on }) });
+  try {
+    assert.equal((await (await fetch(`${base}/signature/live`)).json()).capture, true);
+    assert.equal((await post('ja')).status, 400);
+    assert.equal((await post(true)).status, 200);
+    let state;
+    for (let i = 0; i < 40; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      state = await (await fetch(`${base}/signature/live`)).json();
+      if (state.contacts.length) break;
+    }
+    assert.equal(state.on, true);
+    assert.deepEqual(state.contacts.map((c) => c.value), [3400]);
+    assert.equal(state.contacts[0].candidates[0].label, 'Lindinium');
+    assert.deepEqual(regions[0], { x: 636, y: 230, width: 648, height: 352 });
+    assert.equal((await (await post(false)).json()).on, false);
+    const n = regions.length;
+    await new Promise((r) => setTimeout(r, 800));
+    assert.equal(regions.length, n, 'aus = keine Aufnahmen mehr');
+  } finally {
+    await app.stop();
+  }
+  // Ohne Desktop-App: abgelehnt
+  const plain = await startApp({ ...opts, dataRoot: mkdtempSync(join(tmpdir(), 'bh-live-')) });
+  try {
+    const res = await fetch(`http://127.0.0.1:${plain.port}/api/mining/signature/live`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"on":true}' });
+    assert.equal(res.status, 501);
+  } finally {
+    await plain.stop();
+  }
 });

@@ -185,6 +185,8 @@ Entwickeln unter Linux: `ONNXRUNTIME_NODE_INSTALL=skip npm install` (sonst lädt
 
 **Radar-Signatur (oben im Mining-Bereich):** Zahl vom Radar eintippen (z. B. 16.960), optional den Ort wählen. Das Tool zeigt, was dahinter steckt: Erz × Anzahl Steine (16.960 = Kupfer ×4), Bodenvorkommen (ROC 4000, Handabbau 3000, Bergung/Pflanzen 2000 je Teil; das Mineral hängt vom Ort ab), Wracks. Mehrdeutige Werte (z. B. 12.000) zeigen alle Möglichkeiten; passt kein einzelnes Vorkommen, werden Kombinationen aus zwei Kontakten angeboten. Daten: Spieldaten 4.10.3 (scunpacked), aufklappbar als Tabelle.
 
+**Live lesen** (Knopf im Feld Radar-Signatur, nur mit der Desktop-App): Das Tool nimmt etwa jede Sekunde den Bereich um das Fadenkreuz auf, findet die Signatur-Schilder nach einem Ping und zeigt sie mit Deutung auf allen Geräten. Eine Zahl erscheint erst, wenn sie in zwei Bildern gleich gelesen wurde (oder einmal sehr sicher mit Komma). Läuft nur, solange Star Citizen im Vordergrund ist; Tippen auf einen Eintrag übernimmt ihn ins Feld (dann mit Ort). Bilder neu bestätigter Signaturen landen in `data\mining\signature-samples` (für eine spätere eigene Erkennung). Einstellungen in `config\local.json` unter `modules.mining`: `signatureIntervalMs` (Standard 800), `gameProcess` (Standard `StarCitizen.exe`).
+
 ## Stand
 
 - Fertig: Kern, Modul-System, Web-Shell, Desktop-App (Tray, Fenster, Server-Prozess mit Neustart), Windows-Installer, Module `status`, `pairing` (QR-Code), `controls` mit Windows-Treiber (Scancodes, Kombinationen, Halten, Vordergrund-Prüfung) und `mining` (Rechner, Sync, Crafting-Bonus, OCR).

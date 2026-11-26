@@ -18,6 +18,8 @@ const CHARSETS: Record<ReadKind, string> = {
   scu: DIGITS + '.mSCU ',
   label: LETTERS + ':.',
   row: DIGITS + LETTERS + '.%() ',
+  // Radar-Signatur "16,960" (Komma als Tausendertrenner; Buchstaben, damit "UNKNOWN" nicht als Zahl gelesen wird)
+  signature: DIGITS + LETTERS + ',.',
 };
 const HEIGHT = 48;
 

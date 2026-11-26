@@ -10,6 +10,9 @@ import { noDetector, noReader, type LineReader, type TextDetector } from './ocr/
 import { ScreenError } from './ocr/image.js';
 import { readScan } from './ocr/pipeline.js';
 import { createPaddleDetector, createPaddleReader } from './ocr/paddle.js';
+import { readSignatures, SIGNATURE_BAND, SignatureTracker } from './ocr/signatures.js';
+import { loadWin32 } from '../controls/input/win32.js';
+import sharp from 'sharp';
 import type { CalcOptions, Dataset, LoadoutInput, ScanInput } from './types.js';
 
 /** Service "mining.scan" für andere Module (z. B. OCR): aktuellen Scan lesen oder ersetzen. */
@@ -44,6 +47,7 @@ const MAX_LOADOUTS = 50;
 
 /** Ausstehendes Speichern beim Beenden sofort erledigen (gesetzt in setup). */
 let flushPending: (() => void) | null = null;
+let stopLive: (() => void) | null = null;
 
 function loadDataset(dir: string): Dataset {
   const file = join(dir, 'data', 'dataset.json');
@@ -255,10 +259,10 @@ const mod: BhModule = {
     const MAX_SAMPLES = 60;
     const MAX_CONFIRMED = 200;
     /** Älteste Beispiele (Bild + JSON-Dateien mit derselben Kennung) über der Grenze löschen. */
-    function rotate(dir: string, max: number) {
-      const files = readdirSync(dir).filter((f) => f.endsWith('-panel.png')).sort();
+    function rotate(dir: string, max: number, image = '-panel.png') {
+      const files = readdirSync(dir).filter((f) => f.endsWith(image)).sort();
       for (const old of files.slice(0, Math.max(0, files.length - max))) {
-        const id = old.slice(0, -'-panel.png'.length);
+        const id = old.slice(0, -image.length);
         for (const f of readdirSync(dir)) if (f.startsWith(id + '-')) rmSync(join(dir, f), { force: true });
       }
     }
@@ -357,6 +361,109 @@ const mod: BhModule = {
       }
     });
 
+    // ---------- Radar-Signaturen live lesen ----------
+    // Desktop-App nimmt etwa jede Sekunde das Band um das Fadenkreuz auf (nur wenn Star Citizen vorne ist), die
+    // gelesenen Zahlen werden über mehrere Bilder bestätigt und an alle Geräte verteilt. Nur anzeigen, nie steuern.
+    const isKnown = (v: number) => matchSignature(v, data).exact;
+    const tracker = new SignatureTracker(isKnown);
+    const liveInterval = Math.max(300, Number(ctx.config.signatureIntervalMs) || 800);
+    const gameProcess = String(ctx.config.gameProcess ?? 'StarCitizen.exe').toLowerCase();
+    const sigSamplesDir = join(ctx.dataDir, 'signature-samples');
+    const live = { on: false, status: 'aus', ms: 0 };
+    let liveTimer: NodeJS.Timeout | null = null;
+    const summarize = (value: number) => {
+      const m = matchSignature(value, data);
+      return { exact: m.exact, candidates: m.candidates.slice(0, 3).map((c) => ({ label: c.label, weight: c.weight, kind: c.kind })) };
+    };
+    const liveState = () => ({
+      on: live.on,
+      status: live.status,
+      ms: live.ms,
+      capture: Boolean(screen),
+      contacts: tracker.contacts(Date.now()).map((c) => ({ ...c, ...summarize(c.value) })),
+    });
+    let lastBroadcast = '';
+    const broadcastLive = (force = false) => {
+      const state = liveState();
+      const key = JSON.stringify({ ...state, ms: 0, contacts: state.contacts.map((c) => [c.value, c.lastSeen]) });
+      if (!force && key === lastBroadcast) return;
+      lastBroadcast = key;
+      ctx.ws.broadcast('signatures', state);
+    };
+    /** Ist das Spiel im Vordergrund? Unter Windows über die Fenster-API (wie Controls), sonst immer ja. */
+    const gameInFront = async () => {
+      if (process.platform !== 'win32') return true;
+      try {
+        const w = await loadWin32();
+        return w.processName(w.foreground()).toLowerCase() === gameProcess;
+      } catch {
+        return true;
+      }
+    };
+    /** Bild mit neu bestätigter Signatur aufheben (Trainingsdaten für eine spätere eigene Erkennung). */
+    const keepSignatureSample = (png: Buffer, info: unknown) => {
+      try {
+        mkdirSync(sigSamplesDir, { recursive: true });
+        const id = new Date().toISOString().replace(/[:.]/g, '-');
+        writeFileSync(join(sigSamplesDir, `${id}-band.png`), png);
+        writeFileSync(join(sigSamplesDir, `${id}-reads.json`), JSON.stringify(info, null, 2));
+        rotate(sigSamplesDir, MAX_SAMPLES, '-band.png');
+      } catch (err) {
+        ctx.log.warn(`Signatur-Beispiel nicht gespeichert: ${(err as Error).message}`);
+      }
+    };
+    const liveTick = async () => {
+      liveTimer = null;
+      if (!live.on || !screen) return;
+      const t0 = Date.now();
+      try {
+        if (!(await gameInFront())) {
+          live.status = 'pausiert: Star Citizen ist nicht im Vordergrund';
+          if (tracker.contacts(Date.now()).length === 0) tracker.clear();
+        } else {
+          const [x, y, width, height] = SIGNATURE_BAND;
+          const png = await screen.capture({ x, y, width, height });
+          const { data: px, info } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+          const before = new Set(tracker.contacts(Date.now()).map((c) => c.value));
+          const reads = await readSignatures({ width: info.width, height: info.height, data: px }, reader, detector, isKnown, [0, 0, info.width, info.height], [x, y]);
+          tracker.add(reads, Date.now());
+          const fresh = tracker.contacts(Date.now()).filter((c) => !before.has(c.value));
+          if (fresh.length) keepSignatureSample(png, { reads, confirmed: fresh.map((c) => c.value) });
+          live.ms = Date.now() - t0;
+          live.status = 'läuft';
+        }
+      } catch (err) {
+        live.status = `Fehler: ${(err as Error).message}`;
+      }
+      broadcastLive();
+      if (live.on) liveTimer = setTimeout(liveTick, Math.max(150, liveInterval - (Date.now() - t0)));
+    };
+    const setLive = (on: boolean) => {
+      live.on = on;
+      live.status = on ? 'startet' : 'aus';
+      if (liveTimer) clearTimeout(liveTimer);
+      liveTimer = null;
+      if (on) void liveTick();
+      broadcastLive(true);
+    };
+    stopLive = () => {
+      live.on = false;
+      if (liveTimer) clearTimeout(liveTimer);
+      liveTimer = null;
+    };
+
+    /** GET /api/mining/signature/live: Stand des Live-Lesens (an, Status, bestätigte Kontakte). */
+    ctx.http.get('/signature/live', async () => liveState());
+
+    /** POST /api/mining/signature/live { on: true|false }: Live-Lesen ein- oder ausschalten (für alle Geräte). */
+    ctx.http.post('/signature/live', async (req, reply) => {
+      const on = (req.body as { on?: unknown } | null)?.on;
+      if (typeof on !== 'boolean') return reply.code(400).send({ error: 'on: true oder false' });
+      if (on && !screen) return reply.code(501).send({ error: 'Live-Lesen geht nur, wenn Black Halo als Desktop-App läuft.' });
+      setLive(on);
+      return liveState();
+    });
+
     /** Änderungen als Befehle: { ops: [...], origin: "<geräte-id>" }. Antwort: neuer Stand. */
     ctx.http.post('/scan', async (req, reply) => {
       try {
@@ -419,6 +526,8 @@ const mod: BhModule = {
   },
 
   stop() {
+    stopLive?.();
+    stopLive = null;
     flushPending?.();
     flushPending = null;
   },

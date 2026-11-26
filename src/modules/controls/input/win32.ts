@@ -21,7 +21,15 @@ export interface Win32 extends Omit<WindowApi, 'sleep'> {
   sendKey(key: Key, up: boolean): void;
 }
 
-export async function loadWin32(): Promise<Win32> {
+let shared: Promise<Win32> | null = null;
+/** Einmal pro Prozess laden: koffi-Typen dürfen nicht doppelt angelegt werden (Controls und Mining nutzen das). */
+export function loadWin32(): Promise<Win32> {
+  shared ??= createWin32();
+  shared.catch(() => (shared = null));
+  return shared;
+}
+
+async function createWin32(): Promise<Win32> {
   if (process.platform !== 'win32') throw new Error('Der Windows-Treiber läuft nur unter Windows');
   const koffi = (await import('koffi')).default;
   const user32 = koffi.load('user32.dll');

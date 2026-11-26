@@ -18,7 +18,7 @@ export interface LineReader {
  * 'scu': Zahl gefolgt von "SCU" (Buchstaben erlaubt, damit sie nicht als Ziffern gelesen werden).
  * 'label': Beschriftungen wie "MASS:" (zum Finden des Panels). 'row': ganze Zeile der Zusammensetzung.
  */
-export type ReadKind = 'number' | 'integer' | 'text' | 'scu' | 'label' | 'row';
+export type ReadKind = 'number' | 'integer' | 'text' | 'scu' | 'label' | 'row' | 'signature';
 
 export interface ReadOptions {
   /**

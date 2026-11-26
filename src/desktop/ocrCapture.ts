@@ -1,13 +1,14 @@
 import { desktopCapturer, Notification, screen } from 'electron';
 import type { LogFile } from './log.js';
 
-/** Screenshot des Hauptbildschirms (dort läuft das Spiel) als PNG in 1920x1080. */
-export async function captureScreen(): Promise<Buffer> {
+/** Screenshot des Hauptbildschirms (dort läuft das Spiel) als PNG in 1920x1080, optional nur ein Ausschnitt. */
+export async function captureScreen(region?: { x: number; y: number; width: number; height: number }): Promise<Buffer> {
   const primary = screen.getPrimaryDisplay();
   const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1920, height: 1080 } });
   const source = sources.find((s) => s.display_id === String(primary.id)) ?? sources[0];
   if (!source || source.thumbnail.isEmpty()) throw new Error('Keine Bildschirmaufnahme möglich');
-  return source.thumbnail.toPNG();
+  const image = source.thumbnail.getSize().width === 1920 ? source.thumbnail : source.thumbnail.resize({ width: 1920, height: 1080 });
+  return (region ? image.crop(region) : image).toPNG();
 }
 
 /**
