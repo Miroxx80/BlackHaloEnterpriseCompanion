@@ -84,6 +84,8 @@ export interface CalcResult {
   };
   setup: {
     laser: { id: string; name: string; throttleMin: number };
+    /** Crafting-Bonus auf die Leistung in % (0 = Serienlaser). */
+    powerBonusPct: number;
     passive: string[];
     active: string[];
     /** Leistung bei 100 % ohne aktive Module. */
@@ -114,7 +116,12 @@ function finite(v: unknown, name: string, min: number, max: number): number {
   return v;
 }
 
+/** Erlaubter Bereich für den Crafting-Bonus (Recherche: etwa x0,64 bis x1,44; mit Puffer). */
+export const POWER_BONUS_RANGE = [-50, 100] as const;
+
 interface Setup {
+  /** Faktor aus dem Crafting-Bonus (1.105 = +10,5 %). */
+  craft: number;
   laser: Laser;
   passive: MiningModule[];
   active: MiningModule[];
@@ -132,12 +139,14 @@ function resolveSetup(data: Dataset, loadout: LoadoutInput): Setup {
     if (!m) throw new InputError(`Unbekanntes Modul "${id}"`);
     return m;
   });
-  return { laser, passive: modules.filter((m) => !m.active), active: modules.filter((m) => m.active) };
+  const bonus = loadout.powerBonusPct ?? 0;
+  finite(bonus, 'Crafting-Bonus', POWER_BONUS_RANGE[0], POWER_BONUS_RANGE[1]);
+  return { craft: factor(bonus), laser, passive: modules.filter((m) => !m.active), active: modules.filter((m) => m.active) };
 }
 
-/** Kombinierte Werte von Laser + Modulen. */
-function combine(laser: Laser, modules: MiningModule[]) {
-  let power = laser.power;
+/** Kombinierte Werte von Laser + Modulen (+ Crafting-Faktor auf die Leistung). */
+function combine(laser: Laser, modules: MiningModule[], craft = 1) {
+  let power = laser.power * craft;
   let res = factor(laser.mods.resistance);
   let inst = factor(laser.mods.instability);
   let win = factor(laser.mods.window);
@@ -225,7 +234,7 @@ export function calculate(
 
   const setup = resolveSetup(data, loadout);
   const { laser } = setup;
-  const base = combine(laser, setup.passive);
+  const base = combine(laser, setup.passive, setup.craft);
 
   let attached: Gadget | null = null;
   if (scan.gadgetAttached) {
@@ -277,7 +286,7 @@ export function calculate(
 
   const needs = decay * mass;
   const evaluate = (modules: MiningModule[], gadget: Gadget | null) => {
-    const c = combine(laser, [...setup.passive, ...modules]);
+    const c = combine(laser, [...setup.passive, ...modules], setup.craft);
     const gr = gadget ? factor(gadget.mods.resistance) : 1;
     const gi = gadget ? factor(gadget.mods.instability) : 1;
     return assess(c.power, resistanceOwn * c.res * gr, instabilityOwn * c.inst * gi, needs, laser, decay, k);
@@ -360,6 +369,7 @@ export function calculate(
     },
     setup: {
       laser: { id: laser.id, name: laser.name, throttleMin: laser.throttleMin },
+      powerBonusPct: loadout.powerBonusPct ?? 0,
       passive: setup.passive.map((m) => m.name),
       active: setup.active.map((m) => m.name),
       power: base.power,

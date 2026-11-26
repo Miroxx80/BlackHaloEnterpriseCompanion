@@ -111,6 +111,13 @@ function parseScu(s) {
   return v == null ? null : milli ? v / 1000 : v;
 }
 
+/** Zahl mit Vorzeichen (Crafting-Bonus): "10,5", "+10.5", "-5". Leer = 0. */
+function parseSigned(s) {
+  const t = String(s).replace(/\s*%\s*$/, '').trim().replace(',', '.');
+  if (t === '') return 0;
+  return /^[+-]?\d*\.?\d+$/.test(t) ? Number(t) : null;
+}
+
 /** aria-invalid setzen: nicht leer, aber nicht lesbar. */
 function markInvalid(input, parse) {
   input.setAttribute('aria-invalid', String(input.value.trim() !== '' && parse(input.value) == null));
@@ -435,7 +442,7 @@ export async function mount(root, api) {
           parts,
           gadgetAttached: scan.gadget || null,
         },
-        loadout: { laserId: l.laserId, moduleIds: l.moduleIds },
+        loadout: { laserId: l.laserId, moduleIds: l.moduleIds, powerBonusPct: l.powerBonusPct ?? 0 },
         options,
       },
     };
@@ -786,7 +793,7 @@ export async function mount(root, api) {
         'div',
         { class: 'row' },
         icon('ship', 's'),
-        el('span', {}, el('b', {}, `${active().name}:`), ` ${r.setup.laser.name}${mods.length ? ' · ' + mods.join(', ') : ''} · max. ${fmtInt(a.maxMass)} kg bei dieser Resistenz`),
+        el('span', {}, el('b', {}, `${active().name}:`), ` ${r.setup.laser.name}${r.setup.powerBonusPct ? ` (Crafting ${r.setup.powerBonusPct > 0 ? '+' : ''}${fmtDec(r.setup.powerBonusPct, 1)} % Leistung)` : ''}${mods.length ? ' · ' + mods.join(', ') : ''} · max. ${fmtInt(a.maxMass)} kg bei dieser Resistenz`),
       ),
       el(
         'div',
@@ -897,8 +904,42 @@ export async function mount(root, api) {
       ),
     );
 
+    // Crafting-Bonus: als Text bearbeiten (Komma, Vorzeichen), beim Speichern als Zahl
+    if (editing.bonusText === undefined) editing.bonusText = editing.powerBonusPct ? String(editing.powerBonusPct).replace('.', ',') : '';
+    const bonusValue = () => parseSigned(editing.bonusText);
+    const bonusOk = (v) => v != null && v >= -50 && v <= 100;
+    const bonusInput = el('input', {
+      class: 'input',
+      'data-k': 'bonus',
+      value: editing.bonusText,
+      placeholder: 'z. B. 10,5',
+      inputmode: 'text',
+      autocomplete: 'off',
+      oninput: (e) => {
+        editing.bonusText = e.target.value;
+        e.target.setAttribute('aria-invalid', String(!bonusOk(bonusValue())));
+        updateSummary();
+      },
+    });
+    bonusInput.setAttribute('aria-invalid', String(!bonusOk(bonusValue())));
+    const fmtMod = (v) => (v > 0 ? `+${v}` : `${v}`);
+    const summary = el('p', { class: 'mn-dim' });
+    function updateSummary() {
+      const b = bonusValue();
+      const eff = bonusOk(b) && b !== 0 ? ` (mit Crafting ${fmtInt(laser.power * (1 + b / 100))})` : '';
+      summary.textContent = `${laser.name}: ${fmtInt(laser.power)} Leistung${eff}, min. ${Math.round(laser.throttleMin * 100)} %, Resistenz ${fmtMod(laser.mods.resistance)} %, Instabilität ${fmtMod(laser.mods.instability)} %, Fenster ${fmtMod(laser.mods.window)} %, ${laser.slots} Slot(s), optimal bis ${laser.rangeFull} m`;
+    }
+    updateSummary();
+
     const save = async (asNew) => {
-      const entry = { ...editing, name: editing.name.trim() || 'Loadout' };
+      const b = bonusValue();
+      if (!bonusOk(b)) {
+        message.textContent = 'Crafting-Bonus: Zahl zwischen -50 und 100 eingeben (z. B. 10,5), oder leer lassen.';
+        bonusInput.focus();
+        return;
+      }
+      const { bonusText: _drop, ...rest } = editing;
+      const entry = { ...rest, powerBonusPct: b, name: editing.name.trim() || 'Loadout' };
       if (asNew) entry.id = crypto.randomUUID?.() ?? String(Date.now());
       const next = structuredClone(store);
       const i = next.loadouts.findIndex((l) => l.id === entry.id);
@@ -929,7 +970,6 @@ export async function mount(root, api) {
       }
     };
 
-    const fmtMod = (v) => (v > 0 ? `+${v}` : `${v}`);
     editorPanel.replaceChildren(
       el(
         'div',
@@ -969,13 +1009,16 @@ export async function mount(root, api) {
               data.lasers.filter(fits).map((l) => el('option', { value: l.id, selected: l.id === laser.id }, l.name)),
             ),
           ),
+          el(
+            'label',
+            { class: 'field' },
+            el('span', { class: 'field-label' }, 'Crafting-Bonus Leistung', el('small', {}, '% · optional')),
+            el('span', { class: 'unit', 'data-unit': '%' }, bonusInput),
+          ),
           ...slots,
         ),
-        el(
-          'p',
-          { class: 'mn-dim' },
-          `${laser.name}: ${fmtInt(laser.power)} Leistung, min. ${Math.round(laser.throttleMin * 100)} %, Resistenz ${fmtMod(laser.mods.resistance)} %, Instabilität ${fmtMod(laser.mods.instability)} %, Fenster ${fmtMod(laser.mods.window)} %, ${laser.slots} Slot(s), optimal bis ${laser.rangeFull} m`,
-        ),
+        summary,
+        el('p', { class: 'mn-dim' }, 'Crafting-Bonus: zusätzliche Laserleistung eines gecrafteten Lasers (z. B. +10,5 %). Das Spiel zeigt ihn im HUD nicht an, deshalb hier eintragen.'),
         store.staleCount ? notice('note', `${store.staleCount} gespeicherte(s) Loadout(s) passen nicht mehr zu den aktuellen Spieldaten und sind ausgeblendet (nicht gelöscht).`) : null,
         el(
           'div',

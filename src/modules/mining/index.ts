@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, readFileSync, renameSync, writeFileSync } fro
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import type { BhModule } from '../../core/types.js';
-import { calculate, DEFAULT_OPTIONS, InputError } from './calc.js';
+import { calculate, DEFAULT_OPTIONS, InputError, POWER_BONUS_RANGE } from './calc.js';
 import { createScanValidator, emptyDraft, type ScanDraft } from './scanState.js';
 import type { CalcOptions, Dataset, LoadoutInput, ScanInput } from './types.js';
 
@@ -65,7 +65,7 @@ const mod: BhModule = {
 
     const defaultLoadout = (): SavedLoadout => {
       const ship = data.ships[0];
-      return { id: randomUUID(), name: `${ship.name} (Standard)`, shipId: ship.id, laserId: ship.heads[0].stockLaser, moduleIds: [] };
+      return { id: randomUUID(), name: `${ship.name} (Standard)`, shipId: ship.id, laserId: ship.heads[0].stockLaser, moduleIds: [], powerBonusPct: 0 };
     };
 
     /** Prüft ein Loadout gegen den Datensatz. Wirft InputError mit verständlicher Meldung. */
@@ -86,7 +86,12 @@ const mod: BhModule = {
       if (moduleIds.length > laser.slots) throw new InputError(`${laser.name} hat nur ${laser.slots} Modul-Slot(s)`);
       for (const id of moduleIds) if (!data.modules.some((m) => m.id === id)) throw new InputError(`Unbekanntes Modul "${id}"`);
       const id = typeof l.id === 'string' && /^[\w-]{1,64}$/.test(l.id) ? l.id : randomUUID();
-      return { id, name, shipId: ship.id, laserId: laser.id, moduleIds };
+      // Crafting-Bonus auf die Laserleistung in %, fehlt bei älteren Einträgen
+      const bonus = l.powerBonusPct ?? 0;
+      if (typeof bonus !== 'number' || !Number.isFinite(bonus) || bonus < POWER_BONUS_RANGE[0] || bonus > POWER_BONUS_RANGE[1]) {
+        throw new InputError(`Crafting-Bonus muss zwischen ${POWER_BONUS_RANGE[0]} und ${POWER_BONUS_RANGE[1]} % liegen`);
+      }
+      return { id, name, shipId: ship.id, laserId: laser.id, moduleIds, powerBonusPct: Math.round(bonus * 100) / 100 };
     }
 
     function freshStore(stale: unknown[] = []): LoadoutStore {

@@ -90,6 +90,11 @@ export interface LoadoutInput {
   laserId: string;
   /** Module in den Slots des Laserkopfs (aktive und passive). */
   moduleIds: string[];
+  /**
+   * Zusätzliche Laserleistung durch Crafting in Prozent (z. B. 10.5 = +10,5 %). Wird auf die Bruch-Leistung
+   * multipliziert. Das Spiel zeigt diesen Bonus im HUD nicht an (Fracture PWR bleibt beim Grundwert).
+   */
+  powerBonusPct?: number;
 }
 
 export interface CalcOptions {
