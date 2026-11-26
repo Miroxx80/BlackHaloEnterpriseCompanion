@@ -35,7 +35,7 @@ export function matchOre(raw: string | null | undefined, ores: Ore[]): { id: str
   const t = raw.toUpperCase().replace(/[^A-Z() ]/g, ' ').replace(/\s+/g, ' ').trim();
   const flat = t.replace(/[^A-Z]/g, '');
   // "INERT MATERIALS": das erste Wort reicht (eindeutig); verstümmelt (heller Boden) nur unsicher
-  if (/^INERT/.test(t)) return { id: 'inert', exact: true };
+  if (/^INERT/.test(t) || (flat.length >= 12 && levenshtein(flat, 'INERTMATERIALS') <= 2)) return { id: 'inert', exact: true };
   if (/MATERIALS?$/.test(t) || (flat.length >= 8 && (levenshtein(flat, 'INERTMATERIALS') <= 5 || /ATER?I?ALS?$/.test(flat)))) {
     return { id: 'inert', exact: false };
   }

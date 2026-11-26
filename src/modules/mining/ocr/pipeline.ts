@@ -173,6 +173,9 @@ export async function readScan(
    * Eine Zeile lesen, zweimal (normal und nur übersteuerte Pixel). Weichen die Lesungen voneinander ab, die
    * Sicherheit ist gering oder eine 0/6/8 zweifelhaft: zum Prüfen markieren. Namen prüft die Erzliste.
    */
+  /** Warum ein Feld markiert ist (nur 'amb' kann später durch die Summe der Anteile aufgelöst werden). */
+  const why: Record<string, Set<'conf' | 'amb' | 'variant'>> = {};
+  const results: Record<string, ReadResult> = {};
   const read = async (key: string, box: Box | null, kind: ReadKind): Promise<ReadResult | null> => {
     if (!box) {
       raw[key] = null;
@@ -182,16 +185,24 @@ export async function readScan(
     const a = await reader.read(image, kind);
     raw[key] = a?.text ?? null;
     if (!a || !a.text || kind === 'text') return a;
-    let unsure = a.confidence < MIN_CONFIDENCE || Boolean(a.ambiguous);
-    if (withDetection) {
+    results[key] = a;
+    const reasons = new Set<'conf' | 'amb' | 'variant'>();
+    if (a.confidence < MIN_CONFIDENCE) reasons.add('conf');
+    if (a.ambiguous) reasons.add('amb');
+    // Zweite Lesung nur vor hellem Boden (dort ist die Schrift übersteuert, der Boden nicht). Vor dunklem
+    // Hintergrund liefert sie Bruchstücke und würde nur unnötig markieren.
+    if (withDetection && medianLum(image) >= BRIGHT_BACKGROUND) {
       const b = await reader.read(image, kind, { variant: 'bright' });
-      // Leer = keine Meinung (vor dunklem All ist die Schrift nicht übersteuert)
+      // Leer = keine Meinung
       if (b?.text && b.text.replace(/\s/g, '') !== a.text.replace(/\s/g, '')) {
-        unsure = true;
+        reasons.add('variant');
         raw[`${key}~`] = b.text;
       }
     }
-    if (unsure) marks[key] = 'check';
+    if (reasons.size) {
+      marks[key] = 'check';
+      why[key] = reasons;
+    }
     return a;
   };
 
@@ -249,7 +260,7 @@ export async function readScan(
     const comp = labelBox('comp');
     const top = comp[1] + comp[3] + 10; // unter dem Balken der Zusammensetzung
     const candidates = boxes
-      .filter((b) => cy(b) > top && b[0] >= comp[0] - 15 && b[0] < comp[0] + 200 && b[3] >= 8 && b[3] <= 28 && b[2] >= 6)
+      .filter((b) => cy(b) > top && b[0] >= comp[0] - 15 && b[0] < comp[0] + 200 && b[3] >= 8 && b[3] <= 34 && b[2] >= 6)
       .sort((a, b) => cy(a) - cy(b));
     // In Zeilen gruppieren; endet an einer großen Lücke (darunter liegen andere HUD-Teile)
     const lines: Box[][] = [];
@@ -273,14 +284,30 @@ export async function readScan(
       if (!ore || !ore.exact) marks[`parts.${i}.ore`] = 'check';
       const quality = cleanNumber(qualityText?.text, { int: true });
       if (quality == null && ore?.id !== 'inert') marks[`parts.${i}.quality`] = 'check';
-      rows.push({ pct: cleanNumber(pctText?.text), ore: ore?.id ?? null, quality });
+      let pct = cleanNumber(pctText?.text);
+      // Punkt nicht gelesen ("2750" statt "27.50"): Anteile haben immer zwei Nachkommastellen
+      if (pct && !pct.includes('.') && Number(pct) > 100 && pct.length >= 3) {
+        pct = `${pct.slice(0, -2)}.${pct.slice(-2)}`;
+        marks[`parts.${i}.pct`] = 'check';
+      }
+      rows.push({ pct, ore: ore?.id ?? null, quality });
     }
   }
   if (rows.length) {
     const resolved = resolvePercents(rows.map((r) => r.pct));
     for (const i of resolved.changed) marks[`parts.${i}.pct`] = 'check';
-    // Stimmt die Summe, bleiben Markierungen aus dem Lesen trotzdem stehen: Eine 0/8-Verwechslung in der
-    // zweiten Nachkommastelle ändert die Summe nur um 0,08, und das Spiel rundet selbst schon um bis zu 0,05.
+    // Stimmt die Summe, bleiben Markierungen aus dem Lesen grundsätzlich stehen: Eine Verwechslung in der
+    // zweiten Nachkommastelle ändert die Summe nur um 0,01–0,09, und das Spiel rundet selbst um bis zu 0,05.
+    // Eine zweifelhafte Ziffer weiter vorn ist aber geklärt, wenn jede Alternative die Summe kippen würde.
+    if (resolved.ok && !resolved.changed.length) {
+      const values = rows.map((r) => Number(r.pct));
+      rows.forEach((row, i) => {
+        const key = `parts.${i}.pct`;
+        const reasons = why[key];
+        if (!row.pct || !reasons || reasons.size !== 1 || !reasons.has('amb')) return;
+        if (sumConfirms(row.pct, results[key], values, i)) delete marks[key];
+      });
+    }
     if (!resolved.ok) {
       rows.forEach((_, i) => (marks[`parts.${i}.pct`] = 'check'));
       notes.push('Die gelesenen Anteile ergeben keine 100 %. Bitte die Zusammensetzung prüfen.');
@@ -293,6 +320,39 @@ export async function readScan(
   if (reader.name === 'keine') notes.push('Texterkennung noch nicht aktiv: nur die Farben wurden gelesen, Zahlen bitte eintragen.');
 
   return finish(true, withDetection ? [dx, dy] : null, Object.keys(labels));
+}
+
+/** Ab diesem Median der Helligkeit gilt ein Ausschnitt als heller Hintergrund. */
+const BRIGHT_BACKGROUND = 120;
+function medianLum(img: Rgb): number {
+  const v: number[] = [];
+  for (let i = 0; i < img.data.length; i += 3) v.push(0.299 * img.data[i] + 0.587 * img.data[i + 1] + 0.114 * img.data[i + 2]);
+  return v.sort((a, b) => a - b)[v.length >> 1] ?? 0;
+}
+
+/** Spanne, in der die angezeigten Anteile zusammen liegen (gemessen 99,97–100,05). */
+const SUM_WINDOW: [number, number] = [99.9, 100.1];
+const LOOKALIKES = ['0', '6', '8', '9'];
+
+/**
+ * Bestätigt die Summe der Anteile einen Wert mit zweifelhaften Ziffern? Nur wenn keine zweifelhafte Ziffer in der
+ * letzten Nachkommastelle steht und jede andere Lesart (0/6/8/9 getauscht) die Summe aus dem Fenster bringen würde.
+ */
+function sumConfirms(value: string, read: ReadResult | undefined, values: number[], index: number): boolean {
+  const chars = (read?.chars ?? []).filter((c) => /[\d.]/.test(c.c));
+  if (chars.map((c) => c.c).join('') !== value) return false; // Lage der Zeichen unklar
+  const sum = values.reduce((s, v) => s + v, 0);
+  if (sum < SUM_WINDOW[0] || sum > SUM_WINDOW[1]) return false;
+  const lastDigit = value.length - 1;
+  return chars.every((c, pos) => {
+    if (!c.amb) return true;
+    if (pos === lastDigit && value.includes('.')) return false;
+    return LOOKALIKES.filter((d) => d !== c.c).every((d) => {
+      const alt = Number(value.slice(0, pos) + d + value.slice(pos + 1));
+      const altSum = sum - values[index] + alt;
+      return altSum < SUM_WINDOW[0] || altSum > SUM_WINDOW[1];
+    });
+  });
 }
 
 /**

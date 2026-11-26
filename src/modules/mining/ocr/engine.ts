@@ -37,7 +37,8 @@ export interface ReadResult {
    */
   ambiguous?: boolean;
   /** Lage jedes Zeichens im Ausschnitt (0..1 der Breite), z. B. um eine Zeile in Spalten zu teilen. */
-  chars?: { c: string; at: number; p: number }[];
+  /** amb: diese 0/6/8/9 ist zweifelhaft. */
+  chars?: { c: string; at: number; p: number; amb?: boolean }[];
 }
 
 /** Platzhalter: liest nichts. Farben, Plausibilität und Beispielbilder funktionieren trotzdem. */

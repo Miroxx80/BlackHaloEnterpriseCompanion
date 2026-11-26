@@ -5,3 +5,6 @@
 - `region-*.webp`: Suchbereich (576x608 ab 1184,392) der zweiten Version, über den Chat als WebP (verlustbehaftet).
   Echte Werte in `regions.json` (region-rock: von der Org-Leitung als 100 % korrekt gelesen bestätigt;
   region-snow: Masse 32240 aus dem Bild, die OCR las 32249 ohne Markierung -> Regel für 0/6/8/9 verschärft).
+- `region-dark-ice-3312kg.png` (verlustfrei, dunkler Boden) und `region-headlight-ice-2296kg.webp` (Scheinwerfer):
+  Werte aus dem Bild, bei reinem Eis bestätigt über Masse = SCU x 142,857 (Dichte 1). Erster Scan zeigte die
+  weiße Schrift als "grün" (Farbsaum der HUD-Schrift) -> Farberkennung über den Mittelwert.

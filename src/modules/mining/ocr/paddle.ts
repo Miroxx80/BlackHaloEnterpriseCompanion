@@ -79,7 +79,7 @@ function decode(probs: Float32Array, steps: number, classes: number, chars: stri
   let prev = -1;
   let conf = 1;
   let ambiguous = false;
-  const pos: { c: string; at: number; p: number }[] = [];
+  const pos: { c: string; at: number; p: number; amb?: boolean }[] = [];
   for (let t = 0; t < steps; t++) {
     let best = 0;
     let bestP = probs[t * classes];
@@ -92,12 +92,14 @@ function decode(probs: Float32Array, steps: number, classes: number, chars: stri
     }
     if (best !== 0 && best !== prev) {
       text += chars[best];
-      pos.push({ c: chars[best], at: (t + 0.5) / steps, p: bestP });
       conf = Math.min(conf, bestP);
+      let amb = false;
       if (lookalike.includes(best)) {
         const total = lookalike.reduce((s, i) => s + probs[t * classes + i], 0);
-        if (bestP / total < LOOKALIKE_SURE || bestP < LOOKALIKE_MIN_P) ambiguous = true;
+        amb = bestP / total < LOOKALIKE_SURE || bestP < LOOKALIKE_MIN_P;
+        if (amb) ambiguous = true;
       }
+      pos.push({ c: chars[best], at: (t + 0.5) / steps, p: bestP, ...(amb ? { amb } : {}) });
     }
     prev = best;
   }

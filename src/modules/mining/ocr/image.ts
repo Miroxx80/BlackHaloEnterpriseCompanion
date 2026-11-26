@@ -42,31 +42,35 @@ export function crop(img: Rgb, [left, top, w, h]: Box): Rgb {
 export type TextColor = 'white' | 'green' | 'red';
 
 /**
- * Farbe eines HUD-Werts: helle Pixel einzeln als weiß/grün/rot einordnen, Mehrheit entscheidet.
- * Getestet an echten Scans (weiß vor dunklem All, grün/rot vor heller Planetenoberfläche).
- * Vor hellem Boden (Schnee) zählen nur Pixel deutlich heller als der Hintergrund (Median), sonst würde der
- * Boden als "weiß" mitgezählt.
- * share: Anteil der Stimmen für die gewählte Farbe (0..1); null, wenn kaum Text zu sehen ist.
+ * Farbe eines HUD-Werts aus dem Mittel aller hellen Pixel. Einzelne Pixel taugen nicht: Die HUD-Schrift hat einen
+ * Farbsaum (chromatische Aberration), weiße Ziffern bestehen großteils aus cyan-, gelbgrün- und rotstichigen Pixeln
+ * (PC-Test 2026-11-26: Pixel-Abstimmung ergab "grün" für weiße Schrift). Im Mittel gemessen:
+ * weiß = alle Kanäle ähnlich (kleinster/größter Kanal >= 0,90), grün = Grün ~1,3x, rot = Rot ~1,4x der anderen.
+ * Vor hellem Boden zählen nur Pixel deutlich heller als der Hintergrund (Median).
+ * share: wie eindeutig (0..1); null, wenn kaum Text zu sehen ist.
  */
 export function textColor(img: Rgb): { color: TextColor; share: number } | null {
-  const votes = { white: 0, green: 0, red: 0 };
   const maxima: number[] = [];
   for (let i = 0; i < img.data.length; i += 3) maxima.push(Math.max(img.data[i], img.data[i + 1], img.data[i + 2]));
-  const background = maxima.sort((a, b) => a - b)[maxima.length >> 1] ?? 0;
+  const background = [...maxima].sort((a, b) => a - b)[maxima.length >> 1] ?? 0;
   const from = Math.min(245, Math.max(150, background + 25));
-  for (let i = 0; i < img.data.length; i += 3) {
-    const r = img.data[i], g = img.data[i + 1], b = img.data[i + 2];
-    const max = Math.max(r, g, b);
-    if (max <= from) continue;
-    const min = Math.min(r, g, b);
-    if (max - min < 50) votes.white++;
-    else if (g > r + 40 && g >= b) votes.green++;
-    else if (r > g + 40 && r > b + 20) votes.red++;
+  const sum = [0, 0, 0];
+  let n = 0;
+  for (let i = 0, k = 0; i < img.data.length; i += 3, k++) {
+    if (maxima[k] <= from) continue;
+    sum[0] += img.data[i];
+    sum[1] += img.data[i + 1];
+    sum[2] += img.data[i + 2];
+    n++;
   }
-  const total = votes.white + votes.green + votes.red;
-  if (total < 15) return null;
-  const color = (Object.keys(votes) as TextColor[]).reduce((a, b) => (votes[b] > votes[a] ? b : a));
-  return { color, share: votes[color] / total };
+  if (n < 15) return null;
+  const [r, g, b] = sum.map((v) => v / n);
+  const clamp = (v: number) => Math.max(0, Math.min(1, v));
+  const greenRatio = g / Math.max(r, b);
+  const redRatio = r / Math.max(g, b);
+  if (greenRatio >= 1.12) return { color: 'green', share: clamp((greenRatio - 1) / 0.25) };
+  if (redRatio >= 1.12) return { color: 'red', share: clamp((redRatio - 1) / 0.3) };
+  return { color: 'white', share: clamp((Math.min(r, g, b) / Math.max(r, g, b) - 0.7) / 0.25) };
 }
 
 const ink = (img: Rgb, x: number, y: number, thr: number) => {

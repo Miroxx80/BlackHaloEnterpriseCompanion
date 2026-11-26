@@ -160,6 +160,8 @@ test('PC-Test-Bilder mit bekannten Werten: kein falscher Wert und kein falsches 
     const { result } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector });
     assert.ok(result.panelFound, file);
     assert.deepEqual(silentErrors(result, truth), [], file);
+    // Alle Testbilder zeigen weiße Werte (Farbsaum darf nicht als grün/rot gelten)
+    assert.deepEqual([result.draft.resColor, result.draft.instColor], ['white', 'white'], file);
     const wrongOre = truth.parts.map((p, i) => i).filter((i) => result.draft.parts[i]?.ore !== truth.parts[i].ore && !result.marks[`parts.${i}.ore`]);
     assert.deepEqual(wrongOre, [], `${file}: falsches Erz unmarkiert`);
   }
