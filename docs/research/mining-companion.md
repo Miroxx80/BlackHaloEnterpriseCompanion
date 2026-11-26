@@ -445,6 +445,18 @@ File: `test/fixtures/hud/prospector-helix1-20pct.webp` with its values in the `.
   - cargo at bottom right
   - key hints at the very bottom right (FIRE, LASER POWER, LASER TYPE, OPERATOR MD.)
 
+## Laser power arc measured (1920×1080, Prospector)
+
+From `test/fixtures/hud/prospector-helix1-100pct.webp`; the values are in `test/fixtures/hud/power-arc-1920x1080.json`.
+
+- **What the right-hand arc group contains:**
+  - the thin yellow line is the rock's **charge**, with the OPTIMAL (green) and OVERCHARGE (red) blocks at the top;
+  - the grey track outside it is the **laser power**, filled green from the bottom ("CHARGE LEVEL") to the top (below "LASER IN").
+- **Geometry:** the power track is a clean circular arc. Centre (1061.6, 607.2), radius 209.5 px, mean deviation 1.2 px. 0 % sits at 49.1° and 100 % at 11.2°, so the arc spans about 38° (about 140 px of arc length, about 1.4 px per percent).
+- **Check:** in the 20 % screenshot the fill ends at about 16 % of the arc. The roughly 5 px difference comes from the dashed fill pattern. The mapping is assumed linear for now; the 50 % screenshot as a file would confirm it.
+- **Proof of concept:** ticks and a band drawn at these coordinates sit cleanly next to the power track. The marker "here is roughly the neutral point" is therefore feasible.
+- **Open question:** the Helix I data has no power beyond 45 m, but the rock in the 50 %/100 % shots was about 51 m away. Did the charge rise anyway?
+
 ---
 
 # Appendix: Adversarial verification of load-bearing claims
