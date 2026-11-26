@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { FastifyReply } from 'fastify';
 import { SCREEN_CAPTURE_SERVICE, type BhModule, type ScreenCaptureService } from '../../core/types.js';
 import { calculate, DEFAULT_OPTIONS, InputError, POWER_BONUS_RANGE } from './calc.js';
+import { matchSignature, parseSignature, signatureTable } from './signature.js';
 import { createScanValidator, emptyDraft, type ScanDraft } from './scanState.js';
 import { noDetector, noReader, type LineReader, type TextDetector } from './ocr/engine.js';
 import { ScreenError } from './ocr/image.js';
@@ -163,7 +164,21 @@ const mod: BhModule = {
       gadgets: data.gadgets,
       ores: data.ores,
       defaults: DEFAULT_OPTIONS,
+      signatures: {
+        table: signatureTable(data),
+        families: data.signatures.families,
+        debris: data.signatures.debris,
+        locations: data.signatures.locations.map(({ id, name, system, surface }) => ({ id, name, system, surface })),
+      },
     }));
+
+    /** GET /api/mining/signature?value=6370[&location=HPP_Stanton1d]: Radar-Signatur deuten. */
+    ctx.http.get<{ Querystring: { value?: string; location?: string } }>('/signature', async (req, reply) => {
+      const value = parseSignature(req.query.value ?? '');
+      if (value == null) return reply.code(400).send({ error: 'Signatur als Zahl eingeben (z. B. 6370 oder 6.370).' });
+      const location = typeof req.query.location === 'string' && /^[\w-]{1,64}$/.test(req.query.location) ? req.query.location : undefined;
+      return matchSignature(value, data, { location });
+    });
 
     /** Was die Oberfläche sieht: ohne die beiseitegelegten Einträge, nur deren Anzahl. */
     const publicStore = () => ({
@@ -345,8 +360,14 @@ const mod: BhModule = {
     /** Änderungen als Befehle: { ops: [...], origin: "<geräte-id>" }. Antwort: neuer Stand. */
     ctx.http.post('/scan', async (req, reply) => {
       try {
-        const body = (req.body ?? {}) as { ops?: unknown; origin?: unknown };
+        const body = (req.body ?? {}) as { ops?: unknown; origin?: unknown; base?: unknown };
         const origin = typeof body.origin === 'string' && /^[\w-]{1,64}$/.test(body.origin) ? body.origin : 'unbekannt';
+        // base: OCR-Stand, auf den sich die Änderungen beziehen ('' = keiner). Kam inzwischen eine andere OCR, würden
+        // die Änderungen den neuen Scan verfälschen (z. B. verspätet gesendet nach einem Funkloch): ablehnen.
+        const now = current.scan.ocrSample ?? '';
+        if (typeof body.base === 'string' && now && body.base !== now) {
+          return reply.code(409).send({ error: 'Inzwischen wurde ein neuer Scan eingelesen. Die Änderung wurde nicht übernommen.', current });
+        }
         // "Alles geprüft" nach einer OCR: korrigierten Scan (Stand beim Bestätigen) als Wahrheit speichern.
         // Erst nach erfolgreicher Anwendung aller Befehle schreiben.
         const confirmed: [string, ScanDraft][] = [];

@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startApp } from '../dist/core/app.js';
 import { calculate } from '../dist/modules/mining/calc.js';
+import { matchSignature, parseSignature, signatureTable } from '../dist/modules/mining/signature.js';
 
 const data = JSON.parse(readFileSync(new URL('../src/modules/mining/data/dataset.json', import.meta.url), 'utf8'));
 const L = (name) => data.lasers.find((l) => l.name === name).id;
@@ -410,6 +411,65 @@ test('Crafting-Bonus: zusätzliche Laserleistung wird eingerechnet, Grenzen und 
     // Berechnung mit dem aktiven Loadout nutzt den Bonus
     const res = await (await call('POST', '/calc', { scan: scan({ mass: 10000, resistance: 0, instability: 1 }) })).json();
     assert.equal(res.setup.powerBonusPct, 10.5);
+  } finally {
+    await app.stop();
+  }
+});
+
+test('Signaturen aus den Spieldaten: 26 Schiffs-Erze wie im Spiel (Gegenprobe mit Bedrock/SCMDB 4.10)', () => {
+  const sig = Object.fromEntries(data.ores.filter((o) => o.signature).map((o) => [o.name, o.signature]));
+  assert.equal(Object.keys(sig).length, 26);
+  assert.deepEqual([sig.Quantainium, sig.Stileron, sig.Savrilium, sig.Lindinium, sig.Gold, sig.Copper, sig.Ice], [3170, 3185, 3200, 3400, 3585, 4240, 4300]);
+  // Keine zwei Erze mit gleichem Wert innerhalb der Clustergrößen
+  const values = signatureTable(data).flatMap((t) => t.values);
+  assert.equal(new Set(values).size, values.length);
+  // Clustergrößen je Seltenheit (größter Cluster 2/3/4/5/6)
+  const max = (r) => Math.max(...data.signatures.clusters[r].sizes.map((s) => s.size));
+  assert.deepEqual(['legendary', 'epic', 'rare', 'uncommon', 'common'].map(max), [2, 3, 4, 5, 6]);
+  assert.deepEqual(data.signatures.families.map((f) => f.base), [4000, 3000, 2000]);
+  assert.ok(data.ores.every((o) => o.density > 0), 'jede Erz-Dichte bekannt');
+});
+
+test('Signatur deuten: Erz x Steine, Mehrdeutigkeit am Boden, Ort, Summen, Tippfehler', () => {
+  assert.equal(parseSignature('6.370'), 6370);
+  assert.equal(parseSignature('16,960'), 16960);
+  assert.equal(parseSignature('6.37'), null);
+  let r = matchSignature(6370, data);
+  assert.equal(r.exact, true);
+  assert.equal(r.candidates[0].label, 'Stileron ×2');
+  r = matchSignature(16960, data);
+  assert.equal(r.candidates[0].label, 'Copper ×4');
+  // 12.000: ROC x3 = Hand x4 = Bergung/Pflanzen x6, alle angezeigt
+  r = matchSignature(12000, data);
+  assert.deepEqual(r.candidates.map((c) => c.parts[0].id).sort(), ['fps', 'roc', 'small']);
+  assert.match(r.notes.join(' '), /Mehrdeutig/);
+  // Im All (Aaron Halo) gibt es keine Bodenvorkommen
+  r = matchSignature(12000, data, { location: 'HPP_AaronHalo' });
+  assert.equal(r.candidates[0].parts[0].id, 'small');
+  assert.ok(r.candidates.filter((c) => c.parts[0].id !== 'small').every((c) => c.outOfPlace));
+  // Ort: Kupfer gibt es auf Ita nicht
+  r = matchSignature(4240 * 4, data, { location: 'HPP_Stanton1d' });
+  assert.equal(r.candidates[0].outOfPlace, true);
+  // Beobachtete Mischsignatur: 76.975 = Zinn x5 + ROC x14
+  r = matchSignature(76975, data);
+  assert.equal(r.exact, false);
+  assert.equal(r.candidates[0].label, 'Tin ×5 + ROC-Vorkommen (Bodenfahrzeug) ×14');
+  // Tippfehler: nächster Wert zuerst
+  r = matchSignature(16965, data);
+  assert.equal(r.candidates[0].kind, 'near');
+  assert.equal(r.candidates[0].label, 'Copper ×4');
+});
+
+test('API: Signatur deuten', async () => {
+  const dataRoot = mkdtempSync(join(tmpdir(), 'bh-sig-'));
+  const app = await startApp({ overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' } } }, dataRoot });
+  const base = `http://127.0.0.1:${app.port}/api/mining`;
+  try {
+    const r = await (await fetch(`${base}/signature?value=6.370`)).json();
+    assert.equal(r.candidates[0].label, 'Stileron ×2');
+    assert.equal((await fetch(`${base}/signature?value=abc`)).status, 400);
+    const d = await (await fetch(`${base}/data`)).json();
+    assert.ok(d.signatures.table.length === 26 && d.signatures.locations.length > 30);
   } finally {
     await app.stop();
   }

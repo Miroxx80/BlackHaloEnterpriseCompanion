@@ -973,132 +973,1584 @@
     {
       "id": "Ore_Agricium",
       "name": "Agricium",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 7.2,
+      "signature": 3885,
+      "rarity": "uncommon"
     },
     {
       "id": "Ore_Aluminum",
       "name": "Aluminum",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 2.7,
+      "signature": 4285,
+      "rarity": "common"
     },
     {
       "id": "Raw_Aslarite",
       "name": "Aslarite",
-      "form": "RAW"
+      "form": "RAW",
+      "density": 2.3,
+      "signature": 3840,
+      "rarity": "uncommon"
     },
     {
       "id": "Raw_Beryl",
       "name": "Beryl",
-      "form": "RAW"
+      "form": "RAW",
+      "density": 2.75,
+      "signature": 3540,
+      "rarity": "rare"
     },
     {
       "id": "Raw_Bexalite",
       "name": "Bexalite",
-      "form": "RAW"
+      "form": "RAW",
+      "density": 6.9,
+      "signature": 3600,
+      "rarity": "rare"
     },
     {
       "id": "Ore_Borase",
       "name": "Borase",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 4.5,
+      "signature": 3570,
+      "rarity": "rare"
     },
     {
       "id": "Ore_Copper",
       "name": "Copper",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 8.96,
+      "signature": 4240,
+      "rarity": "common"
     },
     {
       "id": "Raw_Corundum",
       "name": "Corundum",
-      "form": "RAW"
+      "form": "RAW",
+      "density": 4.02,
+      "signature": 4225,
+      "rarity": "common"
     },
     {
       "id": "Ore_Gold",
       "name": "Gold",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 19.32,
+      "signature": 3585,
+      "rarity": "rare"
     },
     {
       "id": "Raw_Hephaestanite",
       "name": "Hephaestanite",
-      "form": "RAW"
+      "form": "RAW",
+      "density": 3.2,
+      "signature": 4180,
+      "rarity": "common"
     },
     {
       "id": "Raw_Ice",
       "name": "Ice",
-      "form": "RAW"
+      "form": "RAW",
+      "density": 1,
+      "signature": 4300,
+      "rarity": "common"
     },
     {
       "id": "Ore_Iron",
       "name": "Iron",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 7.874,
+      "signature": 4270,
+      "rarity": "common"
     },
     {
       "id": "Raw_Laranite",
       "name": "Laranite",
-      "form": "RAW"
+      "form": "RAW",
+      "density": 11.5,
+      "signature": 3825,
+      "rarity": "uncommon"
     },
     {
       "id": "Ore_Lindinium",
       "name": "Lindinium",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 10.7,
+      "signature": 3400,
+      "rarity": "epic"
     },
     {
       "id": "Raw_Ouratite",
       "name": "Ouratite",
-      "form": "RAW"
+      "form": "RAW",
+      "density": 1.1,
+      "signature": 3370,
+      "rarity": "epic"
     },
     {
       "id": "Raw_Quantainium",
       "name": "Quantainium",
-      "form": "RAW"
+      "form": "RAW",
+      "density": 20.45,
+      "signature": 3170,
+      "rarity": "legendary"
     },
     {
       "id": "Raw_Quartz",
       "name": "Quartz",
-      "form": "RAW"
+      "form": "RAW",
+      "density": 2.65,
+      "signature": 4210,
+      "rarity": "common"
     },
     {
       "id": "Ore_Riccite",
       "name": "Riccite",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 1.6,
+      "signature": 3385,
+      "rarity": "epic"
     },
     {
       "id": "Ore_Savrilium",
       "name": "Savrilium",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 18.06,
+      "signature": 3200,
+      "rarity": "legendary"
     },
     {
       "id": "Raw_Silicon",
       "name": "Silicon",
-      "form": "RAW"
+      "form": "RAW",
+      "density": 2.336,
+      "signature": 4255,
+      "rarity": "common"
     },
     {
       "id": "Ore_Stileron",
       "name": "Stileron",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 4.75,
+      "signature": 3185,
+      "rarity": "legendary"
     },
     {
       "id": "Raw_Taranite",
       "name": "Taranite",
-      "form": "RAW"
+      "form": "RAW",
+      "density": 10.2,
+      "signature": 3555,
+      "rarity": "rare"
     },
     {
       "id": "Ore_Tin",
       "name": "Tin",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 5.769,
+      "signature": 4195,
+      "rarity": "common"
     },
     {
       "id": "Ore_Titanium",
       "name": "Titanium",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 4.5,
+      "signature": 3855,
+      "rarity": "uncommon"
     },
     {
       "id": "Ore_Torite",
       "name": "Torite",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 2.8,
+      "signature": 3900,
+      "rarity": "uncommon"
     },
     {
       "id": "Ore_Tungsten",
       "name": "Tungsten",
-      "form": "ORE"
+      "form": "ORE",
+      "density": 19.3,
+      "signature": 3870,
+      "rarity": "uncommon"
     }
-  ]
+  ],
+  "signatures": {
+    "_comment": "Signatur auf dem Radar = Basis-Signatur x Anzahl Steine. Bodenfamilien: Mineral nur über den Ort bestimmbar.",
+    "clusters": {
+      "legendary": {
+        "probability": 0.25,
+        "sizes": [
+          {
+            "size": 2,
+            "p": 1
+          }
+        ]
+      },
+      "epic": {
+        "probability": 0.4,
+        "sizes": [
+          {
+            "size": 2,
+            "p": 0.75
+          },
+          {
+            "size": 3,
+            "p": 0.25
+          }
+        ]
+      },
+      "rare": {
+        "probability": 1,
+        "sizes": [
+          {
+            "size": 2,
+            "p": 0.6
+          },
+          {
+            "size": 3,
+            "p": 0.3
+          },
+          {
+            "size": 4,
+            "p": 0.1
+          }
+        ]
+      },
+      "uncommon": {
+        "probability": 1,
+        "sizes": [
+          {
+            "size": 3,
+            "p": 0.6
+          },
+          {
+            "size": 4,
+            "p": 0.3
+          },
+          {
+            "size": 5,
+            "p": 0.1
+          }
+        ]
+      },
+      "common": {
+        "probability": 1,
+        "sizes": [
+          {
+            "size": 4,
+            "p": 0.6
+          },
+          {
+            "size": 5,
+            "p": 0.3
+          },
+          {
+            "size": 6,
+            "p": 0.1
+          }
+        ]
+      }
+    },
+    "families": [
+      {
+        "id": "roc",
+        "label": "ROC-Vorkommen (Bodenfahrzeug)",
+        "base": 4000,
+        "maxCount": 25,
+        "minerals": [
+          "Beradom",
+          "Feynmaline",
+          "Glacosite"
+        ]
+      },
+      {
+        "id": "fps",
+        "label": "Handabbau (FPS)",
+        "base": 3000,
+        "maxCount": 25,
+        "minerals": [
+          "Aphorite",
+          "Dolivine",
+          "Hadanite",
+          "Janalite"
+        ]
+      },
+      {
+        "id": "small",
+        "label": "Bergung (Wrackteile) oder Pflanzen",
+        "base": 2000,
+        "maxCount": 15,
+        "minerals": []
+      }
+    ],
+    "debris": [
+      {
+        "base": 1700,
+        "label": "Wrack (AvengerTitan)"
+      },
+      {
+        "base": 1850,
+        "label": "Wrack (AresInferno)"
+      },
+      {
+        "base": 2400,
+        "label": "Wrack (C2)"
+      },
+      {
+        "base": 3000,
+        "label": "Wrack (890)"
+      }
+    ],
+    "locations": [
+      {
+        "id": "HPP_Nyx_GlaciemRing",
+        "name": "Glaciem Ring",
+        "system": "Nyx",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Ore_Torite",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Ice",
+            "p": 0.2075
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.2075
+          },
+          {
+            "ore": "Raw_Bexalite",
+            "p": 0.18
+          },
+          {
+            "ore": "Ore_Lindinium",
+            "p": 0.1
+          },
+          {
+            "ore": "Ore_Savrilium",
+            "p": 0.02
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Nyx_KeegerBelt",
+        "name": "Keeger Belt",
+        "system": "Nyx",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Ore_Torite",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Ice",
+            "p": 0.2075
+          },
+          {
+            "ore": "Ore_Aluminum",
+            "p": 0.2075
+          },
+          {
+            "ore": "Raw_Bexalite",
+            "p": 0.18
+          },
+          {
+            "ore": "Ore_Lindinium",
+            "p": 0.1
+          },
+          {
+            "ore": "Ore_Savrilium",
+            "p": 0.02
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Pyro5c",
+        "name": "Adir",
+        "system": "Pyro",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Ore_Iron",
+            "p": 0.435
+          },
+          {
+            "ore": "Ore_Tungsten",
+            "p": 0.285
+          },
+          {
+            "ore": "Ore_Borase",
+            "p": 0.18
+          },
+          {
+            "ore": "Ore_Riccite",
+            "p": 0.1
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Pyro_AkiroCluster",
+        "name": "Akiro Cluster",
+        "system": "Pyro",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Ore_Torite",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Ice",
+            "p": 0.149
+          },
+          {
+            "ore": "Raw_Silicon",
+            "p": 0.149
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.149
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.148
+          },
+          {
+            "ore": "Ore_Riccite",
+            "p": 0.1
+          },
+          {
+            "ore": "Ore_Stileron",
+            "p": 0.02
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Pyro3",
+        "name": "Bloom",
+        "system": "Pyro",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Raw_Quartz",
+            "p": 0.35
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.35
+          },
+          {
+            "ore": "Ore_Borase",
+            "p": 0.18
+          },
+          {
+            "ore": "Ore_Riccite",
+            "p": 0.1
+          },
+          {
+            "ore": "Ore_Stileron",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Pyro5d",
+        "name": "Fairo",
+        "system": "Pyro",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Ore_Tungsten",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Silicon",
+            "p": 0.268
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.267
+          },
+          {
+            "ore": "Raw_Bexalite",
+            "p": 0.09
+          },
+          {
+            "ore": "Ore_Gold",
+            "p": 0.09
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Pyro5e",
+        "name": "Fuego",
+        "system": "Pyro",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Raw_Aslarite",
+            "p": 0.285
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.268
+          },
+          {
+            "ore": "Raw_Hephaestanite",
+            "p": 0.267
+          },
+          {
+            "ore": "Ore_Borase",
+            "p": 0.09
+          },
+          {
+            "ore": "Raw_Bexalite",
+            "p": 0.09
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Pyro5a",
+        "name": "Ignis",
+        "system": "Pyro",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Ore_Tin",
+            "p": 0.36
+          },
+          {
+            "ore": "Raw_Silicon",
+            "p": 0.36
+          },
+          {
+            "ore": "Ore_Gold",
+            "p": 0.18
+          },
+          {
+            "ore": "Ore_Riccite",
+            "p": 0.1
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Pyro2",
+        "name": "Monox",
+        "system": "Pyro",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Raw_Hephaestanite",
+            "p": 0.3273
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.3263
+          },
+          {
+            "ore": "Ore_Tin",
+            "p": 0.3263
+          },
+          {
+            "ore": "Ore_Stileron",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Pyro_Warm01",
+        "name": "PYR1 / PYR2 Lagrange-Punkte",
+        "system": "Pyro",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Ore_Agricium",
+            "p": 0.285
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.268
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.267
+          },
+          {
+            "ore": "Raw_Bexalite",
+            "p": 0.18
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Pyro_Warm02",
+        "name": "PYR3 Lagrange-Punkte",
+        "system": "Pyro",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Ore_Tungsten",
+            "p": 0.285
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.268
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.267
+          },
+          {
+            "ore": "Ore_Gold",
+            "p": 0.18
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Pyro_Cool01",
+        "name": "PYR5 Lagrange-Punkte",
+        "system": "Pyro",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Ore_Titanium",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Ice",
+            "p": 0.268
+          },
+          {
+            "ore": "Raw_Silicon",
+            "p": 0.267
+          },
+          {
+            "ore": "Ore_Borase",
+            "p": 0.18
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Pyro_Cool02",
+        "name": "PYR6 Lagrange-Punkte",
+        "system": "Pyro",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Raw_Aslarite",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Ice",
+            "p": 0.268
+          },
+          {
+            "ore": "Raw_Silicon",
+            "p": 0.267
+          },
+          {
+            "ore": "Raw_Taranite",
+            "p": 0.18
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Pyro1",
+        "name": "Pyro I",
+        "system": "Pyro",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Ore_Iron",
+            "p": 0.3273
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.3263
+          },
+          {
+            "ore": "Ore_Tin",
+            "p": 0.3263
+          },
+          {
+            "ore": "Ore_Stileron",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Pyro4",
+        "name": "Pyro IV",
+        "system": "Pyro",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Raw_Laranite",
+            "p": 0.2853
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.2573
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.2573
+          },
+          {
+            "ore": "Ore_Borase",
+            "p": 0.1802
+          },
+          {
+            "ore": "Ore_Stileron",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Pyro_DeepSpaceAsteroids",
+        "name": "Pyro-Asteroiden (Cluster, RAB, RMB)",
+        "system": "Pyro",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Ore_Torite",
+            "p": 0.285
+          },
+          {
+            "ore": "Ore_Aluminum",
+            "p": 0.149
+          },
+          {
+            "ore": "Raw_Corundum",
+            "p": 0.149
+          },
+          {
+            "ore": "Raw_Quartz",
+            "p": 0.149
+          },
+          {
+            "ore": "Ore_Tin",
+            "p": 0.148
+          },
+          {
+            "ore": "Ore_Riccite",
+            "p": 0.1
+          },
+          {
+            "ore": "Ore_Stileron",
+            "p": 0.02
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Pyro6",
+        "name": "Terminus",
+        "system": "Pyro",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Raw_Ice",
+            "p": 0.208
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.208
+          },
+          {
+            "ore": "Ore_Gold",
+            "p": 0.18
+          },
+          {
+            "ore": "Ore_Agricium",
+            "p": 0.142
+          },
+          {
+            "ore": "Ore_Titanium",
+            "p": 0.142
+          },
+          {
+            "ore": "Ore_Riccite",
+            "p": 0.1
+          },
+          {
+            "ore": "Ore_Stileron",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Pyro5b",
+        "name": "Vatra",
+        "system": "Pyro",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Ore_Iron",
+            "p": 0.36
+          },
+          {
+            "ore": "Raw_Silicon",
+            "p": 0.36
+          },
+          {
+            "ore": "Ore_Gold",
+            "p": 0.18
+          },
+          {
+            "ore": "Ore_Riccite",
+            "p": 0.1
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Pyro5f",
+        "name": "Vuur",
+        "system": "Pyro",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Raw_Hephaestanite",
+            "p": 0.268
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.268
+          },
+          {
+            "ore": "Raw_Bexalite",
+            "p": 0.18
+          },
+          {
+            "ore": "Ore_Agricium",
+            "p": 0.142
+          },
+          {
+            "ore": "Raw_Aslarite",
+            "p": 0.142
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_AaronHalo",
+        "name": "Aaron Halo",
+        "system": "Stanton",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Raw_Beryl",
+            "p": 0.18
+          },
+          {
+            "ore": "Raw_Aslarite",
+            "p": 0.142
+          },
+          {
+            "ore": "Ore_Titanium",
+            "p": 0.142
+          },
+          {
+            "ore": "Raw_Ice",
+            "p": 0.104
+          },
+          {
+            "ore": "Raw_Silicon",
+            "p": 0.103
+          },
+          {
+            "ore": "Ore_Aluminum",
+            "p": 0.103
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.103
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.103
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Stanton1b",
+        "name": "Aberdeen",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Raw_Corundum",
+            "p": 0.298
+          },
+          {
+            "ore": "Ore_Aluminum",
+            "p": 0.297
+          },
+          {
+            "ore": "Ore_Titanium",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Ouratite",
+            "p": 0.1
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Stanton1a",
+        "name": "Arial",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Ore_Aluminum",
+            "p": 0.22
+          },
+          {
+            "ore": "Ore_Tin",
+            "p": 0.22
+          },
+          {
+            "ore": "Raw_Hephaestanite",
+            "p": 0.22
+          },
+          {
+            "ore": "Raw_Corundum",
+            "p": 0.22
+          },
+          {
+            "ore": "Raw_Ouratite",
+            "p": 0.1
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Stanton4a",
+        "name": "Calliope",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Ore_Iron",
+            "p": 0.3273
+          },
+          {
+            "ore": "Raw_Ice",
+            "p": 0.3263
+          },
+          {
+            "ore": "Raw_Hephaestanite",
+            "p": 0.3263
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Stanton2a",
+        "name": "Cellin",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Ore_Agricium",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Silicon",
+            "p": 0.258
+          },
+          {
+            "ore": "Raw_Quartz",
+            "p": 0.257
+          },
+          {
+            "ore": "Raw_Taranite",
+            "p": 0.18
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Stanton4b",
+        "name": "Clio",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Raw_Ice",
+            "p": 0.4
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.4
+          },
+          {
+            "ore": "Raw_Taranite",
+            "p": 0.18
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Lagrange_B",
+        "name": "CRU L4, ARC L5, MIC L3",
+        "system": "Stanton",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Raw_Aslarite",
+            "p": 0.285
+          },
+          {
+            "ore": "Ore_Gold",
+            "p": 0.18
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.179
+          },
+          {
+            "ore": "Raw_Ice",
+            "p": 0.178
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.178
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Lagrange_D",
+        "name": "CRU L5, ARC L3, MIC L4",
+        "system": "Stanton",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Ore_Agricium",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Beryl",
+            "p": 0.18
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.179
+          },
+          {
+            "ore": "Raw_Ice",
+            "p": 0.178
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.178
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Stanton2b",
+        "name": "Daymar",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Raw_Silicon",
+            "p": 0.348
+          },
+          {
+            "ore": "Raw_Quartz",
+            "p": 0.347
+          },
+          {
+            "ore": "Ore_Agricium",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Stanton4c",
+        "name": "Euterpe",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Raw_Ice",
+            "p": 0.4
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.4
+          },
+          {
+            "ore": "Raw_Taranite",
+            "p": 0.18
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Lagrange_A",
+        "name": "HUR L1, HUR L4",
+        "system": "Stanton",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Raw_Laranite",
+            "p": 0.285
+          },
+          {
+            "ore": "Ore_Borase",
+            "p": 0.18
+          },
+          {
+            "ore": "Ore_Aluminum",
+            "p": 0.179
+          },
+          {
+            "ore": "Raw_Corundum",
+            "p": 0.178
+          },
+          {
+            "ore": "Raw_Hephaestanite",
+            "p": 0.178
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Lagrange_F",
+        "name": "HUR L2, ARC L1, ARC L2, ARC L4",
+        "system": "Stanton",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Ore_Tungsten",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Taranite",
+            "p": 0.18
+          },
+          {
+            "ore": "Raw_Corundum",
+            "p": 0.179
+          },
+          {
+            "ore": "Ore_Aluminum",
+            "p": 0.178
+          },
+          {
+            "ore": "Raw_Hephaestanite",
+            "p": 0.178
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Lagrange_E",
+        "name": "HUR L3, CRU L1, CRU L2",
+        "system": "Stanton",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Ore_Titanium",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Bexalite",
+            "p": 0.18
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.179
+          },
+          {
+            "ore": "Raw_Ice",
+            "p": 0.178
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.178
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Lagrange_C",
+        "name": "HUR L5, CRU L3, MIC L1, MIC L2, MIC L5",
+        "system": "Stanton",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Ore_Torite",
+            "p": 0.2844
+          },
+          {
+            "ore": "Ore_Aluminum",
+            "p": 0.2385
+          },
+          {
+            "ore": "Raw_Corundum",
+            "p": 0.2385
+          },
+          {
+            "ore": "Raw_Hephaestanite",
+            "p": 0.2385
+          }
+        ],
+        "ground": []
+      },
+      {
+        "id": "HPP_Stanton1",
+        "name": "Hurston",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Ore_Aluminum",
+            "p": 0.44
+          },
+          {
+            "ore": "Ore_Tin",
+            "p": 0.44
+          },
+          {
+            "ore": "Raw_Ouratite",
+            "p": 0.1
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Stanton1d",
+        "name": "Ita",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Ore_Tin",
+            "p": 0.348
+          },
+          {
+            "ore": "Ore_Aluminum",
+            "p": 0.347
+          },
+          {
+            "ore": "Raw_Aslarite",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Stanton3a",
+        "name": "Lyria",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Ore_Iron",
+            "p": 0.3477
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.3477
+          },
+          {
+            "ore": "Raw_Laranite",
+            "p": 0.2847
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Stanton1c",
+        "name": "Magda",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Ore_Aluminum",
+            "p": 0.348
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.348
+          },
+          {
+            "ore": "Ore_Titanium",
+            "p": 0.142
+          },
+          {
+            "ore": "Raw_Aslarite",
+            "p": 0.142
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Stanton4",
+        "name": "microTech",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Raw_Ice",
+            "p": 0.327
+          },
+          {
+            "ore": "Raw_Hephaestanite",
+            "p": 0.327
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.326
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Stanton3b",
+        "name": "Wala",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Raw_Laranite",
+            "p": 0.285
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.258
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.257
+          },
+          {
+            "ore": "Raw_Beryl",
+            "p": 0.18
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Stanton2c",
+        "name": "Yela",
+        "system": "Stanton",
+        "surface": true,
+        "ores": [
+          {
+            "ore": "Ore_Agricium",
+            "p": 0.285
+          },
+          {
+            "ore": "Raw_Silicon",
+            "p": 0.258
+          },
+          {
+            "ore": "Raw_Quartz",
+            "p": 0.257
+          },
+          {
+            "ore": "Raw_Taranite",
+            "p": 0.18
+          },
+          {
+            "ore": "Raw_Quantainium",
+            "p": 0.02
+          }
+        ],
+        "ground": [
+          "fps",
+          "roc"
+        ]
+      },
+      {
+        "id": "HPP_Stanton2c_Belt",
+        "name": "Yela-Gürtel / Terminus-Ring",
+        "system": "Stanton",
+        "surface": false,
+        "ores": [
+          {
+            "ore": "Ore_Titanium",
+            "p": 0.285
+          },
+          {
+            "ore": "Ore_Iron",
+            "p": 0.205
+          },
+          {
+            "ore": "Raw_Ice",
+            "p": 0.205
+          },
+          {
+            "ore": "Ore_Copper",
+            "p": 0.205
+          },
+          {
+            "ore": "Raw_Ouratite",
+            "p": 0.1
+          }
+        ],
+        "ground": []
+      }
+    ]
+  }
 }

@@ -260,6 +260,17 @@ test('API: "Alles geprüft" nach einer OCR speichert den korrigierten Scan als W
     shared = await (await post([{ op: 'reset' }])).json();
     assert.equal(shared.scan.ocrSample, undefined);
     assert.equal((await post([{ op: 'replace', scan: { ...shared.scan, ocrSample: '../../x' } }])).status, 400);
+    // Gerät ohne offene OCR ('') bestätigt nicht versehentlich eine frische OCR; Eingaben zum alten Stand: 409
+    await fetch(`${base}/ocr?apply=1`, { method: 'POST', headers: { 'content-type': 'image/webp' }, body: fixture(HUD[1]) });
+    const ocr2 = (await (await fetch(`${base}/scan`)).json()).scan;
+    shared = await (await post([{ op: 'unmark', sample: '' }])).json();
+    assert.equal(shared.scan.ocrSample, ocr2.ocrSample);
+    assert.deepEqual(shared.scan.marks, ocr2.marks);
+    const stale = await fetch(`${base}/scan`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ origin: 't', base: id, ops: [{ op: 'set', field: 'mass', value: '1' }] }) });
+    assert.equal(stale.status, 409);
+    assert.equal((await (await fetch(`${base}/scan`)).json()).scan.mass, ocr2.mass);
+    const ok = await fetch(`${base}/scan`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ origin: 't', base: ocr2.ocrSample, ops: [{ op: 'set', field: 'mass', value: '1' }] }) });
+    assert.equal(ok.status, 200);
   } finally {
     await app.stop();
   }

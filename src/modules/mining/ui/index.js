@@ -3,6 +3,20 @@
 import { el, icon, chip, pageHead, button, notice, fmtInt, fmtDec } from '/ui.js';
 
 const STYLE = `
+.mn-sig { margin-bottom: 20px; }
+.mn-sig .fields { grid-template-columns: minmax(140px, 220px) minmax(180px, 320px); }
+.mn-sig-list { display: grid; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
+.mn-sig-item { display: grid; grid-template-columns: 52px 1fr; gap: 10px; align-items: start; padding: 8px 10px; border: 1px solid var(--line); background: var(--bg-2, transparent); }
+.mn-sig-item.out { opacity: .55; }
+.mn-sig-item b { font-family: var(--font-head); font-size: 17px; letter-spacing: .02em; }
+.mn-sig-pct { font-family: var(--font-mono, monospace); font-size: var(--fs-s); color: var(--accent, inherit); text-align: right; padding-top: 2px; }
+.mn-sig-notes { display: block; font-size: var(--fs-s); color: var(--text-dim); margin-top: 2px; }
+.mn-sig details { margin-top: 12px; }
+.mn-sig summary { cursor: pointer; color: var(--text-dim); font-size: var(--fs-s); }
+.mn-sig table { border-collapse: collapse; margin-top: 8px; font-size: var(--fs-s); width: 100%; }
+.mn-sig td, .mn-sig th { padding: 3px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.mn-sig td:first-child, .mn-sig th:first-child, .mn-sig td.l { text-align: left; }
+.mn-sig .tbl { overflow-x: auto; }
 .mn .page-actions .select { min-width: 220px; }
 .mn .verdict { cursor: default; }
 .mn .result { scroll-margin-top: 20px; }
@@ -53,6 +67,8 @@ const ORE_COLORS = [
 /** Früher pro Gerät gespeicherter Scan; wird einmalig auf den Server übernommen, dann gelöscht. */
 const LEGACY_SCAN_KEY = 'bh-mining-scan';
 const OPTIONS_KEY = 'bh-mining-options';
+/** Ort für die Signatur-Suche, pro Gerät. */
+const SIG_LOCATION_KEY = 'bh-mining-sig-location';
 
 const storage = {
   load(key, fallback) {
@@ -153,6 +169,7 @@ export async function mount(root, api) {
   // (crypto.randomUUID gibt es im LAN über http nicht, daher Math.random)
   const origin = `ui-${Math.random().toString(36).slice(2, 12)}`;
   let pending = []; // noch nicht gesendete Änderungen
+  let pendingBase = ''; // OCR-Stand, auf den sie sich beziehen
   let inflight = false;
   let flushTimer = null;
   let retryTimer = null;
@@ -214,7 +231,102 @@ export async function mount(root, api) {
   );
   const observer = 'IntersectionObserver' in window ? new IntersectionObserver(([e]) => peek.classList.toggle('hide', e.isIntersecting), { threshold: 0.15 }) : null;
 
-  root.append(head, editorPanel, el('div', { class: 'mining-grid' }, scanPanel, resultPanel), peek);
+  // ---------- Radar-Signatur deuten ----------
+  // Zahl vom Radar eingeben -> mögliche Vorkommen (Erz x Steine, Bodenfelder, Wracks). Rechnet der PC.
+  function signaturePanel() {
+    const sig = data.signatures;
+    const input = el('input', { class: 'input', inputmode: 'numeric', autocomplete: 'off', placeholder: 'z. B. 16.960', 'aria-label': 'Signatur vom Radar' });
+    const place = el(
+      'select',
+      { class: 'select', 'aria-label': 'Ort (optional)' },
+      el('option', { value: '' }, 'Ort: egal'),
+      ...['Stanton', 'Pyro', 'Nyx'].map((system) =>
+        el('optgroup', { label: system }, ...sig.locations.filter((l) => l.system === system).map((l) => el('option', { value: l.id }, l.name))),
+      ),
+    );
+    place.value = storage.load(SIG_LOCATION_KEY, '') || '';
+    if (place.value && !sig.locations.some((l) => l.id === place.value)) place.value = '';
+    const out = el('div', { role: 'status', 'aria-live': 'polite' });
+    let timer = null;
+    let seq = 0;
+    const lookup = async () => {
+      const text = input.value.trim();
+      if (!text) return out.replaceChildren();
+      const my = ++seq;
+      try {
+        const q = new URLSearchParams({ value: text, ...(place.value ? { location: place.value } : {}) });
+        const r = await api.get(`/api/mining/signature?${q}`);
+        if (my !== seq) return;
+        const parts = [
+          ...r.notes.map((n) => el('p', { class: 'mn-dim' }, n)),
+          el(
+            'ul',
+            { class: 'mn-sig-list' },
+            ...r.candidates.map((c) =>
+              el(
+                'li',
+                { class: `mn-sig-item${c.outOfPlace ? ' out' : ''}` },
+                el('span', { class: 'mn-sig-pct' }, `${Math.round(c.weight * 100)} %`),
+                el('span', {}, el('b', {}, c.label), c.notes.length ? el('span', { class: 'mn-sig-notes' }, c.notes.join(' · ')) : null),
+              ),
+            ),
+          ),
+          r.candidates.length ? null : el('p', { class: 'mn-dim' }, 'Nichts gefunden.'),
+        ];
+        out.replaceChildren(...parts.filter(Boolean));
+      } catch (err) {
+        if (my === seq) out.replaceChildren(notice('alert', err.message));
+      }
+    };
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = setTimeout(lookup, 200);
+    };
+    input.addEventListener('input', schedule);
+    place.addEventListener('change', () => {
+      storage.save(SIG_LOCATION_KEY, place.value);
+      schedule();
+    });
+    const rarityDe = { legendary: 'Legendär', epic: 'Episch', rare: 'Selten', uncommon: 'Ungewöhnlich', common: 'Häufig' };
+    const maxCols = Math.max(...sig.table.map((t) => t.values.length));
+    const table = el(
+      'details',
+      {},
+      el('summary', {}, 'Alle Erz-Signaturen (Basis x Anzahl Steine)'),
+      el(
+        'div',
+        { class: 'tbl' },
+        el(
+          'table',
+          {},
+          el('thead', {}, el('tr', {}, el('th', {}, 'Erz'), ...Array.from({ length: maxCols }, (_, i) => el('th', {}, `×${i + 1}`)))),
+          el(
+            'tbody',
+            {},
+            ...sig.table.map((t) =>
+              el('tr', { title: rarityDe[t.rarity] }, el('td', {}, `${t.name} (${rarityDe[t.rarity]})`), ...Array.from({ length: maxCols }, (_, i) => el('td', {}, t.values[i] ? fmtInt(t.values[i]) : ''))),
+            ),
+            ...sig.families.map((f) => el('tr', {}, el('td', {}, f.label), el('td', { class: 'l', colspan: String(maxCols) }, `${fmtInt(f.base)} × Anzahl (Feld bis ca. ${f.maxCount})`))),
+            ...sig.debris.map((d) => el('tr', {}, el('td', {}, d.label), el('td', { class: 'l', colspan: String(maxCols) }, fmtInt(d.base)))),
+          ),
+        ),
+      ),
+    );
+    return el(
+      'section',
+      { class: 'panel mn-sig', 'aria-labelledby': 'mn-h-sig' },
+      el('div', { class: 'panel-head' }, el('h2', { id: 'mn-h-sig' }, 'Radar-Signatur', el('span', { class: 'tag' }, 'Vorkommen aus der Ferne erkennen'))),
+      el(
+        'div',
+        { class: 'panel-body' },
+        el('div', { class: 'fields' }, el('label', { class: 'field' }, el('span', { class: 'field-label' }, 'Signatur'), input), el('label', { class: 'field' }, el('span', { class: 'field-label' }, 'Ort', el('small', {}, 'optional')), place)),
+        out,
+        table,
+      ),
+    );
+  }
+
+  root.append(head, editorPanel, signaturePanel(), el('div', { class: 'mining-grid' }, scanPanel, resultPanel), peek);
 
   loadoutSelect.addEventListener('change', async () => {
     const previous = store.activeId;
@@ -528,7 +640,7 @@ export async function mount(root, api) {
     button('Alles geprüft', {
       iconName: 'check',
       onclick: () => {
-        queue(scan.ocrSample ? { op: 'unmark', sample: scan.ocrSample } : { op: 'unmark' });
+        queue({ op: 'unmark', sample: scan.ocrSample ?? '' });
         scan.marks = {};
         delete scan.ocrSample;
         renderScan();
@@ -552,6 +664,8 @@ export async function mount(root, api) {
 
   /** Änderung merken und gebündelt senden. Mehrere Eingaben ins selbe Feld werden zusammengefasst. */
   function queue(op) {
+    // Auf welchen OCR-Stand beziehen sich die Änderungen? (Server lehnt ab, wenn inzwischen ein neuer kam)
+    if (!pending.length) pendingBase = shared?.scan?.ocrSample ?? '';
     const last = pending[pending.length - 1];
     const sameField = last && last.op === op.op && last.field === op.field && last.index === op.index && (op.op === 'set' || op.op === 'part');
     if (sameField) pending[pending.length - 1] = op;
@@ -564,20 +678,23 @@ export async function mount(root, api) {
     if (inflight || !pending.length) return;
     inflight = true;
     const ops = pending;
+    const base = pendingBase;
     pending = [];
     try {
-      const res = await api.post('/api/mining/scan', { ops, origin });
+      const res = await api.post('/api/mining/scan', { ops, origin, base });
       setSync(true);
       shared = res;
       // Antwort ist der volle aktuelle Stand: holt auch verpasste Änderungen anderer Geräte nach
       if (!pending.length) adoptRemote(res.scan);
     } catch (err) {
-      if (err.status === 400) {
-        // Ungültig (z. B. Erz nach Daten-Update unbekannt): verwerfen und aktuellen Stand holen
+      if (err.status === 400 || err.status === 409) {
+        // Ungültig (z. B. Erz nach Daten-Update unbekannt) oder inzwischen neuer Scan: verwerfen, aktuellen Stand holen
         setSync(false, `Nicht übernommen: ${err.message}`);
+        pending = [];
         refreshShared();
       } else {
         pending = [...ops, ...pending];
+        pendingBase = base;
         setSync(false);
         clearTimeout(retryTimer);
         retryTimer = setTimeout(flush, 2000);
@@ -636,8 +753,8 @@ export async function mount(root, api) {
     }
     else if (op.op === 'reset') return emptyScan();
     else if (op.op === 'unmark') {
-      // Wie auf dem Server: eine Bestätigung für ein älteres OCR-Beispiel ändert nichts
-      if (op.sample && op.sample !== n.ocrSample) return n;
+      // Wie auf dem Server: eine Bestätigung für einen anderen OCR-Stand ändert nichts
+      if ('sample' in op && (op.sample || undefined) !== n.ocrSample) return n;
       n.marks = {};
       delete n.ocrSample;
     }
@@ -674,6 +791,11 @@ export async function mount(root, api) {
   // Änderungen anderer Geräte live übernehmen
   api.on('scan', (msg) => {
     if (msg.origin === origin) return; // eigene Änderung, schon angezeigt
+    // Neuer OCR-Scan: noch nicht gesendete Eingaben gehörten zum alten Scan und werden verworfen
+    if (msg.scan.ocrSample && msg.scan.ocrSample !== shared?.scan?.ocrSample && pending.length) {
+      pending = [];
+      setSync(false, 'Neuer Scan eingelesen, Eingabe zum alten Scan verworfen');
+    }
     shared = { revision: msg.revision, scan: msg.scan };
     adoptRemote(msg.scan);
   });

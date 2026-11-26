@@ -195,8 +195,10 @@ export function createScanValidator(data: Dataset) {
         }
         case 'unmark': {
           // Gilt nur für den Scan, den das Gerät gesehen hat: Kam inzwischen eine neue OCR, nichts bestätigen
-          const sample = sampleId(op.sample);
-          if (sample !== undefined && sample !== d.ocrSample) break;
+          // sample fehlt: altes Gerät (ohne Prüfung). '' : Gerät kennt keine offene OCR.
+          const given = 'sample' in op;
+          const sample = op.sample === '' ? undefined : sampleId(op.sample);
+          if (given && sample !== d.ocrSample) break;
           if (d.ocrSample && sample === d.ocrSample) onConfirm?.(d.ocrSample, structuredClone(d));
           d.marks = {}; // alle Markierungen als geprüft bestätigen
           delete d.ocrSample;

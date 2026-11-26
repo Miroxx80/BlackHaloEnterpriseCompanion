@@ -1,5 +1,12 @@
 <!-- Rohbericht der Recherche vom 2026-11-25, Thema: ores -->
 
+> **Nachtrag 2026-11-26 (Signatur-Recherche, 6 Agenten mit Gegenprüfung):**
+> - Die Signaturen in Abschnitt 1 stehen direkt in den Spieldaten: scunpacked-data `resources/resources.json` (Feld `Signature`, Build 4.10.3-LIVE.13165946), identisch zu Bedrock/SCMDB. Unser Datensatz liest sie jetzt selbst (`scripts/mining-data.mjs`), dazu Clustergrößen (`locations.json`), Dichten (`commodities.json`) und Fundorte.
+> - Seit 4.7 gilt eine Signatur **pro Erz** (vorher pro Gesteinstyp, C/E/I/M/P/Q/S); bis 4.10.3 unverändert. Alte Gesteinstypen (4000–4900) und `_TEMPLATE`-Einträge stehen noch in den Daten, spawnen aber nicht.
+> - Korrektur zu "always an exact multiple": Im Spiel wurden auch **Summen** zweier Kontakte beobachtet (z. B. 76.975 = Zinn ×5 + ROC ×14, 20.405 = Silizium ×4 + Riccit).
+> - Weitere Werte: Wrack-Teile 1700 (Avenger Titan), 1850 (Ares Inferno), 2400 (C2), 3000 (890 Jump); Pflanzen 2000; Bodenfelder laut Daten bis 25 Teile (im Spiel bis 41 gesehen, wohl mehrere Felder).
+> - Dichten aus `commodities.json` passen an echten Scans auf 0–2 % (Masse = 142,857 × SCU × Σ Anteil × Dichte, Inert 1).
+
 # Ores, SCU conversion and quality in Star Citizen 4.10
 
 ## 0. Sources and their limits

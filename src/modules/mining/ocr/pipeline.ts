@@ -173,7 +173,11 @@ export async function readScan(
     }
     if (chain.length < inside.length) boxDoubt.add(field);
     if (chain.length > 1 && field !== 'scu') boxDoubt.add(field); // "3.32" + "SCU" ist normal
-    return union(chain);
+    const box = union(chain);
+    // Wert steht an fester Stelle: MASS/RES/INST linksbündig ~90 px rechts der Beschriftung, SCU rechtsbündig ~177 px.
+    // Weicht der Kasten ab, steckt vermutlich fremder Text mit drin (z. B. eine Ziffer zwischen Beschriftung und Wert).
+    if (field === 'scu' ? Math.abs(right(box) - label[0] - 177) > 8 : Math.abs(box[0] - label[0] - 90) > 9) boxDoubt.add(field);
+    return box;
   };
 
   /** Ausschnitt für die Erkennung: mit Rand, schmale Ziffern (z. B. "0") etwas breiter. */
@@ -198,7 +202,6 @@ export async function readScan(
     marks[key] = 'check';
     (why[key] ??= new Set()).add(reason);
   };
-  const results: Record<string, ReadResult> = {};
   const read = async (key: string, box: Box | null, kind: ReadKind): Promise<ReadResult | null> => {
     if (!box) {
       raw[key] = null;
@@ -208,7 +211,6 @@ export async function readScan(
     const a = await reader.read(image, kind);
     raw[key] = a?.text ?? null;
     if (!a || !a.text || kind === 'text') return a;
-    results[key] = a;
     const reasons = new Set<Reason>();
     if (a.confidence < MIN_CONFIDENCE) reasons.add('conf');
     if (a.ambiguous) reasons.add('amb');
@@ -309,7 +311,12 @@ export async function readScan(
       const qCol = inLine.filter((b) => b[0] > comp[0] + 120 && right(b) >= comp[0] + 130 && right(b) <= comp[0] + 185);
       const q = inLine.length > 1 && qCol.length ? qCol[qCol.length - 1] : null;
       const rest = q ? inLine.filter((b) => b !== q) : inLine;
-      if (!rest.length) continue;
+      if (!rest.length) {
+        rowMissing = true; // Zeile nur aus fremdem Text am Rand: dort könnte eine echte Zeile stehen
+        continue;
+      }
+      // Mehrere Kästen in der Qualitätsspalte: welcher die Qualität ist, ist nicht sicher
+      const qualityDoubt = qCol.length > 1 || rest.some((b) => right(b) > comp[0] + 130);
       const left = union(rest);
       const split = await splitPercent(img, reader, left, cropFor);
       const pctText = await read(`parts.${i}.pct`, split?.pct ?? left, 'number');
@@ -324,16 +331,19 @@ export async function readScan(
         flag(`parts.${i}.ore`, 'box');
         flag(`parts.${i}.quality`, 'box');
       }
+      if (qualityDoubt) flag(`parts.${i}.quality`, 'box');
       // Nichts Lesbares (z. B. Teil des Balkens vor hellem Boden): keine Zeile daraus machen
       if (!pctText?.text && !oreText?.text && !qualityText?.text) {
         for (const k of Object.keys(marks)) if (k.startsWith(`parts.${i}.`)) delete marks[k];
         for (const k of Object.keys(raw)) if (k.startsWith(`parts.${i}.`)) delete raw[k];
+        // Unter der ersten Zeile könnte das eine echte, nur unlesbare Zeile sein
+        if (rows.length) rowMissing = true;
         continue;
       }
       let pct = cleanNumber(pctText?.text);
       // Punkt nicht gelesen ("2750" statt "27.50"): Anteile haben immer zwei Nachkommastellen
       if (pct && !pct.includes('.') && pct.length >= 3) {
-        pct = `${pct.slice(0, -2)}.${pct.slice(-2)}`;
+        if (Number(pct) > 100) pct = `${pct.slice(0, -2)}.${pct.slice(-2)}`; // "100" kann auch 100 % sein
         flag(`parts.${i}.pct`, 'format');
       }
       // Sonst muss das Format stimmen (z. B. "70.7" statt "70.71": Ziffer verloren)
@@ -346,34 +356,36 @@ export async function readScan(
     const markAllPct = () => rows.forEach((_, i) => flag(`parts.${i}.pct`, 'format'));
     const finalSum = resolved.values.reduce((s, v) => s + (v ? Number(v) : 0), 0);
     const complete = resolved.values.every((v) => v);
-    if (resolved.changed.length) {
-      // Eine Tauschung hat die Summe repariert, aber welche Zeile wirklich falsch war, ist nicht sicher
-      markAllPct();
-      notes.push('Anteile wurden automatisch korrigiert (0/8-Verwechslung). Bitte alle Anteile prüfen.');
-    } else if (!complete || finalSum < SUM_WINDOW[0] || finalSum > SUM_WINDOW[1] || rowMissing) {
-      markAllPct();
+    const sumNote = () =>
       notes.push(
         rowMissing || finalSum < SUM_WINDOW[0]
           ? `Die Anteile ergeben ${finalSum.toFixed(2)} %. Fehlt eine Zeile? Bitte die Zusammensetzung prüfen.`
           : `Die Anteile ergeben ${finalSum.toFixed(2)} % statt 100 %. Bitte die Zusammensetzung prüfen.`,
       );
-    } else {
-      // Summe stimmt: Markierungen aus dem Lesen bleiben grundsätzlich stehen (die zweite Nachkommastelle kann die
-      // Summe nicht klären). Eine zweifelhafte Ziffer weiter vorn ist geklärt, wenn jede Alternative die Summe
-      // kippen würde, aber nur, wenn keine andere Zeile im Zweifel ist (zwei Fehler können sich ausgleichen).
-      const values = rows.map((r) => Number(r.pct));
-      const doubtful = rows.filter((_, i) => marks[`parts.${i}.pct`]).length;
-      rows.forEach((row, i) => {
-        const key = `parts.${i}.pct`;
-        const reasons = why[key];
-        if (doubtful !== 1 || !row.pct || !reasons || reasons.size !== 1 || !reasons.has('amb')) return;
-        if (sumConfirms(row.pct, results[key], values, i)) delete marks[key];
-      });
+    const sumOff = !complete || finalSum < SUM_WINDOW[0] || finalSum > SUM_WINDOW[1] || rowMissing;
+    if (resolved.changed.length) {
+      // Eine Tauschung hat die Summe repariert, aber welche Zeile wirklich falsch war, ist nicht sicher
+      markAllPct();
+      notes.push('Anteile wurden automatisch korrigiert (0/8-Verwechslung). Bitte alle Anteile prüfen.');
+      if (sumOff) sumNote();
+    } else if (sumOff) {
+      markAllPct();
+      sumNote();
     }
+    // Stimmt die Summe, bleiben alle Markierungen aus dem Lesen stehen. Die Summe hebt keine auf: Zwei Lesefehler
+    // können sich ausgleichen, und die zweite Nachkommastelle kann sie ohnehin nicht klären (Code-Prüfung).
     draft.parts = rows.map((r, i) => ({ pct: resolved.values[i] ?? '', ore: r.ore ?? '', quality: r.quality ?? '' }));
   } else if (withDetection) {
     marks['parts.0.pct'] = 'check';
     notes.push('Zusammensetzung nicht gefunden. Bitte eintragen.');
+  }
+  // Dichte-Prüfung: Masse = 142,857 x SCU x Summe(Anteil x Dichte), Inert 1. An echten Scans gemessen: 0–2 %
+  // daneben. Nur zusätzliche Markierungen, nie weniger.
+  const expected = expectedMass(draft, ores);
+  if (expected && Math.abs(Number(draft.mass) / expected - 1) > MASS_TOLERANCE) {
+    flag('mass', 'format');
+    flag('scu', 'format');
+    notes.push(`Masse passt nicht zu SCU und Zusammensetzung (erwartet etwa ${Math.round(expected)} kg). Bitte Masse, SCU und Anteile prüfen.`);
   }
   if (reader.name === 'keine') notes.push('Texterkennung noch nicht aktiv: nur die Farben wurden gelesen, Zahlen bitte eintragen.');
 
@@ -388,30 +400,29 @@ function medianLum(img: Rgb): number {
   return v.sort((a, b) => a - b)[v.length >> 1] ?? 0;
 }
 
+/** Abweichung der Masse von der Dichte-Rechnung, ab der markiert wird (gemessen 0–2,1 %). */
+const MASS_TOLERANCE = 0.035;
+const KG_PER_SCU = 100 / 0.7;
+
+/** Erwartete Masse aus SCU und Zusammensetzung; null, wenn etwas fehlt oder unbekannt ist. */
+export function expectedMass(d: ScanDraft, ores: Ore[]): number | null {
+  const scu = d.scu ? scuValue(d.scu) : NaN;
+  if (!d.mass || !Number.isFinite(scu) || scu <= 0 || !d.parts.length) return null;
+  let density = 0;
+  let total = 0;
+  for (const p of d.parts) {
+    const pct = Number(p.pct);
+    const rho = p.ore === 'inert' ? 1 : ores.find((o) => o.id === p.ore)?.density;
+    if (!p.pct || !Number.isFinite(pct) || !rho) return null;
+    density += (pct / 100) * rho;
+    total += pct;
+  }
+  if (total < SUM_WINDOW[0] || total > SUM_WINDOW[1]) return null;
+  return KG_PER_SCU * scu * density;
+}
+
 /** Spanne, in der die angezeigten Anteile zusammen liegen (gemessen 99,97–100,05). */
 const SUM_WINDOW: [number, number] = [99.9, 100.1];
-const LOOKALIKES = ['0', '6', '8', '9'];
-
-/**
- * Bestätigt die Summe der Anteile einen Wert mit zweifelhaften Ziffern? Nur wenn keine zweifelhafte Ziffer in der
- * letzten Nachkommastelle steht und jede andere Lesart (0/6/8/9 getauscht) die Summe aus dem Fenster bringen würde.
- */
-function sumConfirms(value: string, read: ReadResult | undefined, values: number[], index: number): boolean {
-  const chars = (read?.chars ?? []).filter((c) => /[\d.]/.test(c.c));
-  if (chars.map((c) => c.c).join('') !== value) return false; // Lage der Zeichen unklar
-  const sum = values.reduce((s, v) => s + v, 0);
-  if (sum < SUM_WINDOW[0] || sum > SUM_WINDOW[1]) return false;
-  const lastDigit = value.length - 1;
-  return chars.every((c, pos) => {
-    if (!c.amb) return true;
-    if (pos === lastDigit && value.includes('.')) return false;
-    return LOOKALIKES.filter((d) => d !== c.c).every((d) => {
-      const alt = Number(value.slice(0, pos) + d + value.slice(pos + 1));
-      const altSum = sum - values[index] + alt;
-      return altSum < SUM_WINDOW[0] || altSum > SUM_WINDOW[1];
-    });
-  });
-}
 
 /**
  * "42.10% HEPH (RAW)" in Anteil und Name teilen: Zeile einmal ganz lesen, Lage des "%" (bzw. des ersten

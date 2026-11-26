@@ -70,8 +70,9 @@ export function textColor(img: Rgb): { color: TextColor; share: number } | null 
   const redRatio = r / Math.max(g, b);
   if (greenRatio >= 1.12) return { color: 'green', share: clamp((greenRatio - 1) / 0.25) };
   if (redRatio >= 1.12) return { color: 'red', share: clamp((redRatio - 1) / 0.3) };
-  // Leicht grün/rot getönt (unter der Schwelle): eher weiß, aber nicht sicher. Echte weiße Werte liegen bei <= 1,05.
-  const tinted = Math.max(greenRatio, redRatio) > 1.07;
+  // Leicht grün/rot getönt (unter der Schwelle): eher weiß, aber nicht sicher. Gemessen an echten weißen Werten:
+  // Grün-Verhältnis bis 1,068, Rot-Verhältnis bis 0,998 (Rot also enger prüfbar).
+  const tinted = greenRatio > 1.075 || redRatio > 1.03;
   const share = clamp((Math.min(r, g, b) / Math.max(r, g, b) - 0.7) / 0.25);
   return { color: 'white', share: tinted ? Math.min(share, 0.5) : share };
 }

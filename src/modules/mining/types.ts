@@ -8,6 +8,32 @@ export interface Dataset {
   modules: MiningModule[];
   gadgets: Gadget[];
   ores: Ore[];
+  signatures: SignatureData;
+}
+
+export type Rarity = 'legendary' | 'epic' | 'rare' | 'uncommon' | 'common';
+
+/** Radar-Signaturen (generiert aus den Spieldaten, siehe scripts/mining-data.mjs). */
+export interface SignatureData {
+  /** Clustergrößen je Seltenheit: probability = Anteil der Vorkommen, die als Cluster spawnen. */
+  clusters: Record<Rarity, { probability: number; sizes: { size: number; p: number }[] }>;
+  /** Bodenfamilien und Kleinteile: gleiche Signatur für alle Mineralien einer Familie. */
+  families: { id: 'roc' | 'fps' | 'small'; label: string; base: number; maxCount: number; minerals: string[] }[];
+  /** Einzelne Wracks mit eigener Signatur. */
+  debris: { base: number; label: string }[];
+  locations: SignatureLocation[];
+}
+
+export interface SignatureLocation {
+  id: string;
+  name: string;
+  system: string;
+  /** Planet oder Mond (Bodenvorkommen möglich). */
+  surface: boolean;
+  /** Anteil der Schiffs-Erze an den Vorkommen dieses Orts (0..1). */
+  ores: { ore: string; p: number }[];
+  /** Bodenfamilien an diesem Ort ('roc', 'fps'). */
+  ground: string[];
 }
 
 export interface Ship {
@@ -67,6 +93,11 @@ export interface Ore {
   id: string;
   name: string;
   form: 'ORE' | 'RAW';
+  /** Dichte (g/cm³, relativ zu Wasser); Masse = 142,857 x SCU x Summe(Anteil x Dichte). */
+  density?: number;
+  /** Basis-Signatur auf dem Radar (nur Schiffs-Erze). */
+  signature?: number;
+  rarity?: Rarity;
 }
 
 /** Was im Scan-Panel steht (von Hand eingegeben oder später per OCR). */
