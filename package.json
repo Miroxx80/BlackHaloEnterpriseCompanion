@@ -13,7 +13,7 @@
     "desktop": "npm run build && electron .",
     "start": "node dist/main.js",
     "dev": "npm run build && npm run start",
-    "test": "npm run build && node --test test/smoke.test.mjs test/input.test.mjs",
+    "test": "npm run build && node --test test/smoke.test.mjs test/input.test.mjs test/mining.test.mjs",
     "test:desktop": "npm run build && node --test test/desktop.test.mjs"
   },
   "dependencies": {

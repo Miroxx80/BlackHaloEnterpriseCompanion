@@ -29,17 +29,31 @@ if (token && !validToken(token)) {
 }
 
 // ---- REST ----
-async function get(path) {
-  const res = await fetch(path, { headers: token ? { 'x-bh-token': token } : {} });
+async function request(method, path, body) {
+  const headers = token ? { 'x-bh-token': token } : {};
+  if (body !== undefined) headers['content-type'] = 'application/json';
+  const res = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   if (res.status === 401) {
     throw Object.assign(
       new Error('Zugangsschlüssel fehlt oder ist falsch. Bitte am PC unter „Verbinden“ den QR-Code neu scannen.'),
       { auth: true },
     );
   }
-  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+  if (!res.ok) {
+    // Module liefern verständliche Meldungen als { error } (z. B. Eingabefehler, HTTP 400)
+    let message = `${path}: HTTP ${res.status}`;
+    try {
+      const data = await res.json();
+      if (data && typeof data.error === 'string') message = data.error;
+    } catch { /* keine JSON-Antwort */ }
+    throw Object.assign(new Error(message), { status: res.status });
+  }
   return res.json();
 }
+
+const get = (path) => request('GET', path);
+const post = (path, body) => request('POST', path, body ?? {});
+const put = (path, body) => request('PUT', path, body ?? {});
 
 // ---- WebSocket mit Auto-Reconnect ----
 const listeners = new Map(); // type -> Set<fn>
@@ -74,6 +88,8 @@ function createApi(moduleId, subs) {
   return {
     moduleId,
     get,
+    post,
+    put,
     /** Sendet "<modul>:<name>". Gibt false zurück, wenn keine Verbindung besteht. */
     send(name, payload) {
       if (!socket || socket.readyState !== WebSocket.OPEN) return false;
