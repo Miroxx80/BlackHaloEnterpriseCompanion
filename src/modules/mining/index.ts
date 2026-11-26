@@ -3,7 +3,14 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import type { BhModule } from '../../core/types.js';
 import { calculate, DEFAULT_OPTIONS, InputError } from './calc.js';
+import { createScanValidator, emptyDraft, type ScanDraft } from './scanState.js';
 import type { CalcOptions, Dataset, LoadoutInput, ScanInput } from './types.js';
+
+/** Service "mining.scan" für andere Module (z. B. OCR): aktuellen Scan lesen oder ersetzen. */
+export interface MiningScanService {
+  get(): { revision: number; scan: ScanDraft };
+  replace(scan: ScanDraft, origin?: string): { revision: number; scan: ScanDraft };
+}
 
 /** Ein gespeichertes Loadout (Schiff + Laser + Module). */
 interface SavedLoadout extends LoadoutInput {
@@ -28,6 +35,9 @@ interface LoadoutStore {
 }
 
 const MAX_LOADOUTS = 50;
+
+/** Ausstehendes Speichern beim Beenden sofort erledigen (gesetzt in setup). */
+let flushPending: (() => void) | null = null;
 
 function loadDataset(dir: string): Dataset {
   const file = join(dir, 'data', 'dataset.json');
@@ -156,6 +166,71 @@ const mod: BhModule = {
     ctx.http.get('/loadouts', async () => publicStore());
 
     /** Ganze Liste speichern (einfach und robust bei wenigen Einträgen), mit Schutz vor veraltetem Stand. */
+    // ---------- Gemeinsamer aktueller Scan (für alle Geräte) ----------
+    const validator = createScanValidator(data);
+    const scanFile = join(ctx.dataDir, 'scan.json');
+    let current = { revision: 1, scan: emptyDraft() };
+    if (existsSync(scanFile)) {
+      try {
+        const raw = JSON.parse(readFileSync(scanFile, 'utf8')) as { revision?: unknown; scan?: unknown };
+        current = {
+          revision: Number.isInteger(raw.revision) && (raw.revision as number) > 0 ? (raw.revision as number) : 1,
+          scan: validator.validateDraft(raw.scan),
+        };
+      } catch (err) {
+        ctx.log.warn(`scan.json nicht lesbar, starte leer: ${(err as Error).message}`);
+      }
+    }
+    // Schreiben gebündelt: Beim Tippen kommen viele kleine Änderungen hintereinander
+    let saveTimer: NodeJS.Timeout | null = null;
+    const writeScan = () => {
+      try {
+        writeFileSync(scanFile + '.tmp', JSON.stringify(current));
+        renameSync(scanFile + '.tmp', scanFile);
+      } catch (err) {
+        ctx.log.warn(`scan.json konnte nicht gespeichert werden: ${(err as Error).message}`);
+      }
+    };
+    const saveScan = () => {
+      if (saveTimer) return;
+      saveTimer = setTimeout(() => {
+        saveTimer = null;
+        writeScan();
+      }, 300);
+    };
+    flushPending = () => {
+      if (!saveTimer) return;
+      clearTimeout(saveTimer);
+      saveTimer = null;
+      writeScan();
+    };
+
+    /** Änderung übernehmen, speichern und an alle Geräte verteilen. origin: wer geändert hat (Gerät/OCR). */
+    function commitScan(next: ScanDraft, origin: string) {
+      current = { revision: current.revision + 1, scan: next };
+      saveScan();
+      ctx.ws.broadcast('scan', { ...current, origin });
+      return current;
+    }
+
+    ctx.services.provide<MiningScanService>('mining.scan', {
+      get: () => current,
+      replace: (scan, origin = 'service') => commitScan(validator.validateDraft(scan), origin),
+    });
+
+    ctx.http.get('/scan', async () => current);
+
+    /** Änderungen als Befehle: { ops: [...], origin: "<geräte-id>" }. Antwort: neuer Stand. */
+    ctx.http.post('/scan', async (req, reply) => {
+      try {
+        const body = (req.body ?? {}) as { ops?: unknown; origin?: unknown };
+        const origin = typeof body.origin === 'string' && /^[\w-]{1,64}$/.test(body.origin) ? body.origin : 'unbekannt';
+        return commitScan(validator.apply(current.scan, body.ops), origin);
+      } catch (err) {
+        return badRequest(reply, err);
+      }
+    });
+
     ctx.http.put('/loadouts', async (req, reply) => {
       try {
         const body = (req.body ?? {}) as Partial<LoadoutStore>;
@@ -172,6 +247,8 @@ const mod: BhModule = {
         const activeId = loadouts.some((l) => l.id === body.activeId) ? body.activeId! : loadouts[0].id;
         store = { activeId, loadouts, revision: store.revision + 1, stale: store.stale };
         writeStore(store);
+        // Andere Geräte (z. B. Handy) übernehmen Loadout-Wechsel sofort
+        ctx.ws.broadcast('loadouts', publicStore());
         return publicStore();
       } catch (err) {
         return badRequest(reply, err);
@@ -191,6 +268,11 @@ const mod: BhModule = {
     });
 
     ctx.log.info(`Spieldaten ${data.build}: ${data.lasers.length} Laser, ${data.modules.length} Module, ${data.gadgets.length} Gadgets`);
+  },
+
+  stop() {
+    flushPending?.();
+    flushPending = null;
   },
 };
 

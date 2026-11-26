@@ -301,3 +301,83 @@ test('API: Loadouts nach Patch beiseitelegen statt löschen, kaputte Datei siche
     await app.stop();
   }
 });
+
+test('Gemeinsamer Scan: Befehle, Prüfung, Verteilen an andere Geräte, Speichern über Neustart', async () => {
+  const dataRoot = mkdtempSync(join(tmpdir(), 'bh-mining-sync-'));
+  const opts = { overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' } } }, dataRoot };
+  let app = await startApp(opts);
+  const call = (method, path, body) =>
+    fetch(`http://127.0.0.1:${app.port}/api/mining${path}`, {
+      method,
+      headers: body ? { 'content-type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  // Zweites Gerät hört per WebSocket mit
+  const ws = new WebSocket(`ws://127.0.0.1:${app.port}/ws`);
+  const inbox = [];
+  ws.onmessage = (e) => inbox.push(JSON.parse(e.data));
+  await new Promise((r) => (ws.onopen = r));
+  const waitFor = async (type) => {
+    for (let i = 0; i < 100; i++) {
+      const m = inbox.find((x) => x.type === type);
+      if (m) return inbox.splice(inbox.indexOf(m), 1)[0];
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    throw new Error(`keine Nachricht ${type}`);
+  };
+  try {
+    const start = await (await call('GET', '/scan')).json();
+    assert.equal(start.scan.parts.length, 1);
+
+    // Halbe Eingaben werden genau so übernommen (Text), Farbe und Zeilen
+    const res = await call('POST', '/scan', {
+      origin: 'pc-1',
+      ops: [
+        { op: 'set', field: 'mass', value: '4,627' },
+        { op: 'set', field: 'instability', value: '64,' },
+        { op: 'set', field: 'resColor', value: 'red' },
+        { op: 'part', index: 0, field: 'ore', value: 'Raw_Bexalite' },
+        { op: 'addPart' },
+        { op: 'part', index: 1, field: 'pct', value: '26,3' },
+      ],
+    });
+    assert.equal(res.status, 200);
+    const after = await res.json();
+    assert.equal(after.revision, start.revision + 1);
+    assert.deepEqual([after.scan.mass, after.scan.instability, after.scan.resColor], ['4,627', '64,', 'red']);
+    assert.equal(after.scan.parts.length, 2);
+
+    const msg = await waitFor('mining:scan');
+    assert.equal(msg.payload.origin, 'pc-1');
+    assert.equal(msg.payload.scan.mass, '4,627');
+
+    // Ungültige Befehle: nichts wird halb übernommen
+    for (const ops of [
+      [{ op: 'set', field: 'mass', value: '1' }, { op: 'set', field: 'gibtsnicht', value: 'x' }],
+      [{ op: 'set', field: 'resColor', value: 'blau' }],
+      [{ op: 'part', index: 0, field: 'ore', value: 'Ore_Unobtainium' }],
+      [{ op: 'part', index: 9, field: 'pct', value: '1' }],
+      [{ op: 'set', field: 'mass', value: 'x'.repeat(100) }],
+      [],
+    ]) {
+      const bad = await call('POST', '/scan', { origin: 'pc-1', ops });
+      assert.equal(bad.status, 400, JSON.stringify(ops));
+    }
+    assert.equal((await (await call('GET', '/scan')).json()).scan.mass, '4,627');
+
+    // Loadout-Wechsel geht auch an andere Geräte
+    const lo = await (await call('GET', '/loadouts')).json();
+    await call('PUT', '/loadouts', lo);
+    assert.equal((await waitFor('mining:loadouts')).payload.revision, lo.revision + 1);
+
+    // Nach Neustart ist der Scan noch da
+    await app.stop();
+    app = await startApp(opts);
+    const again = await (await call('GET', '/scan')).json();
+    assert.equal(again.scan.mass, '4,627');
+    assert.equal(again.scan.parts[1].pct, '26,3');
+  } finally {
+    ws.close();
+    await app.stop();
+  }
+});
