@@ -432,6 +432,19 @@ Source: screenshot of a real scan (`test/fixtures/scan-panel/titanium-458kg.png`
   - New insight: a **running active module is included in the displayed values**. The calculator currently assumes only laser and passive modules (plus gadget). It needs an input for "active module running during the scan"; later the OCR can read the module panel.
   - Planned in-game test: same rock, Helix I, scan without Stampede active, then with Stampede active, and record colour and value of both stats.
 
+## Full-screen HUD reference (org leader, 2026-11-26)
+
+File: `test/fixtures/hud/prospector-helix1-20pct.webp` with its values in the `.json` next to it. Prospector, Helix I with 2× Rieger-C3, laser power 20 %, not firing, rock at 89 m, no gadget.
+
+- **Colour rule refined:** with the laser not on the rock and no gadget attached, RES and INST stay **white**, because they show the rock's own values. They turn coloured once the laser is on the rock or a gadget is attached.
+- **Multiplicative stacking confirmed in game:** the laser panel shows FRACTURE PWR **156** (1.25 × 1.25 × 100 = 156.25) and WINDOW SIZE **59** (60 × 0.99 × 0.99 = 58.8). Additive stacking would give 150 and 58.
+- **Short labels in the Prospector:** `RESULTS`, `MASS:`, `RES:`, `INST:`, `COMP.`, with abbreviated ore names (`HEPH (RAW)`). The titanium screenshot used the long labels (`SCAN RESULTS`, `RESISTANCE:`, `INSTABILITY:`, `COMPOSITION`). The OCR must accept both forms.
+- **Other HUD elements to keep clear of in the overlay:**
+  - mining module list at left centre (name, PASSIVE/ACTIVE and effects)
+  - laser panel at bottom left
+  - cargo at bottom right
+  - key hints at the very bottom right (FIRE, LASER POWER, LASER TYPE, OPERATOR MD.)
+
 ---
 
 # Appendix: Adversarial verification of load-bearing claims
