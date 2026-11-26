@@ -419,6 +419,19 @@ Source: screenshot of a real scan (`test/fixtures/scan-panel/titanium-458kg.png`
 - **Mass and volume:** 458 kg / 0.9018 SCU = 508 kg per SCU, which means an average density of 3.56 × 142.857. That is plausible for titanium plus inert material.
 - **Panel language is English.**
 
+## Follow-up answers (org leader, 2026-11-26)
+
+- **When the colour appears:** right after the scan all numbers are white for a moment. Then RESISTANCE and INSTABILITY turn green or red as soon as the scan is complete. The normal reading in a Prospector is therefore the coloured value, which includes the laser. This matches the calculator's model.
+- **Gadgets:** as soon as a gadget is attached, the displayed values include it (coloured). This also matches the calculator's model.
+- **Titanium fixture (458 kg):** taken with a **Helix I** and an **active Stampede** module.
+  - Resistance 14 % green fits: Helix I is −30 %, so the rock's own value is 20 %.
+  - Instability 0.85 **red** does **not** fit the game data. Stampede is −10 % instability and Helix I is 0 %, so green would be expected. Open hypotheses:
+    1. Red on instability means something else, e.g. a danger threshold.
+    2. The colour came from something other than Stampede.
+    3. The Stampede data is wrong.
+  - New insight: a **running active module is included in the displayed values**. The calculator currently assumes only laser and passive modules (plus gadget). It needs an input for "active module running during the scan"; later the OCR can read the module panel.
+  - Planned in-game test: same rock, Helix I, scan without Stampede active, then with Stampede active, and record colour and value of both stats.
+
 ---
 
 # Appendix: Adversarial verification of load-bearing claims
