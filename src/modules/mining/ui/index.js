@@ -10,7 +10,8 @@ const STYLE = `
 .mn button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; }
 .mn button.primary { background: var(--accent); color: #1a1303; border-color: var(--accent); font-weight: 600; }
 .mn button.link { background: none; border: none; color: var(--muted); padding: 4px 6px; }
-.mn label { display: grid; gap: 4px; align-content: start; font-size: 13px; color: var(--muted); }
+.mn label, .mn .mn-field { display: grid; gap: 4px; align-content: start; font-size: 13px; color: var(--muted); }
+.mn input[aria-invalid="true"] { border-color: var(--bad); }
 .mn-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .mn-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .mn-seg button { border: none; border-radius: 0; padding: 6px 10px; font-size: 13px; background: var(--bg); }
@@ -84,9 +85,9 @@ function parseInt0(s) {
   return /^\d+$/.test(t) ? Number(t) : null;
 }
 
-/** Dezimalzahl: Komma oder Punkt als Dezimaltrennzeichen. */
+/** Dezimalzahl: Komma oder Punkt als Dezimaltrennzeichen, "%" am Ende (auch mit Leerzeichen) erlaubt. */
 function parseDec(s) {
-  const t = String(s).trim().replace(',', '.').replace(/%$/, '');
+  const t = String(s).replace(/\s*%\s*$/, '').trim().replace(',', '.');
   return t !== '' && /^\d*\.?\d+$/.test(t) ? Number(t) : null;
 }
 
@@ -130,6 +131,7 @@ export async function mount(root, api) {
   let editing = null; // Kopie des Loadouts im Editor
   let timer = null;
   let seq = 0;
+  let ignoredParts = 0;
 
   const byId = (list, id) => list.find((x) => x.id === id);
   const active = () => byId(store.loadouts, store.activeId) ?? store.loadouts[0];
@@ -145,13 +147,20 @@ export async function mount(root, api) {
     el('button', { onclick: () => openEditor(active()) }, 'Loadout bearbeiten'),
   );
   const scanCard = el('div', { class: 'card' });
-  const resultBox = el('div', { class: 'mn-result', 'aria-live': 'polite' });
+  const resultBox = el('div', { class: 'mn-result' });
   const editorCard = el('div', { class: 'card mn-editor', hidden: true });
   root.append(el('div', { class: 'mn' }, head, scanCard, resultBox, editorCard));
 
   loadoutSelect.addEventListener('change', async () => {
-    store.activeId = loadoutSelect.value;
-    await saveStore();
+    const previous = store.activeId;
+    try {
+      await persist({ ...store, activeId: loadoutSelect.value });
+    } catch (err) {
+      if (err.status !== 409) store.activeId = previous; // bei 409 gilt der geladene aktuelle Stand
+      renderLoadoutSelect();
+      resultBox.replaceChildren(el('p', { class: 'mn-error' }, err.message));
+      return;
+    }
     schedule();
   });
 
@@ -160,8 +169,8 @@ export async function mount(root, api) {
   }
 
   // ---------- Scan-Eingabe ----------
-  function segmented(value, onPick) {
-    const seg = el('div', { class: 'mn-seg', role: 'group' });
+  function segmented(value, onPick, name) {
+    const seg = el('div', { class: 'mn-seg', role: 'group', 'aria-label': name });
     for (const [v, label] of [['white', 'Weiß'], ['green', 'Grün'], ['red', 'Rot']]) {
       seg.append(
         el('button', {
@@ -176,8 +185,10 @@ export async function mount(root, api) {
     return seg;
   }
 
+  /** Beschriftetes Feld. Zusatz (z. B. Farbschalter) steht außerhalb des Labels, damit Screenreader sauber vorlesen. */
   function field(label, input, extra) {
-    return el('label', {}, label, input, extra);
+    if (!extra) return el('label', {}, label, input);
+    return el('div', { class: 'mn-field' }, el('label', {}, label, input), extra);
   }
 
   function renderScan() {
@@ -185,8 +196,18 @@ export async function mount(root, api) {
       scan[key] = e.target.value;
       changed();
     };
-    const num = (key, placeholder, mode = 'decimal') =>
-      el('input', { value: scan[key], placeholder, inputmode: mode, autocomplete: 'off', oninput: set(key) });
+    // Ungültige Eingaben rot markieren statt still zu ignorieren
+    const parsers = { mass: parseInt0, resistance: parseDec, instability: parseDec, scu: parseScu };
+    const num = (key, placeholder, mode = 'decimal') => {
+      const input = el('input', { value: scan[key], placeholder, inputmode: mode, autocomplete: 'off' });
+      const mark = () => input.setAttribute('aria-invalid', String(input.value.trim() !== '' && parsers[key](input.value) == null));
+      input.addEventListener('input', (e) => {
+        set(key)(e);
+        mark();
+      });
+      mark();
+      return input;
+    };
 
     const gadgetSelect = el(
       'select',
@@ -199,9 +220,10 @@ export async function mount(root, api) {
       'div',
       { class: 'mn-fields' },
       field('Masse (kg)', num('mass', 'z. B. 4627', 'numeric')),
-      field('Resistenz (%)', num('resistance', 'z. B. 56'), segmented(scan.resColor, (v) => { scan.resColor = v; renderScan(); changed(); })),
-      field('Instabilität', num('instability', 'z. B. 64,16'), segmented(scan.instColor, (v) => { scan.instColor = v; renderScan(); changed(); })),
-      field('Gesamt-SCU (optional)', num('scu', 'z. B. 5,54 oder 901.80m')),
+      field('Resistenz (%)', num('resistance', 'z. B. 56'), segmented(scan.resColor, (v) => { scan.resColor = v; renderScan(); changed(); }, 'Farbe der Resistenz')),
+      field('Instabilität', num('instability', 'z. B. 64,16'), segmented(scan.instColor, (v) => { scan.instColor = v; renderScan(); changed(); }, 'Farbe der Instabilität')),
+      // Text-Tastatur: Das HUD zeigt kleine Mengen als "901.80m SCU" (Milli), das "m" braucht Buchstaben
+      field('Gesamt-SCU (optional)', num('scu', 'z. B. 5,54 oder 901.80m', 'text')),
       field('Gadget schon am Stein', gadgetSelect),
     );
 
@@ -245,7 +267,7 @@ export async function mount(root, api) {
       fields,
       el('div', { class: 'mn-sub' }, el('h3', {}, 'Zusammensetzung (optional)'), el('button', { type: 'button', class: 'link', onclick: () => { scan.parts.push({ pct: '', ore: '', quality: '' }); renderScan(); } }, '+ Zeile')),
       parts,
-      el('p', { class: 'mn-muted' }, 'Farbe wie im Spiel: Weiß = Wert des Steins, Grün/Rot = schon durch Laser, Module oder Gadget verändert.'),
+      el('p', { class: 'mn-muted' }, 'Farbe wie im Spiel: Weiß = Wert des Steins. Grün/Rot = Wert enthält schon Laser und Module des gewählten Loadouts sowie das Gadget, falls oben eins angegeben ist.'),
     );
   }
 
@@ -255,6 +277,7 @@ export async function mount(root, api) {
     const resistance = parseDec(scan.resistance);
     const instability = parseDec(scan.instability);
     if (mass == null || resistance == null || instability == null) return { missing: true };
+    ignoredParts = scan.parts.filter((p) => (p.ore || p.pct !== '') && (!p.ore || parseDec(p.pct) == null)).length;
     const parts = scan.parts
       .filter((p) => p.ore && parseDec(p.pct) != null)
       .map((p) => ({ oreId: p.ore === 'inert' ? null : p.ore, pct: parseDec(p.pct), quality: parseInt0(p.quality) }));
@@ -288,12 +311,13 @@ export async function mount(root, api) {
   }
 
   async function run() {
+    // Zuerst hochzählen: Eine noch laufende ältere Anfrage darf das Ergebnis danach nicht mehr überschreiben
+    const mine = ++seq;
     const req = buildRequest();
     if (req.missing) {
       resultBox.replaceChildren(el('p', { class: 'mn-muted' }, 'Masse, Resistenz und Instabilität eingeben, dann erscheint das Ergebnis.'));
       return;
     }
-    const mine = ++seq;
     try {
       const result = await api.post('/api/mining/calc', req.body);
       if (mine === seq) renderResult(result);
@@ -309,6 +333,8 @@ export async function mount(root, api) {
         return ['ok', 'SCHAFFBAR'];
       case 'slow':
         return ['warn', 'SCHAFFBAR – LÄDT LANGSAM'];
+      case 'edge':
+        return ['warn', 'GRENZFALL – nur mit voller Leistung, vielleicht'];
       case 'too-strong':
         return ['warn', `LASER ZU STARK – ca. ${a.backoffM} m Abstand halten`];
       default:
@@ -318,8 +344,12 @@ export async function mount(root, api) {
 
   const bandText = (a) => (a.band[0] === a.band[1] ? `${a.band[0]} %` : `${a.band[0]}–${a.band[1]} %`);
 
-  function powerLine(a) {
+  function powerLine(a, r) {
     if (a.status === 'impossible') return `Benötigt ${fmtInt(a.share * 100)} % der Laserleistung`;
+    if (a.status === 'edge') return `Benötigt rechnerisch ${fmtInt(a.share * 100)} %, also volle Leistung (100 %)`;
+    if (a.status === 'too-strong') {
+      return `Schon die Mindestleistung (${Math.round(r.setup.laser.throttleMin * 100)} %) ist zu viel – ab ca. ${a.backoffM} m Abstand passt es`;
+    }
     return `${bandText(a)} Laserleistung halten die Ladung stabil`;
   }
 
@@ -360,24 +390,26 @@ export async function mount(root, api) {
       );
     }
 
-    nodes.push(el('div', { class: `mn-verdict ${cls}` }, text), el('div', { class: 'mn-line' }, powerLine(a)));
+    // Nur das Urteil vorlesen lassen, nicht das ganze Ergebnis nach jedem Tastendruck
+    nodes.push(el('div', { class: `mn-verdict ${cls}`, 'aria-live': 'polite' }, text), el('div', { class: 'mn-line' }, powerLine(a, r)));
 
     // Aktive Module nur zeigen, wenn es ohne sie nicht gut geht (sonst nur Ablenkung)
     for (const v of a.status === 'ok' ? [] : r.variants) {
       const [vc, vt] = verdict(v.assessment);
-      nodes.push(el('div', { class: 'mn-line' }, `${v.label[0].toUpperCase()}${v.label.slice(1)}: `, el('span', { class: `mn-verdict ${vc}` }, vt), ' · ', powerLine(v.assessment)));
+      nodes.push(el('div', { class: 'mn-line' }, `${v.label[0].toUpperCase()}${v.label.slice(1)}: `, el('span', { class: `mn-verdict ${vc}` }, vt), ' · ', powerLine(v.assessment, r)));
     }
 
     const g = r.gadgets;
     const gadgetEffect = (o) =>
       `Resistenz ${fmtDec(a.resistancePct, 1)} → ${fmtDec(o.assessment.resistancePct, 1)} % · Instabilität ${fmtDec(a.instability, 2)} → ${fmtDec(o.assessment.instability, 2)}`;
     if (g.kind === 'attached') nodes.push(el('div', { class: 'mn-muted' }, `Gadget am Stein: ${r.rock.gadgetAttached.name}`));
-    else if (g.kind === 'required') nodes.push(el('div', { class: 'mn-line' }, el('b', {}, `Gadget nötig: ${g.best.gadget.name}`), ` – dann ${bandText(g.best.assessment)}`), el('div', { class: 'mn-muted' }, gadgetEffect(g.best)));
+    else if (g.kind === 'required') nodes.push(el('div', { class: 'mn-line' }, el('b', {}, `Gadget nötig: ${g.best.gadget.name}`), ` – dann ${g.best.assessment.status === 'too-strong' ? `Laser zu stark, ca. ${g.best.assessment.backoffM} m Abstand` : bandText(g.best.assessment)}`), el('div', { class: 'mn-muted' }, gadgetEffect(g.best)));
     else if (g.kind === 'recommended') nodes.push(el('div', { class: 'mn-line' }, el('b', {}, `Empfohlen: ${g.best.gadget.name}`), ` – Laserleistung ${fmtInt(a.share * 100)} → ${fmtInt(g.best.assessment.share * 100)} %`), el('div', { class: 'mn-muted' }, gadgetEffect(g.best)));
     else if (g.kind === 'optional' && g.best) nodes.push(el('div', { class: 'mn-muted' }, `Optional: ${g.best.gadget.name} · ${gadgetEffect(g.best)}`));
     else if (g.kind === 'none-helps') nodes.push(el('div', { class: 'mn-line mn-verdict bad' }, 'Kein Gadget hilft bei diesem Stein'));
 
     for (const n of r.notes) nodes.push(el('div', { class: 'mn-note' }, n));
+    if (ignoredParts) nodes.push(el('div', { class: 'mn-note' }, `${ignoredParts} Zeile(n) der Zusammensetzung unvollständig (Erz oder Anteil fehlt) und nicht berücksichtigt.`));
 
     const mods = [...r.setup.passive, ...r.setup.active];
     nodes.push(
@@ -401,9 +433,22 @@ export async function mount(root, api) {
   }
 
   // ---------- Loadout-Editor ----------
-  async function saveStore() {
-    store = await api.put('/api/mining/loadouts', store);
-    renderLoadoutSelect();
+  /**
+   * Speichert eine neue Fassung der Loadouts. Bei einem Konflikt (anderes Gerät hat inzwischen gespeichert)
+   * wird der aktuelle Stand übernommen und der Fehler weitergereicht.
+   */
+  async function persist(next) {
+    try {
+      store = await api.put('/api/mining/loadouts', { ...next, revision: store.revision });
+      renderLoadoutSelect();
+    } catch (err) {
+      if (err.status === 409 && err.body?.current) {
+        store = err.body.current;
+        renderLoadoutSelect();
+        schedule();
+      }
+      throw err;
+    }
   }
 
   function openEditor(loadout) {
@@ -449,8 +494,7 @@ export async function mount(root, api) {
       else next.loadouts.push(entry);
       next.activeId = entry.id;
       try {
-        store = await api.put('/api/mining/loadouts', next);
-        renderLoadoutSelect();
+        await persist(next);
         editorCard.hidden = true;
         schedule();
       } catch (err) {
@@ -465,8 +509,7 @@ export async function mount(root, api) {
       }
       const next = { ...store, loadouts: store.loadouts.filter((l) => l.id !== editing.id) };
       try {
-        store = await api.put('/api/mining/loadouts', next);
-        renderLoadoutSelect();
+        await persist(next);
         editorCard.hidden = true;
         schedule();
       } catch (err) {
@@ -486,6 +529,7 @@ export async function mount(root, api) {
         ...slots,
       ),
       el('p', { class: 'mn-muted' }, `${laser.name}: ${fmtInt(laser.power)} Leistung, min. ${Math.round(laser.throttleMin * 100)} %, Resistenz ${fmtMod(laser.mods.resistance)} %, Instabilität ${fmtMod(laser.mods.instability)} %, Fenster ${fmtMod(laser.mods.window)} %, ${laser.slots} Slot(s), optimal bis ${laser.rangeFull} m`),
+      store.staleCount ? el('p', { class: 'mn-note' }, `${store.staleCount} gespeicherte(s) Loadout(s) passen nicht mehr zu den aktuellen Spieldaten und sind ausgeblendet (nicht gelöscht).`) : null,
       el('div', { class: 'mn-actions' }, el('button', { type: 'button', class: 'primary', onclick: () => save(false) }, 'Speichern'), el('button', { type: 'button', onclick: () => save(true) }, 'Als neues speichern'), el('button', { type: 'button', onclick: remove }, 'Löschen')),
       message,
     );

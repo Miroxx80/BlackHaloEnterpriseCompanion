@@ -38,6 +38,25 @@ function tokenMatches(given: unknown, expected: string): boolean {
   return timingSafeEqual(h(given), h(expected));
 }
 
+/**
+ * Braucht diese Anfrage das Token? Geprüft wird die Route, die der Router tatsächlich gewählt hat, und
+ * zusätzlich der dekodierte Pfad. Nur die rohe URL zu prüfen reicht nicht: "/%61pi/..." würde als "/api/..."
+ * geroutet, aber die Prüfung umgehen. Im Zweifel (nicht dekodierbar) wird geschützt.
+ */
+export function needsToken(routeUrl: string | undefined, rawUrl: string): boolean {
+  const isProtected = (p: string) => p === '/ws' || p === '/api' || p.startsWith('/api/');
+  if (routeUrl && isProtected(routeUrl)) return true;
+  let path: string;
+  try {
+    path = decodeURIComponent(rawUrl.split('?')[0]);
+  } catch {
+    return true;
+  }
+  // Mehrfache Schrägstriche und "." zusammenfassen, wie ein Router es tun könnte
+  const normalized = ('/' + path.split('/').filter((s) => s !== '' && s !== '.').join('/')).toLowerCase();
+  return isProtected(normalized) || normalized.startsWith('/api');
+}
+
 export async function startApp(options: CreateAppOptions = {}): Promise<BhApp> {
   const coreDir = dirname(fileURLToPath(import.meta.url)); // dist/core
   const distDir = join(coreDir, '..');
@@ -57,8 +76,7 @@ export async function startApp(options: CreateAppOptions = {}): Promise<BhApp> {
   const token = config.security.token;
   if (token) {
     app.addHook('onRequest', async (req, reply) => {
-      const path = req.url.split('?')[0];
-      if (!path.startsWith('/api') && path !== '/ws') return;
+      if (!needsToken(req.routeOptions?.url, req.url)) return;
       const given = req.headers['x-bh-token'] ?? (req.query as Record<string, unknown> | undefined)?.token;
       if (!tokenMatches(given, token)) return reply.code(401).send({ error: 'Token fehlt oder ist falsch' });
     });

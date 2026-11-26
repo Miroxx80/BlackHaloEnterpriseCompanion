@@ -305,7 +305,7 @@
       "extraction": 1295,
       "rangeFull": 40,
       "rangeZero": 45,
-      "slots": 0,
+      "slots": 2,
       "requiredTags": [
         "DRAK_Golem",
         "miningMount"

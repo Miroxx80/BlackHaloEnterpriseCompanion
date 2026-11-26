@@ -12,7 +12,10 @@
  */
 import type { CalcOptions, Dataset, Gadget, Laser, LoadoutInput, MiningModule, ScanInput } from './types.js';
 
-/** Bis hierhin gilt "schaffbar" (Bedrock BREAK_EDGE): knapp über 100 % hält der Stein bei Vollgas gerade noch. */
+/**
+ * Messtoleranz (Bedrock BREAK_EDGE): Zwischen 100 % und 105 % ist es ein Grenzfall. Rechnerisch reicht die Leistung
+ * nicht ganz, wegen der Ungenauigkeit des Modells kann es aber trotzdem klappen.
+ */
 export const EDGE = 1.05;
 /** Bis hierhin lädt der Stein zügig. Darüber "geht, lädt aber langsam". */
 export const COMFORTABLE = 0.9;
@@ -20,7 +23,16 @@ export const COMFORTABLE = 0.9;
 export const SWAY = 4;
 export const DEFAULT_OPTIONS: CalcOptions = { resistanceExponent: 1.21 };
 
-export type Status = 'ok' | 'slow' | 'too-strong' | 'impossible';
+/**
+ * ok: passt. slow: geht, lädt aber langsam (über 90 %). edge: Grenzfall (100–105 %).
+ * too-strong: schon die Mindestleistung des Lasers ist zu viel. impossible: reicht nicht.
+ */
+export type Status = 'ok' | 'slow' | 'edge' | 'too-strong' | 'impossible';
+
+/** Reihenfolge für Vergleiche: kleiner = besser. */
+const STATUS_RANK: Record<Status, number> = { ok: 0, slow: 1, 'too-strong': 2, edge: 3, impossible: 4 };
+/** Wunsch-Leistung für Vergleiche (Bedrock bevorzugt um 60 %: Spielraum nach oben und unten). */
+const TARGET_SHARE = 0.6;
 
 export interface Assessment {
   /** Durchkommende Leistung bei 100 %. */
@@ -153,13 +165,16 @@ function assess(
   const share = through > 0 ? needs / through : Number.MAX_VALUE;
   let status: Status;
   if (share > EDGE) status = 'impossible';
+  else if (share > 1) status = 'edge';
   else if (share > COMFORTABLE) status = 'slow';
   else if (share < laser.throttleMin) status = 'too-strong';
   else status = 'ok';
 
+  // Mehr als 100 % lässt sich nicht einstellen: Spanne oben kappen
   const hold = Math.round(share * 100);
   const sway = instability > 1 ? SWAY : 0;
-  const band: [number, number] | null = through > 0 ? [Math.max(0, hold - sway), hold + sway] : null;
+  const band: [number, number] | null =
+    through > 0 ? [Math.min(100, Math.max(0, hold - sway)), Math.min(100, hold + sway)] : null;
 
   const result: Assessment = {
     through,
@@ -220,15 +235,21 @@ export function calculate(
   const gRes = attached ? factor(attached.mods.resistance) : 1;
   const gInst = attached ? factor(attached.mods.instability) : 1;
 
-  // Eigene Werte des Steins zurückgewinnen
-  const ownFrom = (printed: number, colored: boolean, setupFactor: number, gadgetFactor: number, what: string) => {
+  // Eigene Werte des Steins zurückgewinnen.
+  // Weiß = Wert des Steins. Farbig = enthält Laser, passive Module und (falls angegeben) das Gadget am Stein.
+  const ownFrom = (
+    printed: number,
+    colored: boolean,
+    setupFactor: number,
+    gadgetFactor: number,
+    what: string,
+    cappedAt?: number,
+  ) => {
     const total = setupFactor * gadgetFactor;
     if (!colored) {
-      if (Math.abs(total - 1) > 1e-9) {
-        notes.push(
-          `${what} ist weiß, obwohl Laser/Module/Gadget sie verändern. Gerechnet wird mit dem angezeigten Wert ` +
-            `als Steinwert. War der Laser beim Scan nicht auf dem Stein?`,
-        );
+      // Im Spiel beobachtet: Mit Gadget am Stein werden die Werte farbig. Weiß passt dann nicht dazu.
+      if (Math.abs(gadgetFactor - 1) > 1e-9) {
+        notes.push(`${what} ist weiß, obwohl ein Gadget am Stein sitzt. Im Spiel wird der Wert dann farbig. Bitte Farbe prüfen.`);
       }
       return printed;
     }
@@ -236,11 +257,21 @@ export function calculate(
       notes.push(`${what} ist farbig, aber das gewählte Setup verändert sie nicht. Bitte Loadout prüfen.`);
       return printed;
     }
+    if (cappedAt !== undefined && printed >= cappedAt && total > 1) {
+      // Das Spiel kappt bei 100 %. Der Stein hat also mindestens 100 / Faktor, vielleicht mehr.
+      // Vorsichtig rechnen: mit dem höchsten möglichen Wert, damit kein Gadget falsch empfohlen wird.
+      const atLeast = cappedAt / total;
+      notes.push(
+        `${what} ${cappedAt} % (farbig) ist im Spiel gekappt: Der Stein hat mindestens ${atLeast.toFixed(0)} %. ` +
+          `Gerechnet wird vorsichtig mit ${cappedAt} %. Genauer wird es mit dem weißen Wert (Laser nicht auf dem Stein).`,
+      );
+      return cappedAt;
+    }
     return printed / total;
   };
   const resistanceOwn = Math.min(
     100,
-    ownFrom(resPrinted, scan.resistanceColored, base.res, gRes, 'Resistenz'),
+    ownFrom(resPrinted, scan.resistanceColored, base.res, gRes, 'Resistenz', 100),
   );
   const instabilityOwn = ownFrom(instPrinted, scan.instabilityColored, base.inst, gInst, 'Instabilität');
 
@@ -262,28 +293,34 @@ export function calculate(
     };
   });
 
-  // Gadget-Empfehlung (Schwellen wie Bedrock, dort als "erste Schätzung" bezeichnet)
+  // Gadget-Empfehlung (Schwellen wie Bedrock, dort als "erste Schätzung" bezeichnet).
+  // Vergleich: erst nach Status (ok vor langsam vor zu stark ...), dann nach Nähe zu ~60 % Leistung.
   const all: GadgetOption[] = data.gadgets.map((g) => ({
     gadget: { id: g.id, name: g.name },
     assessment: evaluate([], g),
   }));
+  const better = (a: GadgetOption, b: GadgetOption) =>
+    STATUS_RANK[a.assessment.status] - STATUS_RANK[b.assessment.status] ||
+    Math.abs(a.assessment.share - TARGET_SHARE) - Math.abs(b.assessment.share - TARGET_SHARE);
   let gadgets: GadgetAdvice;
   if (attached) {
     gadgets = { kind: 'attached', all: [] };
-  } else if (baseline.share > EDGE) {
-    const helping = all.filter((o) => o.assessment.share <= EDGE).sort((a, b) => a.assessment.share - b.assessment.share);
-    gadgets = helping.length ? { kind: 'required', best: helping[0], all } : { kind: 'none-helps', all };
-  } else if (baseline.share > COMFORTABLE) {
-    const helping = all
-      .filter((o) => o.assessment.share <= COMFORTABLE)
-      .sort((a, b) => a.assessment.share - b.assessment.share);
+  } else if (baseline.status === 'impossible' || baseline.status === 'edge') {
+    // Ein Gadget hilft nur, wenn es danach sicher reicht (höchstens 100 %)
+    const helping = all.filter((o) => o.assessment.share <= 1).sort(better);
+    if (helping.length) gadgets = { kind: 'required', best: helping[0], all };
+    else gadgets = baseline.status === 'impossible' ? { kind: 'none-helps', all } : { kind: 'optional', all };
+  } else if (baseline.status === 'slow') {
+    const helping = all.filter((o) => o.assessment.status === 'ok').sort(better);
     gadgets = helping.length ? { kind: 'recommended', best: helping[0], all } : { kind: 'optional', all };
+  } else if (baseline.status === 'too-strong') {
+    // Zu stark löst man mit Abstand, nicht mit einem Gadget
+    gadgets = { kind: 'optional', all };
   } else {
     // Bruch ist sicher. Optional: Instabilität dämpfen, sonst Fenster vergrößern, sonst mehr Ausbeute.
     const windowPct = 100 * base.win;
-    const pick =
-      baseline.instability >= 5 ? 'BoreMax' : windowPct < 70 ? 'Waveshift' : 'OptiMax';
-    const best = all.find((o) => o.gadget.name === pick && o.assessment.share <= EDGE);
+    const pick = baseline.instability >= 5 ? 'BoreMax' : windowPct < 70 ? 'Waveshift' : 'OptiMax';
+    const best = all.find((o) => o.gadget.name === pick && o.assessment.status === 'ok');
     gadgets = { kind: 'optional', best, all };
   }
 

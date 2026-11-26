@@ -95,6 +95,11 @@ test('Token-Schutz für /api und /ws', async () => {
     assert.equal((await fetch(`${base}/api/modules`)).status, 401);
     assert.equal((await fetch(`${base}/api/modules`, { headers: { 'x-bh-token': 'falsch' } })).status, 401);
     assert.equal((await fetch(`${base}/api/modules`, { headers: { 'x-bh-token': 'geheim' } })).status, 200);
+    // Kodierte oder umgeschriebene Pfade dürfen den Schutz nicht umgehen
+    for (const p of ['/%61pi/modules', '/%61pi/controls/buttons', '//api/modules', '/./api/modules', '/API/modules']) {
+      assert.notEqual((await fetch(`${base}${p}`)).status, 200, p);
+    }
+    assert.equal((await fetch(`${base}/%61pi/controls/press/landing-gear`, { method: 'POST' })).status, 401);
     assert.equal((await fetch(`${base}/`)).status, 200); // Shell bleibt frei
 
     // QR-Code enthält genau das Token, mit dem angefragt wurde

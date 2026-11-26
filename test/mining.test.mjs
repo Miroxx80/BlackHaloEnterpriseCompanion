@@ -2,7 +2,7 @@
 // Referenzwerte: docs/research/mining-companion.md (Bedrock-Quellcode, Datamine 4.10.3) und echte Scans.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startApp } from '../dist/core/app.js';
@@ -31,6 +31,7 @@ test('Datensatz 4.10.3 stimmt mit den recherchierten Werten überein (Datamine/B
     'Impact I': [2600, 0.2, 10, 20, 2],
     'Helix II': [4930, 0.3, -30, -40, 3],
     'Hofstede-S2': [4060, 0.1, -30, 60, 2],
+    Pitman: [3900, 0.2, 25, 40, 2], // Slots stehen als Array im Rohformat (früher fälschlich 0)
   };
   for (const [name, [power, tmin, res, win, slots]] of Object.entries(expected)) {
     const l = laser(name);
@@ -71,8 +72,22 @@ test('Farbige Werte werden zurückgerechnet: gleiches Ergebnis wie mit dem weiß
   near(colored.rock.resistanceOwn, 40, 1e-9, 'eigene Resistenz');
   near(colored.baseline.share, white.baseline.share, 1e-9, 'Anteil');
   assert.deepEqual(colored.notes, []);
-  // Weiß, obwohl der Laser die Resistenz ändert: rechnet mit dem Wert, gibt aber einen Hinweis
-  assert.match(white.notes.join(' '), /Resistenz ist weiß/);
+  // Weiß ist der Normalfall vor dem Laser (im Spiel bestätigt): keine Warnung
+  assert.deepEqual(white.notes, []);
+});
+
+test('Farbige 100 % Resistenz sind gekappt: vorsichtig rechnen, kein falscher Gadget-Rat', () => {
+  // Arbor MH1 (+25 %): Jeder Stein ab 80 % eigener Resistenz zeigt rot 100 %
+  const arbor = { laserId: L('Arbor MH1'), moduleIds: [] };
+  const r = calculate(data, scan({ mass: 6000, resistance: 100, resistanceColored: true, instability: 2, instabilityColored: true }), arbor);
+  assert.equal(r.rock.resistanceOwn, 100);
+  assert.match(r.notes.join(' '), /gekappt.*mindestens 80 %/);
+  assert.equal(r.gadgets.kind, 'none-helps'); // früher fälschlich "Sabir nötig"
+});
+
+test('Weiß trotz Gadget am Stein: Hinweis, weil das Spiel dann farbig anzeigt', () => {
+  const r = calculate(data, scan({ mass: 6000, resistance: 30, instability: 2, gadgetAttached: G('Sabir') }), { laserId: L('Helix I'), moduleIds: [] });
+  assert.match(r.notes.join(' '), /Resistenz ist weiß, obwohl ein Gadget/);
 });
 
 test('Gadget schon am Stein: farbiger Wert enthält Laser und Gadget', () => {
@@ -113,13 +128,22 @@ test('Aktive Module: exklusive einzeln, Surge zusätzlich parallel', () => {
 });
 
 test('Gadget-Empfehlung: nötig, empfohlen, keins hilft', () => {
-  // Arbor MH1 (2340, Resistenz +25 %), 9000 kg, 50 %: ohne Gadget unmöglich, mit Sabir knapp machbar
+  // Arbor MH1 (2340, Resistenz +25 %), 8500 kg, 50 %: ohne Gadget unmöglich, mit Sabir machbar (unter 100 %)
   const arbor = { laserId: L('Arbor MH1'), moduleIds: [] };
-  const r = calculate(data, scan({ mass: 9000, resistance: 50, instability: 1 }), arbor);
+  const r = calculate(data, scan({ mass: 8500, resistance: 50, instability: 1 }), arbor);
   assert.equal(r.baseline.status, 'impossible');
   assert.equal(r.gadgets.kind, 'required');
   assert.equal(r.gadgets.best.gadget.name, 'Sabir');
-  assert.ok(r.gadgets.best.assessment.share <= 1.05);
+  assert.ok(r.gadgets.best.assessment.share <= 1);
+
+  // 9000 kg: Sabir käme nur auf ~102 % (Grenzfall). Das ist kein verlässlicher Rat.
+  assert.equal(calculate(data, scan({ mass: 9000, resistance: 50, instability: 1 }), arbor).gadgets.kind, 'none-helps');
+
+  // Ein Gadget, das den Laser "zu stark" macht, verliert gegen eins, das normal passt
+  const impact = calculate(data, scan({ mass: 1000, resistance: 95, instability: 1 }), { laserId: L('Impact I'), moduleIds: [] });
+  assert.equal(impact.gadgets.kind, 'required');
+  assert.equal(impact.gadgets.best.assessment.status, 'ok');
+  assert.equal(impact.gadgets.best.gadget.name, 'OptiMax');
 
   const hopeless = calculate(data, scan({ mass: 40000, resistance: 80, instability: 1 }), arbor);
   assert.equal(hopeless.gadgets.kind, 'none-helps');
@@ -128,6 +152,21 @@ test('Gadget-Empfehlung: nötig, empfohlen, keins hilft', () => {
   const easy = calculate(data, scan({ mass: 3000, resistance: 10, instability: 20 }), { laserId: L('Hofstede-S1'), moduleIds: [] });
   assert.equal(easy.gadgets.kind, 'optional');
   assert.equal(easy.gadgets.best.gadget.name, 'BoreMax');
+});
+
+test('Grenzfall 100–105 %: eigener Status, Spanne bei 100 % gekappt', () => {
+  // Arbor MH1, 30 % farbig: knapp über der Höchstmasse
+  const r = calculate(data, scan({ mass: 8980, resistance: 30, resistanceColored: true, instability: 2, instabilityColored: true }), { laserId: L('Arbor MH1'), moduleIds: [] });
+  assert.equal(r.baseline.status, 'edge');
+  assert.ok(r.baseline.band[1] <= 100);
+  assert.equal(r.gadgets.kind, 'required');
+});
+
+test('Laser zu stark: kein optionales Gadget (Abstand ist die Lösung)', () => {
+  const r = calculate(data, scan({ mass: 300, resistance: 10, instability: 1 }), { laserId: L('Helix I'), moduleIds: [] });
+  assert.equal(r.baseline.status, 'too-strong');
+  assert.equal(r.gadgets.kind, 'optional');
+  assert.equal(r.gadgets.best, undefined);
 });
 
 test('Echter Scan Titan 458 kg: SCU und Qualität je Erz', () => {
@@ -151,6 +190,9 @@ test('Echter Scan Titan 458 kg: SCU und Qualität je Erz', () => {
   assert.equal(r.rock.parts[2].quality, 516);
   assert.equal(r.baseline.status, 'too-strong'); // 458 kg sind für einen Helix I winzig
   assert.ok(!r.notes.some((n) => /Anteile/.test(n)));
+  // Offene Frage an die Orga: Der Scan zeigt Instabilität rot, Helix I ändert sie laut Spieldaten aber nicht.
+  // Welcher Laser/welche Module waren montiert? Bis dahin erwarten wir den Hinweis.
+  assert.match(r.notes.join(' '), /Instabilität ist farbig, aber das gewählte Setup verändert sie nicht/);
 });
 
 test('Eingabefehler werden verständlich gemeldet', () => {
@@ -185,11 +227,18 @@ test('API: Datensatz, Loadouts speichern und prüfen, Berechnung', async () => {
     assert.equal(initial.loadouts[0].laserId, 'mining_laser_grin_arbor_s1'); // Prospector ab Werk
 
     const helix = { id: 'helix', name: 'Helix Surge', shipId: 'MISC_Prospector', laserId: L('Helix I'), moduleIds: [M('Surge'), M('Rieger-C3')] };
-    const saved = await call('PUT', '/loadouts', { activeId: 'helix', loadouts: [...initial.loadouts, helix] });
+    const saved = await call('PUT', '/loadouts', { revision: initial.revision, activeId: 'helix', loadouts: [...initial.loadouts, helix] });
     assert.equal(saved.status, 200);
+    const afterSave = await saved.json();
+    assert.equal(afterSave.revision, initial.revision + 1);
+
+    // Zweites Gerät mit altem Stand darf nicht überschreiben
+    const stale = await call('PUT', '/loadouts', { revision: initial.revision, loadouts: initial.loadouts });
+    assert.equal(stale.status, 409);
+    assert.equal((await stale.json()).current.activeId, 'helix');
 
     // S2-Laser passt nicht in die Prospector
-    const bad = await call('PUT', '/loadouts', { loadouts: [{ ...helix, laserId: L('Helix II') }] });
+    const bad = await call('PUT', '/loadouts', { revision: afterSave.revision, loadouts: [{ ...helix, laserId: L('Helix II') }] });
     assert.equal(bad.status, 400);
     assert.match((await bad.json()).error, /passt nicht in die MISC Prospector/);
 
@@ -209,6 +258,45 @@ test('API: Datensatz, Loadouts speichern und prüfen, Berechnung', async () => {
     app = await startApp(opts);
     const again = await (await call('GET', '/loadouts')).json();
     assert.equal(again.activeId, 'helix');
+  } finally {
+    await app.stop();
+  }
+});
+
+test('API: Loadouts nach Patch beiseitelegen statt löschen, kaputte Datei sichern', async () => {
+  const dataRoot = mkdtempSync(join(tmpdir(), 'bh-mining-'));
+  mkdirSync(join(dataRoot, 'mining'));
+  const file = join(dataRoot, 'mining', 'loadouts.json');
+  const ok = { id: 'a', name: 'Arbor', shipId: 'MISC_Prospector', laserId: L('Arbor MH1'), moduleIds: [] };
+  const old = { id: 'b', name: 'Alt', shipId: 'MISC_Prospector', laserId: L('Helix I'), moduleIds: ['mining_modules_gibt_es_nicht_mehr'] };
+  writeFileSync(file, JSON.stringify({ activeId: 'a', revision: 3, loadouts: [ok, old] }));
+  const opts = { overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' } } }, dataRoot };
+
+  let app = await startApp(opts);
+  const call = (method, path, body) =>
+    fetch(`http://127.0.0.1:${app.port}/api/mining${path}`, {
+      method,
+      headers: body ? { 'content-type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    }).then((r) => r.json());
+  try {
+    const store = await call('GET', '/loadouts');
+    assert.deepEqual(store.loadouts.map((l) => l.id), ['a']);
+    assert.equal(store.staleCount, 1);
+    // Speichern löscht das beiseitegelegte Loadout nicht
+    await call('PUT', '/loadouts', { ...store, activeId: 'a' });
+    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')).stale.map((l) => l.id), ['b']);
+  } finally {
+    await app.stop();
+  }
+
+  // Kaputte Datei: Sicherungskopie, dann Standard
+  writeFileSync(file, '{ kaputt');
+  app = await startApp(opts);
+  try {
+    const store = await call('GET', '/loadouts');
+    assert.equal(store.loadouts.length, 1);
+    assert.ok(readdirSync(join(dataRoot, 'mining')).some((f) => f.startsWith('loadouts.json.kaputt-')));
   } finally {
     await app.stop();
   }

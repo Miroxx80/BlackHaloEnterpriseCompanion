@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import type { BhModule } from '../../core/types.js';
@@ -15,6 +15,16 @@ interface SavedLoadout extends LoadoutInput {
 interface LoadoutStore {
   activeId: string;
   loadouts: SavedLoadout[];
+  /**
+   * Zählt jede Änderung hoch. Ein Gerät muss beim Speichern den Stand mitschicken, den es kennt.
+   * So überschreibt das Handy nicht, was am PC inzwischen geändert wurde (HTTP 409).
+   */
+  revision: number;
+  /**
+   * Loadouts, die nicht mehr zu den Spieldaten passen (z. B. Modul nach einem Patch entfernt).
+   * Sie bleiben in der Datei erhalten, damit nichts verloren geht, werden aber nicht angeboten.
+   */
+  stale: unknown[];
 }
 
 const MAX_LOADOUTS = 50;
@@ -69,29 +79,47 @@ const mod: BhModule = {
       return { id, name, shipId: ship.id, laserId: laser.id, moduleIds };
     }
 
-    function readStore(): LoadoutStore {
-      try {
-        if (existsSync(storeFile)) {
-          const raw = JSON.parse(readFileSync(storeFile, 'utf8')) as LoadoutStore;
-          // Einträge, die nicht mehr zum Datensatz passen (z. B. nach einem Patch), still verwerfen
-          const loadouts = (raw.loadouts ?? []).flatMap((l) => {
-            try {
-              return [validateLoadout(l)];
-            } catch {
-              ctx.log.warn(`Loadout "${l?.name}" passt nicht mehr zu den Spieldaten und wurde ausgeblendet`);
-              return [];
-            }
-          });
-          if (loadouts.length) {
-            const activeId = loadouts.some((l) => l.id === raw.activeId) ? raw.activeId : loadouts[0].id;
-            return { activeId, loadouts };
-          }
-        }
-      } catch (err) {
-        ctx.log.warn(`loadouts.json nicht lesbar, starte mit Standard: ${(err as Error).message}`);
-      }
+    function freshStore(stale: unknown[] = []): LoadoutStore {
       const d = defaultLoadout();
-      return { activeId: d.id, loadouts: [d] };
+      return { activeId: d.id, loadouts: [d], revision: 1, stale };
+    }
+
+    /** Sicherungskopie einer Datei, die nicht gelesen werden konnte, bevor sie ersetzt wird. */
+    function backupBrokenFile(reason: string) {
+      const backup = `${storeFile}.kaputt-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+      try {
+        copyFileSync(storeFile, backup);
+        ctx.log.warn(`loadouts.json nicht lesbar (${reason}), Sicherung: ${backup}. Starte mit Standard.`);
+      } catch {
+        ctx.log.warn(`loadouts.json nicht lesbar (${reason}). Starte mit Standard.`);
+      }
+    }
+
+    function readStore(): LoadoutStore {
+      if (!existsSync(storeFile)) return freshStore();
+      let raw: Partial<LoadoutStore>;
+      try {
+        raw = JSON.parse(readFileSync(storeFile, 'utf8'));
+        if (typeof raw !== 'object' || raw === null || !Array.isArray(raw.loadouts)) throw new Error('unerwarteter Aufbau');
+      } catch (err) {
+        backupBrokenFile((err as Error).message);
+        return freshStore();
+      }
+      const stale: unknown[] = Array.isArray(raw.stale) ? raw.stale : [];
+      const loadouts: SavedLoadout[] = [];
+      for (const l of raw.loadouts!) {
+        try {
+          loadouts.push(validateLoadout(l));
+        } catch (err) {
+          // Nicht löschen, sondern beiseitelegen: nach einem Daten-Update evtl. reparierbar
+          stale.push(l);
+          ctx.log.warn(`Loadout "${(l as { name?: string })?.name}" passt nicht mehr zu den Spieldaten: ${(err as Error).message}`);
+        }
+      }
+      if (!loadouts.length) return freshStore(stale);
+      const activeId = loadouts.some((l) => l.id === raw.activeId) ? raw.activeId! : loadouts[0].id;
+      const revision = Number.isInteger(raw.revision) && raw.revision! > 0 ? raw.revision! : 1;
+      return { activeId, loadouts, revision, stale };
     }
 
     function writeStore(store: LoadoutStore) {
@@ -117,20 +145,34 @@ const mod: BhModule = {
       defaults: DEFAULT_OPTIONS,
     }));
 
-    ctx.http.get('/loadouts', async () => store);
+    /** Was die Oberfläche sieht: ohne die beiseitegelegten Einträge, nur deren Anzahl. */
+    const publicStore = () => ({
+      activeId: store.activeId,
+      loadouts: store.loadouts,
+      revision: store.revision,
+      staleCount: store.stale.length,
+    });
 
-    /** Ganze Liste speichern (einfach und robust bei wenigen Einträgen). */
+    ctx.http.get('/loadouts', async () => publicStore());
+
+    /** Ganze Liste speichern (einfach und robust bei wenigen Einträgen), mit Schutz vor veraltetem Stand. */
     ctx.http.put('/loadouts', async (req, reply) => {
       try {
         const body = (req.body ?? {}) as Partial<LoadoutStore>;
+        if (body.revision !== store.revision) {
+          return reply.code(409).send({
+            error: 'Die Loadouts wurden inzwischen auf einem anderen Gerät geändert. Der aktuelle Stand wurde geladen.',
+            current: publicStore(),
+          });
+        }
         if (!Array.isArray(body.loadouts) || body.loadouts.length === 0) throw new InputError('Mindestens ein Loadout nötig');
         if (body.loadouts.length > MAX_LOADOUTS) throw new InputError(`Höchstens ${MAX_LOADOUTS} Loadouts`);
         const loadouts = body.loadouts.map(validateLoadout);
         if (new Set(loadouts.map((l) => l.id)).size !== loadouts.length) throw new InputError('Doppelte Loadout-ID');
         const activeId = loadouts.some((l) => l.id === body.activeId) ? body.activeId! : loadouts[0].id;
-        store = { activeId, loadouts };
+        store = { activeId, loadouts, revision: store.revision + 1, stale: store.stale };
         writeStore(store);
-        return store;
+        return publicStore();
       } catch (err) {
         return badRequest(reply, err);
       }

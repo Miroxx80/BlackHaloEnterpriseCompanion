@@ -109,7 +109,15 @@ function laser(json, file) {
   // Ports ist meist ein Array, bei nur einem Port aber ein Objekt { SItemPortDef: {...} } (z. B. Klein-S1)
   const rawPorts = c.SItemPortContainerComponentParams?.Ports;
   const ports = Array.isArray(rawPorts) ? rawPorts : rawPorts ? [rawPorts.SItemPortDef ?? rawPorts].flat() : [];
-  const slots = ports.filter((p) => p.Types?.SItemPortDefTypes?.Type === 'MiningModifier').length;
+  // Types kommt in zwei Formen vor: { SItemPortDefTypes: {Type} } oder als Array [{Type}, ...] (z. B. Pitman)
+  const typesOf = (p) => {
+    const t = p.Types?.SItemPortDefTypes ?? p.Types;
+    return Array.isArray(t) ? t : t ? [t] : [];
+  };
+  const slots = ports.filter((p) => typesOf(p).some((t) => t.Type === 'MiningModifier')).length;
+  // Gegenprobe über die Namen der Slot-Ports; weichen beide ab, hat sich das Datenformat geändert
+  const byName = ports.filter((p) => /^BONE_ItemPort_Consumable_\d+$/.test(p.Name)).length;
+  if (byName !== slots) throw new Error(`${file}: Modul-Slots unklar (${slots} nach Typ, ${byName} nach Name)`);
   return {
     id: idFrom(file),
     name: nameOf(raw, file),
@@ -201,9 +209,6 @@ function resources(list) {
 }
 
 /**
- * Hinweis Golem: Der Pitman meldet 0 Modul-Slots, im Spiel hat die Golem aber 2. Die Slots sitzen vermutlich
- * an der Golem-Halterung. Bevor die Golem dazukommt, die Slots aus ships/drak_golem.json übernehmen.
- *
  * Schiffe sind von Hand gepflegt (aus scunpacked ships/*.json, Stand 4.10.3). Der Loadout-Baum ist dort
  * sehr verschachtelt, und Schiffe ändern sich selten. Weitere Schiffe (MOLE, Golem) kommen später dazu.
  */

@@ -42,11 +42,13 @@ async function request(method, path, body) {
   if (!res.ok) {
     // Module liefern verständliche Meldungen als { error } (z. B. Eingabefehler, HTTP 400)
     let message = `${path}: HTTP ${res.status}`;
+    let data = null;
     try {
-      const data = await res.json();
+      data = await res.json();
       if (data && typeof data.error === 'string') message = data.error;
     } catch { /* keine JSON-Antwort */ }
-    throw Object.assign(new Error(message), { status: res.status });
+    // body: die ganze Antwort, z. B. der aktuelle Stand bei einem Konflikt (409)
+    throw Object.assign(new Error(message), { status: res.status, body: data });
   }
   return res.json();
 }
