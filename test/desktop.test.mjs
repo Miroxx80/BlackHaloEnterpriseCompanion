@@ -48,11 +48,15 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
   const executablePath = createRequire(import.meta.url)('electron'); // Pfad zur electron-Binary aus diesem Projekt
   const app = await electron.launch({ executablePath, args, env: { ...process.env, BH_USER_DIR: userDir, BH_PORT: String(await freePort()) } });
 
+  // Bei einem Fehlschlag: letzten Schritt und das Ende des App-Logs ausgeben (sporadische Fehler nachvollziehen)
+  let step = 'Start';
+  const mark = (name) => (step = name);
   try {
     const win = await app.firstWindow();
     await win.waitForSelector('nav a[data-id="pairing"]', { timeout: 15000 });
     await win.waitForSelector('#grid button'); // Controls hat seine Buttons per REST geladen (Token im Header ok)
 
+    mark('Token');
     // Token wurde erzeugt, gespeichert und aus der Adresszeile entfernt
     const local = JSON.parse(readFileSync(join(userDir, 'config', 'local.json'), 'utf8'));
     assert.ok(local.security.token.length >= 20);
@@ -61,15 +65,18 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
     const api = (path) => fetch(`http://127.0.0.1:${port}${path}`, { headers: { 'x-bh-token': local.security.token } });
     assert.equal((await fetch(`http://127.0.0.1:${port}/api/modules`)).status, 401);
 
+    mark('Fokus');
     // Fenster ist in allen Ansichten ein normales, fokussierbares Fenster
     await win.evaluate(() => (location.hash = 'controls'));
     await win.waitForSelector('#grid button');
     assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFocusable()), true);
 
+    mark('QR');
     // QR-Code-Ansicht
     await win.evaluate(() => (location.hash = 'pairing'));
     await win.waitForSelector('#list img, #note:not(:empty)');
 
+    mark('Absturz-Neustart');
     // Server-Prozess abschießen: wird neu gestartet, die Shell verbindet sich wieder
     await until(() => win.$('#conn.on'), 'verbunden');
     const killed = await app.evaluate(({ app: a }) => {
@@ -83,6 +90,7 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
     await until(() => win.$('#conn.on'), 'wieder verbunden', 20000);
     assert.equal((await api('/api/status')).status, 200);
 
+    mark('Fenster schließen');
     // Fenster schließen: App und Server laufen im Tray weiter, Fensterposition gespeichert
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
     await until(async () => (await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)) === 0, 'Fenster zu');
@@ -92,9 +100,15 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
 
     assert.ok(existsSync(join(userDir, 'logs', 'blackhalo.log')));
 
+    mark('Beenden');
     // Beenden stoppt auch den Server
     await Promise.all([app.waitForEvent('close'), app.evaluate(({ app: a }) => a.quit())]);
     await assert.rejects(api('/api/status'));
+  } catch (err) {
+    const logFile = join(userDir, 'logs', 'blackhalo.log');
+    const tail = existsSync(logFile) ? readFileSync(logFile, 'utf8').split('\n').slice(-30).join('\n') : '(kein Log)';
+    console.error(`Fehlgeschlagen im Schritt "${step}": ${err.message}\n--- Ende von blackhalo.log ---\n${tail}`);
+    throw err;
   } finally {
     await app.close().catch(() => {});
   }
