@@ -1,5 +1,5 @@
 {
-  "_comment": "Vollbild 1920x1080 (exportiert als 1919x1079 WebP), Patch 4.10.3, von Hand abgelesen. Referenz für Overlay-Vermessung und OCR.",
+  "_comment": "Vollbild 1920x1080 (exportiert als 1919x1079 WebP), Patch 4.10.3, von Hand abgelesen. Referenz für Overlay-Vermessung und OCR. Werte laut Eingabe der Org-Leitung im Tool (Silicon-Qualität 518).",
   "ship": "MISC Prospector",
   "laser": {
     "name": "HELIX I MINING LASER",
@@ -49,7 +49,7 @@
       {
         "pct": 4.14,
         "ore": "SILICON (RAW)",
-        "quality": 516
+        "quality": 518
       },
       {
         "pct": 3.58,
