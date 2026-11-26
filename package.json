@@ -2,6 +2,7 @@
   "name": "black-halo-tool",
   "version": "0.1.0",
   "description": "Modulares Org-Tool für Star Citizen (Black Halo Enterprises)",
+  "author": "Black Halo Enterprises",
   "private": true,
   "type": "module",
   "main": "dist/desktop/main.js",
@@ -14,7 +15,9 @@
     "start": "node dist/main.js",
     "dev": "npm run build && npm run start",
     "test": "npm run build && node --test test/smoke.test.mjs test/input.test.mjs test/mining.test.mjs",
-    "test:desktop": "npm run build && node --test test/desktop.test.mjs"
+    "test:desktop": "npm run build && node --test test/desktop.test.mjs",
+    "dist": "node scripts/check-win.mjs && npm run build && electron-builder --win --x64",
+    "dist:dir": "npm run build && electron-builder --dir"
   },
   "dependencies": {
     "@fastify/static": "^10.1.12",
@@ -27,6 +30,51 @@
     "@types/node": "^22.0.0",
     "@types/qrcode": "^1.5.6",
     "electron": "^45.5.0",
+    "electron-builder": "^26.18.0",
     "typescript": "^5.6.0"
+  },
+  "build": {
+    "appId": "org.blackhalo.companion",
+    "productName": "Black Halo",
+    "executableName": "BlackHalo",
+    "artifactName": "BlackHalo-Setup-${version}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "!dist/**/*.map",
+      "web/**/*",
+      "config/default.json",
+      "assets/**/*",
+      "package.json"
+    ],
+    "asar": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Black Halo",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": "dir",
+      "icon": "assets/icon.png",
+      "category": "Game"
+    }
   }
 }

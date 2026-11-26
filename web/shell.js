@@ -101,7 +101,7 @@ function connect() {
     try { msg = JSON.parse(ev.data); } catch { return; }
     if (msg.type === 'core:hello') {
       buildNav(msg.payload.modules);
-      document.getElementById('rail-foot').textContent = `BHE-COMPANION · ${msg.payload.role}`;
+      document.getElementById('rail-foot').textContent = `BHE-COMPANION v${msg.payload.version ?? '?'} · ${msg.payload.role}`;
     }
     for (const fn of listeners.get(msg.type) ?? []) {
       try { fn(msg.payload); } catch (err) { console.error(err); }

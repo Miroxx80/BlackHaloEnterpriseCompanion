@@ -4,9 +4,33 @@ Modulares Org-Tool für Star Citizen (Black Halo Enterprises). Desktop-App (Elec
 
 Projektziele, Entscheidungen und Stand: siehe [docs/PROJEKT-BRIEFING.md](docs/PROJEKT-BRIEFING.md).
 
-## Starten (Windows)
+## Für Mitglieder: installieren
 
-Voraussetzung: [Node.js](https://nodejs.org) 20 oder neuer (LTS). Später gibt es einen Installer, dann ist Node nicht mehr nötig.
+1. `BlackHalo-Setup-x.y.z.exe` ausführen (bekommt ihr von der Orga-Leitung). Admin-Rechte sind nicht nötig.
+2. Windows zeigt beim ersten Mal „Der Computer wurde durch Windows geschützt“ (das Programm ist nicht kostenpflichtig signiert): **Weitere Informationen** → **Trotzdem ausführen**.
+3. Beim ersten Start fragt die Windows-Firewall nach Netzwerkzugriff: für **private Netzwerke** erlauben (nötig für Tablet/Handy).
+
+**Neue Version:** einfach den neuen Installer über die alte Version installieren. Einstellungen, Zugangsschlüssel und Loadouts liegen unter `%APPDATA%\BlackHalo` und bleiben erhalten (auch beim Deinstallieren). Welche Version läuft, steht unten in der Seitenleiste und unter „Status“. Ein automatisches Update gibt es bewusst nicht.
+
+## Installer bauen (Orga-Leitung)
+
+Auf einem **Windows-PC** im Projektordner (unter Linux/macOS bricht der Befehl ab, weil sonst die falsche Binary für die Tastendrücke eingepackt würde):
+
+1. Versionsnummer in `package.json` (`"version"`) erhöhen, z. B. `0.2.0`.
+2. Bauen:
+
+   ```
+   npm install
+   npm run dist
+   ```
+
+3. Ergebnis: `release\BlackHalo-Setup-0.2.0.exe`. Diese eine Datei an die Mitglieder verteilen.
+
+Zum Ausprobieren ohne Installer: `npm run dist:dir` erzeugt nur den Programmordner (`release\win-unpacked\BlackHalo.exe`).
+
+## Entwickeln (Windows)
+
+Voraussetzung: [Node.js](https://nodejs.org) 20 oder neuer (LTS).
 
 ```
 npm install

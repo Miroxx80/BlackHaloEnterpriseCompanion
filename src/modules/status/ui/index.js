@@ -53,6 +53,7 @@ export function mount(root, api) {
       if (disposed || my !== seq) return;
       setServer(true);
       info.replaceChildren();
+      row('Version', `v${m.version ?? '?'}`, true);
       row('Rolle', s.role);
       row('Rechner', s.host);
       row('Laufzeit', fmtUptime(s.uptimeSec));
