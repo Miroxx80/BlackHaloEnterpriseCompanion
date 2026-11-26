@@ -1,0 +1,19 @@
+{
+  "_comment": "Echter Scan aus Patch 4.10.3, von Hand abgelesen. Erwartetes Ergebnis für die spätere OCR (Stufe 2).",
+  "patch": "4.10.3",
+  "ore": "TITANIUM",
+  "form": "ORE",
+  "mass": 458,
+  "resistance": { "value": 14, "color": "green" },
+  "instability": { "value": 0.85, "color": "red" },
+  "difficulty": "EASY",
+  "scu": 0.9018,
+  "scuPrinted": "901.80m SCU",
+  "parts": [
+    { "pct": 4.86, "ore": "AGRICIUM", "form": "ORE", "quality": 588 },
+    { "pct": 2.0, "ore": "ASLARITE", "form": "RAW", "quality": 575 },
+    { "pct": 10.11, "ore": "TITANIUM", "form": "ORE", "quality": 516 },
+    { "pct": 53.53, "ore": "TITANIUM", "form": "ORE", "quality": 295 },
+    { "pct": 29.47, "ore": "INERT MATERIALS", "form": null, "quality": 0 }
+  ]
+}

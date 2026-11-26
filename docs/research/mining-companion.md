@@ -401,6 +401,26 @@ Scan      { source:'ocr'|'manual'|'screenshot', ts, ore, mass, resPrinted, resCo
 
 ---
 
+# In-game observations (org test, 2026-11-26, patch 4.10.3)
+
+Source: screenshot of a real scan (`test/fixtures/scan-panel/titanium-458kg.png`) and the org leader's report.
+
+- **MASS is always white** and never changes.
+- **RESISTANCE is white for the rock's own value and turns green or red when the laser setup changes it** (green = better, red = worse, e.g. with a Helix). This confirms claim 4 for the Prospector.
+- **INSTABILITY behaves the same way** (white = own value, green/red = changed by the laser). The research had assumed only resistance is coloured, so this is new. The calculator must also divide the laser factor back out of a coloured instability value.
+- **The difficulty bar ("EASY") appears in 4.10.3** in this ship. The research expected it only on the MOLE turret and in 5.0. The OCR parser must accept it as an optional line.
+- **SCU below 1 uses an SI prefix in 4.10.3** (`901.80m SCU` = 0.9018 SCU). The research expected this only in 5.0.
+- **Composition matches the expected rock make-up:**
+  - main part of titanium (10.11 %, quality 516)
+  - a large bulk part of the same ore at low quality (53.53 %, quality 295)
+  - two side ores (agricium 588, aslarite 575)
+  - inert materials (29.47 %, quality 0)
+  - The shares add up to 99.97 %.
+- **Mass and volume:** 458 kg / 0.9018 SCU = 508 kg per SCU, which means an average density of 3.56 × 142.857. That is plausible for titanium plus inert material.
+- **Panel language is English.**
+
+---
+
 # Appendix: Adversarial verification of load-bearing claims
 
 ## Claim 1: UNCERTAIN
