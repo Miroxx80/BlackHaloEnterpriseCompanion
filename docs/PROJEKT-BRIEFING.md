@@ -21,6 +21,7 @@
 - **Repo bleibt privat.**
 - **Zielbild:** Eine feste PC-Software (Electron). Hauptaufgabe: Schnittstelle zwischen Spiel und Tablet/Handy (lokaler Server im eigenen Netz), läuft meist unsichtbar im Tray. Zusätzlich ein normales Fenster, z. B. für den zweiten Bildschirm. Ein Overlay über dem Spiel ist optional und kommt später. Eine Handy-App kommt später (z. B. Capacitor mit derselben UI). Der Hub bleibt reines Node ohne Electron.
 - **Overlay ohne Eingriff ins Spiel:** eigenes transparentes Fenster über dem Spiel, kein DirectX-Hook und kein Einschleusen in den Spielprozess (Anti-Cheat). Funktioniert nur im Modus „Randloses Fenster“. Das Overlay-Fenster nimmt keinen Fokus an, damit Tastendrücke weiter beim Spiel landen (für ein Overlay ohne Titelleiste unproblematisch, siehe Hauptfenster).
+- **Nur anzeigen, nie steuern:** Das Tool zeigt Hinweise an (Overlay, Rechner), steuert aber nie Spielabläufe automatisch. Keine Kopplung von OCR und Tastendrücken (z. B. kein automatisches Nachregeln der Laserleistung). Tastendrücke gibt es nur einzeln auf Knopfdruck eines Spielers.
 - **Tastendrücke nur ans Spiel:** Der Treiber prüft vor jedem Tastendruck, ob Star Citizen im Vordergrund ist, und holt es notfalls nach vorn. Gelingt das nicht, wird nichts gesendet und ein Fehler gemeldet. Nie blind in andere Fenster senden. Das löst auch den Fokus beim Hauptfenster: Klick im Fenster, Spiel kommt nach vorn, Taste geht ans Spiel.
 
 ## Geplant (später)
@@ -29,6 +30,13 @@
 - **Hintergrundbetrieb:** Autostart mit Windows (abschaltbar), startet ins Tray. Tray-Menü: Fenster öffnen, Gerät verbinden (QR-Code mit Adresse und Token), Update, Beenden. Fenster schließen heißt zurück ins Tray, der Server läuft weiter. Geschlossene Fenster werden beendet statt versteckt (RAM neben dem Spiel).
 - **Hauptfenster:** frei verschieb- und skalierbar, merkt Position, Größe und Bildschirm, fällt auf den Hauptbildschirm zurück, wenn der Bildschirm fehlt. Optional „Immer im Vordergrund“. Verhält sich wie ein normales Fenster. Ein „nimmt keinen Fokus“-Fenster wurde unter Windows getestet und verworfen: Titelleisten-Buttons und Taskleisten-Eintrag fallen dann weg.
 - **Overlay (optional, später):** passiv (durchklickbar, nur Anzeige) und aktiv (per globalem Hotkey, Buttons klickbar).
+- **Mining-Overlay (Planung, zusammen mit Mining Stufe 3):**
+  - Grundlage: Das Mining-HUD der Prospector ist fest am Laser-Mittelpunkt zentriert und steht beim Minen immer an derselben Stelle. Alle Mitglieder spielen in 1920×1080, das HUD wird also einmal vermessen. Spielsprache für OCR vorerst nur Englisch.
+  - HUD-Bereiche (Bezeichnungen laut Org-Leitung): Energie-Bogen mit Laserleistung sowie Ladebogen des Steins mit „Optimal“ und „Überladung“ (rechts der Mitte), Distanz-Bogen mit optimaler und maximaler Distanz (links der Mitte), Laser-Werte (unten links, z. B. Arbor MH1: Widerstand 125, Instabilität 65, Fenstergröße 140), Scan-Ergebnisse (rechts), Fracht (unten rechts).
+  - Vorgesehene Anzeigen: Band auf dem Energie-Bogen bei der errechneten Haltleistung („hier ist circa der neutrale Punkt“), bei „Laser zu stark“ Markierung der passenden Distanz auf dem Distanz-Bogen, kompakte Infobox (Urteil, Gadget-Rat, Erze).
+  - Weitere OCR-Ideen: Laser-Werte lesen, um das Loadout zu erkennen bzw. zu prüfen; Fracht lesen („passt der Stein noch in den Laderaum?“); eingestellte Leistung und Ladung mitlesen, um das Rechenmodell mit echten Werten zu prüfen.
+  - Sicherheit: Markierungen nur zeichnen, wenn die OCR das Scan-Panel an der erwarteten Stelle findet (sonst z. B. Freecam oder Menü). Overlay von Bildschirmaufnahmen ausnehmen, damit die OCR es nicht mitliest.
+  - Offen: Vermessung des Energie-Bogens aus Screenshots in Originalauflösung (20 %, 50 %, 100 % Leistung) und Platz der Infobox (Screenshot mit eingebauten Modulen).
 
 ## Stand (2026-11-25)
 - Grundgerüst fertig und getestet: Core, Modul-System, Web-Shell, Module `status`, `pairing` und `controls` (Mock-Treiber)
