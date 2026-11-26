@@ -419,6 +419,50 @@ Source: screenshot of a real scan (`test/fixtures/scan-panel/titanium-458kg.png`
 - **Mass and volume:** 458 kg / 0.9018 SCU = 508 kg per SCU, which means an average density of 3.56 × 142.857. That is plausible for titanium plus inert material.
 - **Panel language is English.**
 
+## Follow-up answers (org leader, 2026-11-26)
+
+- **When the colour appears:** right after the scan all numbers are white for a moment. Then RESISTANCE and INSTABILITY turn green or red as soon as the scan is complete. The normal reading in a Prospector is therefore the coloured value, which includes the laser. This matches the calculator's model.
+- **Gadgets:** as soon as a gadget is attached, the displayed values include it (coloured). This also matches the calculator's model.
+- **Titanium fixture (458 kg):** taken with a **Helix I** and an **active Stampede** module.
+  - Resistance 14 % green fits: Helix I is −30 %, so the rock's own value is 20 %.
+  - Instability 0.85 **red** does **not** fit the game data. Stampede is −10 % instability and Helix I is 0 %, so green would be expected. Open hypotheses:
+    1. Red on instability means something else, e.g. a danger threshold.
+    2. The colour came from something other than Stampede.
+    3. The Stampede data is wrong.
+  - New insight: a **running active module is included in the displayed values**. The calculator currently assumes only laser and passive modules (plus gadget). It needs an input for "active module running during the scan"; later the OCR can read the module panel.
+  - Planned in-game test: same rock, Helix I, scan without Stampede active, then with Stampede active, and record colour and value of both stats.
+
+## Full-screen HUD reference (org leader, 2026-11-26)
+
+File: `test/fixtures/hud/prospector-helix1-20pct.webp` with its values in the `.json` next to it. Prospector, Helix I with 2× Rieger-C3, laser power 20 %, not firing, rock at 89 m, no gadget.
+
+- **Colour rule refined:** with the laser not on the rock and no gadget attached, RES and INST stay **white**, because they show the rock's own values. They turn coloured once the laser is on the rock or a gadget is attached.
+- **Multiplicative stacking confirmed in game:** the laser panel shows FRACTURE PWR **156** (1.25 × 1.25 × 100 = 156.25) and WINDOW SIZE **59** (60 × 0.99 × 0.99 = 58.8). Additive stacking would give 150 and 58.
+- **Short labels in the Prospector:** `RESULTS`, `MASS:`, `RES:`, `INST:`, `COMP.`, with abbreviated ore names (`HEPH (RAW)`). The titanium screenshot used the long labels (`SCAN RESULTS`, `RESISTANCE:`, `INSTABILITY:`, `COMPOSITION`). The OCR must accept both forms.
+- **Other HUD elements to keep clear of in the overlay:**
+  - mining module list at left centre (name, PASSIVE/ACTIVE and effects)
+  - laser panel at bottom left
+  - cargo at bottom right
+  - key hints at the very bottom right (FIRE, LASER POWER, LASER TYPE, OPERATOR MD.)
+
+## Laser power arc measured (1920×1080, Prospector)
+
+From `test/fixtures/hud/prospector-helix1-100pct.webp`; the values are in `test/fixtures/hud/power-arc-1920x1080.json`.
+
+- **What the right-hand arc group contains:**
+  - the thin yellow line is the rock's **charge**, with the OPTIMAL (green) and OVERCHARGE (red) blocks at the top;
+  - the grey track outside it is the **laser power**, filled green from the bottom ("CHARGE LEVEL") to the top (below "LASER IN").
+- **Geometry:** the power track is a clean circular arc. Centre (1061.6, 607.2), radius 209.5 px, mean deviation 1.2 px. 0 % sits at 49.1° and 100 % at 11.2°, so the arc spans about 38° (about 140 px of arc length, about 1.4 px per percent).
+- **Check:** in the 20 % screenshot the fill ends at about 16.3 % of the arc. In the 50 % screenshot (a different rock, `prospector-helix1-50pct.webp`) it ends at about 47.9 %. The 2–4 % (3–5 px) offset comes from the dashed fill pattern. The **linear mapping is confirmed**. The HUD was in exactly the same place on the second rock.
+- **Field observation:** the first rock **exploded at 50 % power** (overcharge). The org leader reports that **even 20 % was too strong**. This matches the calculator's prediction of "laser too strong": only about 10 % is needed with 2× Rieger-C3, and the Helix I minimum is 20 %.
+- **Distance (corrected):** the number under the ore name (89.0 m / 51.1 m / 54.7 m) is **not** the laser distance, probably the distance to the rock's centre. The laser distance is the marker on the **left LASER RANGE arc**:
+  - 76 m in the 20 % shot (not firing)
+  - 38 m in the 100 % shot
+  - 42 m in the 50 % shot
+  The org leader confirms they were never further than 45 m while firing. The OCR must read the distance from that arc.
+- **Range falloff matters:** at 38 m and 42 m the Helix I is in its falloff zone (full power up to 15 m, zero at 45 m). If the falloff is linear, only about 23 % and 10 % of the power arrive. The calculator currently assumes full power (distance within the optimal range). Reading the distance (OCR) and including the falloff is a candidate for stage 3, and the falloff shape is still unverified.
+- **Proof of concept:** ticks and a band drawn at these coordinates sit cleanly next to the power track. The marker "here is roughly the neutral point" is therefore feasible.
+
 ---
 
 # Appendix: Adversarial verification of load-bearing claims

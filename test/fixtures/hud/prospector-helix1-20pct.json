@@ -1,0 +1,79 @@
+{
+  "_comment": "Vollbild 1920x1080 (exportiert als 1919x1079 WebP), Patch 4.10.3, von Hand abgelesen. Referenz für Overlay-Vermessung und OCR.",
+  "ship": "MISC Prospector",
+  "laser": {
+    "name": "HELIX I MINING LASER",
+    "fracturePwr": 156,
+    "resistance": 70,
+    "instability": 100,
+    "optimalRate": 100,
+    "overchargeRate": 100,
+    "windowSize": 59,
+    "shatterDmg": 100
+  },
+  "modules": [
+    {
+      "name": "RIEGER-C3 MODULE",
+      "type": "PASSIVE",
+      "effects": [
+        "Laser Power (+25%)",
+        "Optimal Charge Window (-1%)"
+      ]
+    },
+    {
+      "name": "RIEGER-C3 MODULE",
+      "type": "PASSIVE",
+      "effects": [
+        "Laser Power (+25%)",
+        "Optimal Charge Window (-1%)"
+      ]
+    }
+  ],
+  "laserPowerPct": 20,
+  "firing": false,
+  "scan": {
+    "labels": "kurz (RESULTS, MASS:, RES:, INST:, COMP.)",
+    "ore": "HEPH (RAW)",
+    "mass": 2927,
+    "resistance": {
+      "value": 0,
+      "color": "white"
+    },
+    "instability": {
+      "value": 58.23,
+      "color": "white"
+    },
+    "difficulty": "EASY",
+    "scu": 9.84,
+    "parts": [
+      {
+        "pct": 4.14,
+        "ore": "SILICON (RAW)",
+        "quality": 516
+      },
+      {
+        "pct": 3.58,
+        "ore": "HEPH (RAW)",
+        "quality": 692
+      },
+      {
+        "pct": 42.18,
+        "ore": "HEPH (RAW)",
+        "quality": 330
+      },
+      {
+        "pct": 3.88,
+        "ore": "QUARTZ (RAW)",
+        "quality": 522
+      },
+      {
+        "pct": 46.27,
+        "ore": "INERT MATERIALS",
+        "quality": 0
+      }
+    ]
+  },
+  "cargo": "0.00 / 48.00 SCU",
+  "laserRangeM": 76,
+  "labelUnderOre": "89.0m (nicht die Laser-Entfernung, vermutlich Entfernung zur Steinmitte)"
+}
