@@ -9,11 +9,14 @@ export interface TrayState {
   autostart: boolean;
   /** Autostart nur in der installierten Version (im Entwicklungsmodus würde electron.exe eingetragen). */
   autostartAvailable: boolean;
+  /** Tastenkürzel für "Scan einlesen", leer wenn aus oder nicht belegbar. */
+  ocrHotkey: string;
 }
 
 export interface TrayActions {
   openWindow(): void;
   openPairing(): void;
+  readScan(): void;
   toggleAlwaysOnTop(value: boolean): void;
   toggleAutostart(value: boolean): void;
   restartServer(): void;
@@ -48,6 +51,11 @@ export function createTray(iconPath: string, actions: TrayActions) {
       { type: 'separator' },
       { label: 'Fenster öffnen', click: actions.openWindow },
       { label: 'Gerät verbinden ...', click: actions.openPairing, enabled: s.server === 'running' },
+      {
+        label: s.ocrHotkey ? `Scan einlesen (${s.ocrHotkey})` : 'Scan einlesen',
+        click: actions.readScan,
+        enabled: s.server === 'running',
+      },
       { type: 'separator' },
       {
         label: 'Immer im Vordergrund',

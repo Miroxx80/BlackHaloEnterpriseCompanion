@@ -381,3 +381,36 @@ test('Gemeinsamer Scan: Befehle, Prüfung, Verteilen an andere Geräte, Speicher
     await app.stop();
   }
 });
+
+test('Crafting-Bonus: zusätzliche Laserleistung wird eingerechnet, Grenzen und Speichern im Loadout', async () => {
+  const lo = { laserId: L('Helix I'), moduleIds: [M('Rieger-C3'), M('Rieger-C3')] };
+  const plain = calculate(data, scan({ mass: 10000, resistance: 0, instability: 1 }), lo);
+  const crafted = calculate(data, scan({ mass: 10000, resistance: 0, instability: 1 }), { ...lo, powerBonusPct: 10.5 });
+  // Helix I 3900 × 1,25 × 1,25 (HUD zeigt 156) × 1,105 Crafting
+  near(plain.setup.power, 3900 * 1.5625, 1e-6, 'Leistung ohne Crafting');
+  near(crafted.setup.power, 3900 * 1.5625 * 1.105, 1e-6, 'Leistung mit Crafting');
+  near(crafted.baseline.share, plain.baseline.share / 1.105, 1e-9, 'Anteil sinkt um den Bonus');
+  assert.equal(crafted.setup.powerBonusPct, 10.5);
+  assert.throws(() => calculate(data, scan({ mass: 1000, resistance: 0, instability: 1 }), { ...lo, powerBonusPct: 500 }), /Crafting-Bonus/);
+
+  const dataRoot = mkdtempSync(join(tmpdir(), 'bh-mining-craft-'));
+  const app = await startApp({ overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' } } }, dataRoot });
+  const call = (method, path, body) =>
+    fetch(`http://127.0.0.1:${app.port}/api/mining${path}`, { method, headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+  try {
+    const store = await (await call('GET', '/loadouts')).json();
+    assert.equal(store.loadouts[0].powerBonusPct, 0); // ältere/Standard-Loadouts: 0
+    const mine = { id: 'craft', name: 'Helix gecraftet', shipId: 'MISC_Prospector', ...lo, powerBonusPct: 10.5 };
+    const saved = await call('PUT', '/loadouts', { revision: store.revision, activeId: 'craft', loadouts: [...store.loadouts, mine] });
+    assert.equal(saved.status, 200);
+    assert.equal((await saved.json()).loadouts.find((l) => l.id === 'craft').powerBonusPct, 10.5);
+    const bad = await call('PUT', '/loadouts', { revision: store.revision + 1, loadouts: [{ ...mine, powerBonusPct: 'viel' }] });
+    assert.equal(bad.status, 400);
+    assert.match((await bad.json()).error, /Crafting-Bonus/);
+    // Berechnung mit dem aktiven Loadout nutzt den Bonus
+    const res = await (await call('POST', '/calc', { scan: scan({ mass: 10000, resistance: 0, instability: 1 }) })).json();
+    assert.equal(res.setup.powerBonusPct, 10.5);
+  } finally {
+    await app.stop();
+  }
+});

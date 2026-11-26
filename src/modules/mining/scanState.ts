@@ -26,6 +26,11 @@ export interface ScanDraft {
   scu: string;
   gadget: string;
   parts: PartDraft[];
+  /**
+   * Felder, die zum Prüfen markiert sind (z. B. von der OCR unsicher gelesen). Pfade wie "mass", "resColor",
+   * "parts.2.pct". Eine Änderung am Feld entfernt die Markierung.
+   */
+  marks?: Record<string, 'check'>;
 }
 
 export type ScanOp =
@@ -34,6 +39,7 @@ export type ScanOp =
   | { op: 'addPart' }
   | { op: 'removePart'; index: number }
   | { op: 'reset' }
+  | { op: 'unmark' }
   | { op: 'replace'; scan: ScanDraft };
 
 export const MAX_PARTS = 12;
@@ -52,7 +58,34 @@ export const emptyDraft = (): ScanDraft => ({
   scu: '',
   gadget: '',
   parts: [emptyPart()],
+  marks: {},
 });
+
+const MARK_PATH = /^(mass|resistance|instability|scu|gadget|resColor|instColor|parts\.\d{1,2}\.(pct|ore|quality))$/;
+
+function marks(v: unknown): Record<string, 'check'> {
+  if (v === undefined || v === null) return {};
+  if (typeof v !== 'object' || Array.isArray(v)) throw new InputError('Markierungen ungültig');
+  const out: Record<string, 'check'> = {};
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (!MARK_PATH.test(k) || val !== 'check') throw new InputError('Markierungen ungültig');
+    out[k] = 'check';
+  }
+  return out;
+}
+
+/** Zeilen-Markierungen beim Entfernen einer Zeile nachziehen (Zeile i weg, dahinter rutschen nach oben). */
+function shiftRowMarks(m: Record<string, 'check'>, removed: number): Record<string, 'check'> {
+  const out: Record<string, 'check'> = {};
+  for (const k of Object.keys(m)) {
+    const hit = /^parts\.(\d+)\.(.+)$/.exec(k);
+    if (!hit) { out[k] = 'check'; continue; }
+    const i = Number(hit[1]);
+    if (i === removed) continue;
+    out[i > removed ? `parts.${i - 1}.${hit[2]}` : k] = 'check';
+  }
+  return out;
+}
 
 function text(v: unknown, what: string): string {
   if (typeof v !== 'string') throw new InputError(`${what}: Text erwartet`);
@@ -104,6 +137,7 @@ export function createScanValidator(data: Dataset) {
       scu: text(d.scu, 'SCU'),
       gadget: gadget(d.gadget),
       parts: parts.length ? parts : [emptyPart()],
+      marks: marks(d.marks),
     };
   }
 
@@ -112,6 +146,7 @@ export function createScanValidator(data: Dataset) {
     if (!Array.isArray(rawOps) || rawOps.length === 0) throw new InputError('Keine Änderungen');
     if (rawOps.length > MAX_OPS) throw new InputError(`Höchstens ${MAX_OPS} Änderungen auf einmal`);
     const d: ScanDraft = structuredClone(current);
+    d.marks ??= {};
     for (const raw of rawOps) {
       const op = (raw ?? {}) as Record<string, unknown>;
       switch (op.op) {
@@ -120,21 +155,29 @@ export function createScanValidator(data: Dataset) {
           else if (op.field === 'resColor' || op.field === 'instColor') d[op.field] = color(op.value, String(op.field));
           else if (op.field === 'gadget') d.gadget = gadget(op.value);
           else throw new InputError('Unbekanntes Feld');
+          delete d.marks![op.field as string]; // bearbeitet = geprüft
           break;
         case 'part': {
           const i = index(op.index, d.parts.length);
           if (op.field === 'pct' || op.field === 'quality') d.parts[i][op.field] = text(op.value, op.field === 'pct' ? 'Anteil' : 'Qualität');
           else if (op.field === 'ore') d.parts[i].ore = ore(op.value);
           else throw new InputError('Unbekanntes Feld');
+          delete d.marks![`parts.${i}.${op.field as string}`];
           break;
         }
         case 'addPart':
           if (d.parts.length >= MAX_PARTS) throw new InputError(`Höchstens ${MAX_PARTS} Zeilen`);
           d.parts.push(emptyPart());
           break;
-        case 'removePart':
-          d.parts.splice(index(op.index, d.parts.length), 1);
+        case 'removePart': {
+          const i = index(op.index, d.parts.length);
+          d.parts.splice(i, 1);
+          d.marks = shiftRowMarks(d.marks!, i);
           if (!d.parts.length) d.parts.push(emptyPart());
+          break;
+        }
+        case 'unmark':
+          d.marks = {}; // alle Markierungen als geprüft bestätigen
           break;
         case 'reset':
           Object.assign(d, emptyDraft());

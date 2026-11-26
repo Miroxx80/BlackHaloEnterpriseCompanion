@@ -36,10 +36,12 @@ if (token && !validToken(token)) {
 }
 
 // ---- REST ----
-async function request(method, path, body) {
+async function request(method, path, body, rawType) {
   const headers = token ? { 'x-bh-token': token } : {};
-  if (body !== undefined) headers['content-type'] = 'application/json';
-  const res = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  if (rawType) headers['content-type'] = rawType;
+  else if (body !== undefined) headers['content-type'] = 'application/json';
+  const payload = body === undefined ? undefined : rawType ? body : JSON.stringify(body);
+  const res = await fetch(path, { method, headers, body: payload });
   if (res.status === 401) {
     throw Object.assign(
       new Error('Zugangsschlüssel fehlt oder ist falsch. Bitte am PC unter „Verbinden“ den QR-Code neu scannen.'),
@@ -63,6 +65,8 @@ async function request(method, path, body) {
 const get = (path) => request('GET', path);
 const post = (path, body) => request('POST', path, body ?? {});
 const put = (path, body) => request('PUT', path, body ?? {});
+/** Rohe Daten senden (z. B. ein Bild als Blob). */
+const postRaw = (path, body, contentType) => request('POST', path, body, contentType || 'application/octet-stream');
 
 // ---- Verbindungsanzeige ----
 const connState = document.querySelector('#conn .conn-state');
@@ -118,6 +122,7 @@ function createApi(moduleId, subs, meta) {
     get,
     post,
     put,
+    postRaw,
     /** Sendet "<modul>:<name>". Gibt false zurück, wenn keine Verbindung besteht. */
     send(name, payload) {
       if (!socket || socket.readyState !== WebSocket.OPEN) return false;

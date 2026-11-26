@@ -16,6 +16,11 @@ const STYLE = `
 .mn-empty { margin: 0; padding: 18px; color: var(--text-dim); }
 .mn-sync { margin-left: auto; font-size: var(--fs-xs); color: var(--text-faint); }
 .mn-sync.bad { color: var(--bad); }
+.mn .mn-check { border-color: var(--warn) !important; box-shadow: 0 0 0 1px var(--warn), 0 0 0 4px color-mix(in srgb, var(--warn) 18%, transparent); }
+.mn-checkbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 16px; padding: 10px 12px; border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--s1)); font-size: 14px; }
+.mn-checkbar b { color: var(--warn); font-family: var(--font-head); letter-spacing: .08em; text-transform: uppercase; }
+.mn-checkbar .grow { flex: 1; min-width: 160px; }
+.mn-ocr-notes { display: grid; gap: 8px; margin: 0 0 16px; }
 .mn-variants { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: var(--fs-s); color: var(--text-dim); }
 .mn-variants b { font-family: var(--font-head); letter-spacing: .06em; text-transform: uppercase; font-weight: 700; }
 .mn-c-ok { color: var(--ok); }
@@ -87,6 +92,7 @@ const emptyScan = () => ({
   scu: '',
   gadget: '',
   parts: [emptyPart()],
+  marks: {},
 });
 
 // ---- Zahlen aus der Eingabe (HUD-Schreibweisen erlaubt) ----
@@ -109,6 +115,13 @@ function parseScu(s) {
   const milli = t.endsWith('m');
   const v = parseDec(milli ? t.slice(0, -1) : t);
   return v == null ? null : milli ? v / 1000 : v;
+}
+
+/** Zahl mit Vorzeichen (Crafting-Bonus): "10,5", "+10.5", "-5". Leer = 0. */
+function parseSigned(s) {
+  const t = String(s).replace(/\s*%\s*$/, '').trim().replace(',', '.');
+  if (t === '') return 0;
+  return /^[+-]?\d*\.?\d+$/.test(t) ? Number(t) : null;
 }
 
 /** aria-invalid setzen: nicht leer, aber nicht lesbar. */
@@ -222,7 +235,7 @@ export async function mount(root, api) {
 
   // ---------- Scan-Eingabe ----------
   function segmented(key, name) {
-    const seg = el('div', { class: 'seg', role: 'group', 'aria-label': name });
+    const seg = el('div', { class: `seg${scan.marks?.[key] ? ' mn-check' : ''}`, role: 'group', 'aria-label': name, 'data-mark': key });
     const buttons = [['white', 'Weiß'], ['green', 'Grün'], ['red', 'Rot']].map(([v, label]) =>
       el(
         'button',
@@ -237,6 +250,7 @@ export async function mount(root, api) {
             // An Ort und Stelle umschalten, damit der Fokus auf dem Knopf bleibt
             for (const b of buttons) b.setAttribute('aria-pressed', String(b.dataset.v === v));
             queue({ op: 'set', field: key, value: v });
+            clearMark(key);
             changed();
           },
         },
@@ -255,6 +269,7 @@ export async function mount(root, api) {
     const set = (key) => (e) => {
       scan[key] = e.target.value;
       queue({ op: 'set', field: key, value: e.target.value });
+      clearMark(key);
       changed();
     };
     // Ungültige Eingaben rot markieren statt still zu ignorieren
@@ -334,6 +349,7 @@ export async function mount(root, api) {
       const setPart = (key, parse) => (e) => {
         scan.parts[i][key] = e.target.value;
         queue({ op: 'part', index: i, field: key, value: e.target.value });
+        clearMark(`parts.${i}.${key}`);
         if (parse) markInvalid(e.target, parse);
         if (key === 'pct') updateSum();
         changed();
@@ -394,7 +410,7 @@ export async function mount(root, api) {
 
     scanPanel.replaceChildren(
       el('div', { class: 'panel-head' }, el('h2', {}, el('span', { class: 'idx' }, '01'), 'Scan', el('span', { class: 'tag' }, 'auf allen Geräten gleich')), syncState, resetButton),
-      el('div', { class: 'panel-body' }, fields),
+      el('div', { class: 'panel-body' }, el('div', { class: 'mn-actions', style: { marginBottom: '16px' } }, ocrButton, fileInput), ocrNotes, checkBar, fields),
       el('hr', { class: 'panel-sep' }),
       el('div', { class: 'panel-head' }, el('h2', {}, el('span', { class: 'idx' }, '02'), 'Zusammensetzung', el('span', { class: 'tag' }, 'optional')), addButton),
       el(
@@ -410,6 +426,11 @@ export async function mount(root, api) {
         ),
       ),
     );
+    // Unsicher gelesene Felder (OCR) gelb markieren
+    for (const path of Object.keys(scan.marks ?? {})) {
+      scanPanel.querySelector(`[data-path="${path}"]`)?.classList.add('mn-check');
+    }
+    updateCheckBar();
   }
 
   // ---------- Rechnen ----------
@@ -435,7 +456,7 @@ export async function mount(root, api) {
           parts,
           gadgetAttached: scan.gadget || null,
         },
-        loadout: { laserId: l.laserId, moduleIds: l.moduleIds },
+        loadout: { laserId: l.laserId, moduleIds: l.moduleIds, powerBonusPct: l.powerBonusPct ?? 0 },
         options,
       },
     };
@@ -443,6 +464,56 @@ export async function mount(root, api) {
 
   function changed() {
     schedule();
+  }
+
+  // ---------- Screenshot einlesen (OCR) ----------
+  const fileInput = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', hidden: true });
+  const ocrButton = button('Screenshot einlesen', { iconName: 'scan', onclick: () => fileInput.click() });
+  ocrButton.title = 'Screenshot (1920x1080) auswählen oder mit Strg+V einfügen';
+  const ocrNotes = el('div', { class: 'mn-ocr-notes' });
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files?.[0];
+    fileInput.value = '';
+    if (f) readScreenshot(f);
+  });
+  // Strg+V: Bild aus der Zwischenablage (z. B. nach Druck-Taste oder Snipping-Tool)
+  const onPaste = (e) => {
+    const item = [...(e.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'));
+    if (!item) return;
+    e.preventDefault();
+    readScreenshot(item.getAsFile());
+  };
+  document.addEventListener('paste', onPaste);
+
+  async function readScreenshot(file) {
+    ocrButton.disabled = true;
+    ocrNotes.replaceChildren(notice('note', 'Screenshot wird gelesen ...', { iconName: 'scan' }));
+    try {
+      const res = await api.postRaw('/api/mining/ocr?apply=1', file, file.type || 'application/octet-stream');
+      const notes = [...res.notes];
+      if (res.applied) notes.unshift(`Gelesen in ${res.ms} ms (Erkennung: ${res.engine}). Gelb markierte Felder bitte prüfen.`);
+      ocrNotes.replaceChildren(...notes.map((n) => notice('note', n, { iconName: res.panelFound ? 'info' : 'edge' })));
+      if (res.applied) await refreshShared();
+    } catch (err) {
+      ocrNotes.replaceChildren(notice('alert', err.message));
+    } finally {
+      ocrButton.disabled = false;
+    }
+  }
+
+  // Leiste "bitte prüfen": solange Felder markiert sind
+  const checkCount = el('span', { class: 'grow' });
+  const checkBar = el(
+    'div',
+    { class: 'mn-checkbar', role: 'status', hidden: true },
+    el('b', {}, 'Bitte prüfen'),
+    checkCount,
+    button('Alles geprüft', { iconName: 'check', onclick: () => { queue({ op: 'unmark' }); scan.marks = {}; renderScan(); } }),
+  );
+  function updateCheckBar() {
+    const n = Object.keys(scan.marks ?? {}).length;
+    checkBar.hidden = n === 0;
+    checkCount.textContent = `${n} Feld${n === 1 ? '' : 'er'} unsicher gelesen (gelb markiert). Wert ändern oder bestätigen.`;
   }
 
   // ---------- Abgleich mit dem Server ----------
@@ -520,13 +591,36 @@ export async function mount(root, api) {
   /** Dieselben Befehle wie der Server, für die Anzeige noch nicht bestätigter Eingaben. */
   function applyLocal(d, op) {
     const n = structuredClone(d);
-    if (op.op === 'set') n[op.field] = op.value;
-    else if (op.op === 'part' && n.parts[op.index]) n.parts[op.index][op.field] = op.value;
+    n.marks = { ...(n.marks ?? {}) };
+    if (op.op === 'set') { n[op.field] = op.value; delete n.marks[op.field]; }
+    else if (op.op === 'part' && n.parts[op.index]) { n.parts[op.index][op.field] = op.value; delete n.marks[`parts.${op.index}.${op.field}`]; }
     else if (op.op === 'addPart') n.parts.push(emptyPart());
-    else if (op.op === 'removePart') { n.parts.splice(op.index, 1); if (!n.parts.length) n.parts.push(emptyPart()); }
+    else if (op.op === 'removePart') {
+      n.parts.splice(op.index, 1);
+      if (!n.parts.length) n.parts.push(emptyPart());
+      // Markierungen der folgenden Zeilen rutschen nach oben (wie auf dem Server)
+      const m = {};
+      for (const k of Object.keys(n.marks)) {
+        const hit = /^parts\.(\d+)\.(.+)$/.exec(k);
+        if (!hit) m[k] = 'check';
+        else if (+hit[1] !== op.index) m[+hit[1] > op.index ? `parts.${+hit[1] - 1}.${hit[2]}` : k] = 'check';
+      }
+      n.marks = m;
+    }
     else if (op.op === 'reset') return emptyScan();
+    else if (op.op === 'unmark') n.marks = {};
     else if (op.op === 'replace') return structuredClone(op.scan);
     return n;
+  }
+
+  /** Lokale Änderung an einem Feld entfernt dessen Markierung sofort (Server macht dasselbe). */
+  function clearMark(path) {
+    if (scan.marks?.[path]) {
+      delete scan.marks[path];
+      scanPanel.querySelector(`[data-path="${path}"]`)?.classList.remove('mn-check');
+      scanPanel.querySelector(`[data-mark="${path}"]`)?.classList.remove('mn-check');
+      updateCheckBar();
+    }
   }
 
   function setPath(d, path, value) {
@@ -786,7 +880,7 @@ export async function mount(root, api) {
         'div',
         { class: 'row' },
         icon('ship', 's'),
-        el('span', {}, el('b', {}, `${active().name}:`), ` ${r.setup.laser.name}${mods.length ? ' · ' + mods.join(', ') : ''} · max. ${fmtInt(a.maxMass)} kg bei dieser Resistenz`),
+        el('span', {}, el('b', {}, `${active().name}:`), ` ${r.setup.laser.name}${r.setup.powerBonusPct ? ` (Crafting ${r.setup.powerBonusPct > 0 ? '+' : ''}${fmtDec(r.setup.powerBonusPct, 1)} % Leistung)` : ''}${mods.length ? ' · ' + mods.join(', ') : ''} · max. ${fmtInt(a.maxMass)} kg bei dieser Resistenz`),
       ),
       el(
         'div',
@@ -897,8 +991,42 @@ export async function mount(root, api) {
       ),
     );
 
+    // Crafting-Bonus: als Text bearbeiten (Komma, Vorzeichen), beim Speichern als Zahl
+    if (editing.bonusText === undefined) editing.bonusText = editing.powerBonusPct ? String(editing.powerBonusPct).replace('.', ',') : '';
+    const bonusValue = () => parseSigned(editing.bonusText);
+    const bonusOk = (v) => v != null && v >= -50 && v <= 100;
+    const bonusInput = el('input', {
+      class: 'input',
+      'data-k': 'bonus',
+      value: editing.bonusText,
+      placeholder: 'z. B. 10,5',
+      inputmode: 'text',
+      autocomplete: 'off',
+      oninput: (e) => {
+        editing.bonusText = e.target.value;
+        e.target.setAttribute('aria-invalid', String(!bonusOk(bonusValue())));
+        updateSummary();
+      },
+    });
+    bonusInput.setAttribute('aria-invalid', String(!bonusOk(bonusValue())));
+    const fmtMod = (v) => (v > 0 ? `+${v}` : `${v}`);
+    const summary = el('p', { class: 'mn-dim' });
+    function updateSummary() {
+      const b = bonusValue();
+      const eff = bonusOk(b) && b !== 0 ? ` (mit Crafting ${fmtInt(laser.power * (1 + b / 100))})` : '';
+      summary.textContent = `${laser.name}: ${fmtInt(laser.power)} Leistung${eff}, min. ${Math.round(laser.throttleMin * 100)} %, Resistenz ${fmtMod(laser.mods.resistance)} %, Instabilität ${fmtMod(laser.mods.instability)} %, Fenster ${fmtMod(laser.mods.window)} %, ${laser.slots} Slot(s), optimal bis ${laser.rangeFull} m`;
+    }
+    updateSummary();
+
     const save = async (asNew) => {
-      const entry = { ...editing, name: editing.name.trim() || 'Loadout' };
+      const b = bonusValue();
+      if (!bonusOk(b)) {
+        message.textContent = 'Crafting-Bonus: Zahl zwischen -50 und 100 eingeben (z. B. 10,5), oder leer lassen.';
+        bonusInput.focus();
+        return;
+      }
+      const { bonusText: _drop, ...rest } = editing;
+      const entry = { ...rest, powerBonusPct: b, name: editing.name.trim() || 'Loadout' };
       if (asNew) entry.id = crypto.randomUUID?.() ?? String(Date.now());
       const next = structuredClone(store);
       const i = next.loadouts.findIndex((l) => l.id === entry.id);
@@ -929,7 +1057,6 @@ export async function mount(root, api) {
       }
     };
 
-    const fmtMod = (v) => (v > 0 ? `+${v}` : `${v}`);
     editorPanel.replaceChildren(
       el(
         'div',
@@ -969,13 +1096,16 @@ export async function mount(root, api) {
               data.lasers.filter(fits).map((l) => el('option', { value: l.id, selected: l.id === laser.id }, l.name)),
             ),
           ),
+          el(
+            'label',
+            { class: 'field' },
+            el('span', { class: 'field-label' }, 'Crafting-Bonus Leistung', el('small', {}, '% · optional')),
+            el('span', { class: 'unit', 'data-unit': '%' }, bonusInput),
+          ),
           ...slots,
         ),
-        el(
-          'p',
-          { class: 'mn-dim' },
-          `${laser.name}: ${fmtInt(laser.power)} Leistung, min. ${Math.round(laser.throttleMin * 100)} %, Resistenz ${fmtMod(laser.mods.resistance)} %, Instabilität ${fmtMod(laser.mods.instability)} %, Fenster ${fmtMod(laser.mods.window)} %, ${laser.slots} Slot(s), optimal bis ${laser.rangeFull} m`,
-        ),
+        summary,
+        el('p', { class: 'mn-dim' }, 'Crafting-Bonus: zusätzliche Laserleistung eines gecrafteten Lasers (z. B. +10,5 %). Das Spiel zeigt ihn im HUD nicht an, deshalb hier eintragen.'),
         store.staleCount ? notice('note', `${store.staleCount} gespeicherte(s) Loadout(s) passen nicht mehr zu den aktuellen Spieldaten und sind ausgeblendet (nicht gelöscht).`) : null,
         el(
           'div',
@@ -1012,6 +1142,7 @@ export async function mount(root, api) {
     clearTimeout(flushTimer);
     flush();
     document.removeEventListener('visibilitychange', onVisible);
+    document.removeEventListener('paste', onPaste);
     seq++; // späte Antworten nicht mehr anzeigen
     observer?.disconnect();
     style.remove();

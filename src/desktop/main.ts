@@ -3,8 +3,9 @@
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { app, Menu, shell } from 'electron';
+import { app, globalShortcut, Menu, shell } from 'electron';
 import { createLogFile } from './log.js';
+import { captureAndRead } from './ocrCapture.js';
 import { createSettingsStore } from './settings.js';
 import { ServerSupervisor } from './supervisor.js';
 import { createTray, type TrayState } from './tray.js';
@@ -42,6 +43,8 @@ if (!app.requestSingleInstanceLock()) {
     app.isPackaged && app.getLoginItemSettings({ args: AUTOSTART_ARGS }).openAtLogin;
 
   let tray: ReturnType<typeof createTray> | null = null;
+  let hotkeyActive = false;
+  const readScan = () => void captureAndRead(supervisor.info, log);
   const refreshTray = () => {
     const s: TrayState = {
       server: supervisor.state,
@@ -50,6 +53,7 @@ if (!app.requestSingleInstanceLock()) {
       alwaysOnTop: settings.get().alwaysOnTop,
       autostart: autostart(),
       autostartAvailable: app.isPackaged,
+      ocrHotkey: hotkeyActive ? settings.get().ocrHotkey : '',
     };
     tray?.update(s);
   };
@@ -73,6 +77,7 @@ if (!app.requestSingleInstanceLock()) {
     if (quitting) return;
     quitting = true;
     log.line('INFO', 'Beende ...');
+    globalShortcut.unregisterAll();
     window.close();
     tray?.destroy();
     tray = null; // refreshTray() darf das zerstörte Tray nicht mehr anfassen
@@ -95,6 +100,7 @@ if (!app.requestSingleInstanceLock()) {
     tray = createTray(icon, {
       openWindow: () => window.show(),
       openPairing: () => window.show('pairing'),
+      readScan,
       toggleAlwaysOnTop: (value) => {
         settings.update({ alwaysOnTop: value });
         window.setAlwaysOnTop(value);
@@ -109,6 +115,16 @@ if (!app.requestSingleInstanceLock()) {
       openConfig: () => void shell.openPath(join(userDir, 'config')),
       quit: () => void quit(),
     });
+    // Globales Tastenkürzel für "Scan einlesen". Belegt eine andere App es schon, bleibt es aus (Hinweis im Log).
+    const hotkey = settings.get().ocrHotkey;
+    if (hotkey) {
+      try {
+        hotkeyActive = globalShortcut.register(hotkey, readScan);
+        if (!hotkeyActive) log.line('WARN', `Tastenkürzel ${hotkey} ist schon belegt; "Scan einlesen" nur über das Tray-Menü`);
+      } catch (err) {
+        log.line('WARN', `Tastenkürzel "${hotkey}" ungültig: ${(err as Error).message}`);
+      }
+    }
     supervisor.start();
     refreshTray();
     if (!startHidden) window.show();

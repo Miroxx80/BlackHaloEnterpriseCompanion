@@ -13,9 +13,11 @@ export interface WindowBounds {
 export interface DesktopSettings {
   window?: WindowBounds;
   alwaysOnTop: boolean;
+  /** Tastenkürzel für "Scan einlesen" (Electron-Schreibweise, z. B. "Alt+Shift+S"); leer = aus. */
+  ocrHotkey: string;
 }
 
-const DEFAULTS: DesktopSettings = { alwaysOnTop: false };
+const DEFAULTS: DesktopSettings = { alwaysOnTop: false, ocrHotkey: 'Alt+Shift+S' };
 
 function isBounds(v: unknown): v is WindowBounds {
   const b = v as WindowBounds;
@@ -33,6 +35,7 @@ export function createSettingsStore(file: string) {
       const raw = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
       data = {
         alwaysOnTop: raw.alwaysOnTop === true,
+        ocrHotkey: typeof raw.ocrHotkey === 'string' ? raw.ocrHotkey : DEFAULTS.ocrHotkey,
         window: isBounds(raw.window) ? raw.window : undefined,
       };
     } catch {

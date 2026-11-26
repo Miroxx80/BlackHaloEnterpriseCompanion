@@ -1,9 +1,13 @@
-import { copyFileSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import type { BhModule } from '../../core/types.js';
-import { calculate, DEFAULT_OPTIONS, InputError } from './calc.js';
+import { calculate, DEFAULT_OPTIONS, InputError, POWER_BONUS_RANGE } from './calc.js';
 import { createScanValidator, emptyDraft, type ScanDraft } from './scanState.js';
+import { noReader, type LineReader } from './ocr/engine.js';
+import { ScreenError } from './ocr/image.js';
+import { readScan } from './ocr/pipeline.js';
+import { createPaddleReader } from './ocr/paddle.js';
 import type { CalcOptions, Dataset, LoadoutInput, ScanInput } from './types.js';
 
 /** Service "mining.scan" für andere Module (z. B. OCR): aktuellen Scan lesen oder ersetzen. */
@@ -65,7 +69,7 @@ const mod: BhModule = {
 
     const defaultLoadout = (): SavedLoadout => {
       const ship = data.ships[0];
-      return { id: randomUUID(), name: `${ship.name} (Standard)`, shipId: ship.id, laserId: ship.heads[0].stockLaser, moduleIds: [] };
+      return { id: randomUUID(), name: `${ship.name} (Standard)`, shipId: ship.id, laserId: ship.heads[0].stockLaser, moduleIds: [], powerBonusPct: 0 };
     };
 
     /** Prüft ein Loadout gegen den Datensatz. Wirft InputError mit verständlicher Meldung. */
@@ -86,7 +90,12 @@ const mod: BhModule = {
       if (moduleIds.length > laser.slots) throw new InputError(`${laser.name} hat nur ${laser.slots} Modul-Slot(s)`);
       for (const id of moduleIds) if (!data.modules.some((m) => m.id === id)) throw new InputError(`Unbekanntes Modul "${id}"`);
       const id = typeof l.id === 'string' && /^[\w-]{1,64}$/.test(l.id) ? l.id : randomUUID();
-      return { id, name, shipId: ship.id, laserId: laser.id, moduleIds };
+      // Crafting-Bonus auf die Laserleistung in %, fehlt bei älteren Einträgen
+      const bonus = l.powerBonusPct ?? 0;
+      if (typeof bonus !== 'number' || !Number.isFinite(bonus) || bonus < POWER_BONUS_RANGE[0] || bonus > POWER_BONUS_RANGE[1]) {
+        throw new InputError(`Crafting-Bonus muss zwischen ${POWER_BONUS_RANGE[0]} und ${POWER_BONUS_RANGE[1]} % liegen`);
+      }
+      return { id, name, shipId: ship.id, laserId: laser.id, moduleIds, powerBonusPct: Math.round(bonus * 100) / 100 };
     }
 
     function freshStore(stale: unknown[] = []): LoadoutStore {
@@ -219,6 +228,57 @@ const mod: BhModule = {
     });
 
     ctx.http.get('/scan', async () => current);
+
+    // ---------- OCR: Screenshot einlesen ----------
+    // Texterkennung: PaddleOCR (Modell in data/ocr). Abschaltbar per Config modules.mining.ocr = false.
+    const reader: LineReader = ctx.config.ocr === false ? noReader : createPaddleReader(join(ctx.dir, 'data', 'ocr'));
+    const samplesDir = join(ctx.dataDir, 'ocr-samples');
+    const MAX_SAMPLES = 100;
+    /** Panel-Ausschnitt + Ergebnis aufheben: verlustfreie Beispiele, um die Erkennung zu verbessern. */
+    function keepSample(panelPng: Buffer, result: unknown) {
+      try {
+        mkdirSync(samplesDir, { recursive: true });
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        writeFileSync(join(samplesDir, `${stamp}-panel.png`), panelPng);
+        writeFileSync(join(samplesDir, `${stamp}-result.json`), JSON.stringify(result, null, 2));
+        const files = readdirSync(samplesDir).filter((f) => f.endsWith('-panel.png')).sort();
+        for (const old of files.slice(0, Math.max(0, files.length - MAX_SAMPLES))) {
+          rmSync(join(samplesDir, old), { force: true });
+          rmSync(join(samplesDir, old.replace('-panel.png', '-result.json')), { force: true });
+        }
+      } catch (err) {
+        ctx.log.warn(`OCR-Beispiel nicht gespeichert: ${(err as Error).message}`);
+      }
+    }
+
+    // Bilder kommen als rohe Bytes (Content-Type image/png, image/jpeg, image/webp)
+    ctx.http.addContentTypeParser(
+      ['image/png', 'image/jpeg', 'image/webp', 'application/octet-stream'],
+      { parseAs: 'buffer', bodyLimit: 20 * 1024 * 1024 },
+      (_req, body, done) => done(null, body),
+    );
+
+    /** POST /api/mining/ocr[?apply=1] mit dem Screenshot als Body. apply: Ergebnis in den gemeinsamen Scan übernehmen. */
+    ctx.http.post<{ Querystring: { apply?: string } }>('/ocr', async (req, reply) => {
+      if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+        return reply.code(400).send({ error: 'Screenshot fehlt (PNG, JPG oder WebP als Body senden)' });
+      }
+      try {
+        const { result, panelPng } = await readScan(req.body, reader, data.ores);
+        keepSample(panelPng, result);
+        let applied = false;
+        if (req.query.apply === '1' && result.panelFound) {
+          commitScan(validator.validateDraft({ ...result.draft, marks: result.marks }), 'ocr');
+          applied = true;
+        }
+        ctx.log.info(`OCR (${result.engine}, ${result.ms} ms): Panel ${result.panelFound ? 'gefunden' : 'nicht gefunden'}, ${Object.keys(result.marks).length} Feld(er) zu prüfen`);
+        return { ...result, applied };
+      } catch (err) {
+        if (err instanceof ScreenError) return reply.code(400).send({ error: err.message });
+        ctx.log.error('OCR fehlgeschlagen:', err);
+        return reply.code(500).send({ error: `Screenshot konnte nicht gelesen werden: ${(err as Error).message}` });
+      }
+    });
 
     /** Änderungen als Befehle: { ops: [...], origin: "<geräte-id>" }. Antwort: neuer Stand. */
     ctx.http.post('/scan', async (req, reply) => {

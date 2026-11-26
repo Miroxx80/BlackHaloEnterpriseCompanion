@@ -4,16 +4,58 @@
   "ore": "TITANIUM",
   "form": "ORE",
   "mass": 458,
-  "resistance": { "value": 14, "color": "green" },
-  "instability": { "value": 0.85, "color": "red" },
+  "resistance": {
+    "value": 14,
+    "color": "green"
+  },
+  "instability": {
+    "value": 0.85,
+    "color": "red"
+  },
   "difficulty": "EASY",
   "scu": 0.9018,
   "scuPrinted": "901.80m SCU",
   "parts": [
-    { "pct": 4.86, "ore": "AGRICIUM", "form": "ORE", "quality": 588 },
-    { "pct": 2.0, "ore": "ASLARITE", "form": "RAW", "quality": 575 },
-    { "pct": 10.11, "ore": "TITANIUM", "form": "ORE", "quality": 516 },
-    { "pct": 53.53, "ore": "TITANIUM", "form": "ORE", "quality": 295 },
-    { "pct": 29.47, "ore": "INERT MATERIALS", "form": null, "quality": 0 }
-  ]
+    {
+      "pct": 4.86,
+      "ore": "AGRICIUM",
+      "form": "ORE",
+      "quality": 588
+    },
+    {
+      "pct": 2.0,
+      "ore": "ASLARITE",
+      "form": "RAW",
+      "quality": 575
+    },
+    {
+      "pct": 10.11,
+      "ore": "TITANIUM",
+      "form": "ORE",
+      "quality": 516
+    },
+    {
+      "pct": 53.53,
+      "ore": "TITANIUM",
+      "form": "ORE",
+      "quality": 295
+    },
+    {
+      "pct": 29.47,
+      "ore": "INERT MATERIALS",
+      "form": null,
+      "quality": 0
+    }
+  ],
+  "loadout": {
+    "ship": "MISC Prospector",
+    "laser": "Helix I",
+    "modules": [
+      "Stampede"
+    ],
+    "activeDuringScan": [
+      "Stampede"
+    ],
+    "_comment": "Laut Org-Leitung (2026-11-26). Instabilität rot passt nicht zu den Spieldaten (Stampede -10 %), siehe docs/research/mining-companion.md."
+  }
 }
