@@ -331,7 +331,7 @@ test('Radar-Signatur: Zahl lesen, Pin abschneiden, Text ablehnen', () => {
 
 test('Radar-Signatur live: Marker im Band gefunden (orange und grün), kein Fehlgriff auf UNKNOWN/Entfernung', async () => {
   const isKnown = (v) => matchSignature(v, data).exact;
-  for (const [file, want] of [['band-3400-orange.png', 3400], ['band-7200-green.png', 7200]]) {
+  for (const [file, want] of [['band-3400-orange.png', 3400], ['band-7200-green.png', 7200], ['band-4180-prospector-pc-test.png', 4180]]) {
     const { data: px, info } = await sharp(fixture(`hud/signature/${file}`)).removeAlpha().raw().toBuffer({ resolveWithObject: true });
     const reads = await readSignatures({ width: info.width, height: info.height, data: px }, paddle.reader, paddle.detector, isKnown);
     assert.deepEqual(reads.map((r) => r.value), [want], file);
@@ -352,6 +352,12 @@ test('Radar-Signatur: Bestätigung über mehrere Bilder, Halten, feste Anzeigen 
   // Sicher, aber mit 0/6/8/9-Zweifel: nicht sofort
   t.add([r(12000, { confidence: 0.99, ambiguous: true, x: 600 })], 1200);
   assert.ok(!t.contacts(1200).some((c) => c.value === 12000));
+  // Unbekannter Wert (auch mit Komma) braucht 3 Lesungen
+  t.add([r(12345, { x: 500 })], 1300);
+  t.add([r(12345, { x: 500 })], 1400);
+  assert.ok(!t.contacts(1400).some((c) => c.value === 12345));
+  t.add([r(12345, { x: 500 })], 1500);
+  assert.ok(t.contacts(1500).some((c) => c.value === 12345));
   // Halten und verfallen
   assert.ok(t.contacts(40000).some((c) => c.value === 16960));
   assert.ok(!t.contacts(50000).some((c) => c.value === 16960));

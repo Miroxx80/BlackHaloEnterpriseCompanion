@@ -313,7 +313,9 @@ export async function mount(root, api) {
       liveButton.querySelector('.lbl').textContent = text;
       liveButton.setAttribute('aria-label', text);
       liveButton.setAttribute('aria-pressed', String(liveState.on));
-      liveStatus.textContent = liveState.on ? `Live: ${liveState.status}${liveState.ms ? ` · ${liveState.ms} ms pro Bild` : ''}` : '';
+      liveStatus.textContent = liveState.on
+        ? `Live: ${liveState.status}${liveState.ms ? ` · ${liveState.ms} ms pro Bild (Aufnahme ${liveState.captureMs}, Erkennung ${liveState.readMs})` : ''}`
+        : '';
       liveList.replaceChildren(
         ...liveState.contacts.map((c) => {
           const top = c.candidates[0];

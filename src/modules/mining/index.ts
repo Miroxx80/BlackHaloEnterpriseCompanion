@@ -369,7 +369,9 @@ const mod: BhModule = {
     const liveInterval = Math.max(300, Number(ctx.config.signatureIntervalMs) || 800);
     const gameProcess = String(ctx.config.gameProcess ?? 'StarCitizen.exe').toLowerCase();
     const sigSamplesDir = join(ctx.dataDir, 'signature-samples');
-    const live = { on: false, status: 'aus', ms: 0 };
+    const live = { on: false, status: 'aus', ms: 0, captureMs: 0, readMs: 0 };
+    /** Mindestpause nach jedem Bild, damit das Lesen neben dem Spiel nicht dauernd CPU belegt. */
+    const LIVE_MIN_PAUSE = 600;
     let liveTimer: NodeJS.Timeout | null = null;
     const summarize = (value: number) => {
       const m = matchSignature(value, data);
@@ -379,6 +381,8 @@ const mod: BhModule = {
       on: live.on,
       status: live.status,
       ms: live.ms,
+      captureMs: live.captureMs,
+      readMs: live.readMs,
       capture: Boolean(screen),
       contacts: tracker.contacts(Date.now()).map((c) => ({ ...c, ...summarize(c.value) })),
     });
@@ -423,6 +427,7 @@ const mod: BhModule = {
         } else {
           const [x, y, width, height] = SIGNATURE_BAND;
           const png = await screen.capture({ x, y, width, height });
+          live.captureMs = Date.now() - t0;
           const { data: px, info } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true });
           const before = new Set(tracker.contacts(Date.now()).map((c) => c.value));
           const reads = await readSignatures({ width: info.width, height: info.height, data: px }, reader, detector, isKnown, [0, 0, info.width, info.height], [x, y]);
@@ -430,13 +435,14 @@ const mod: BhModule = {
           const fresh = tracker.contacts(Date.now()).filter((c) => !before.has(c.value));
           if (fresh.length) keepSignatureSample(png, { reads, confirmed: fresh.map((c) => c.value) });
           live.ms = Date.now() - t0;
+          live.readMs = live.ms - live.captureMs;
           live.status = 'läuft';
         }
       } catch (err) {
         live.status = `Fehler: ${(err as Error).message}`;
       }
       broadcastLive();
-      if (live.on) liveTimer = setTimeout(liveTick, Math.max(150, liveInterval - (Date.now() - t0)));
+      if (live.on) liveTimer = setTimeout(liveTick, Math.max(LIVE_MIN_PAUSE, liveInterval - (Date.now() - t0)));
     };
     const setLive = (on: boolean) => {
       live.on = on;

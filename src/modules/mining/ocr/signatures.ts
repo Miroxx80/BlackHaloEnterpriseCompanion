@@ -29,6 +29,7 @@ export interface SignatureReading {
 }
 
 const SIGNATURE_TEXT = /^(\d{1,3})[,.](\d{3})$/;
+// Hinweis: Erst gefiltert in readSignatures (Vielfaches von 5, ohne Komma nur bekannte Werte).
 const PLAIN_DIGITS = /^\d{4,6}$/;
 export const MIN_VALUE = 1500;
 export const MAX_VALUE = 300_000;
@@ -69,6 +70,10 @@ export async function readSignatures(
       if (shorter && isKnown(shorter.value)) parsed = shorter;
     }
     if (!parsed) continue;
+    // Signaturen sind in 4.10 immer Vielfache von 5 (Erze, Boden, Wracks). Filtert z. B. den Kurs "267°" -> "2672".
+    if (parsed.value % 5 !== 0) continue;
+    // Ohne Tausender-Komma nur bekannte Signaturen (sonst greifen Kurs, Entfernung, Leistung u. ä.)
+    if (!parsed.separator && !isKnown(parsed.value)) continue;
     out.push({
       value: parsed.value,
       text: r.text,
@@ -144,8 +149,11 @@ export class SignatureTracker {
         continue;
       }
       const count = this.readings.filter((x) => x.value === r.value).length;
-      const solo = r.separator && !r.ambiguous && r.confidence >= this.opts.singleConfidence && this.isKnown(r.value);
-      if (count >= 2 || solo) {
+      const known = this.isKnown(r.value);
+      const solo = r.separator && !r.ambiguous && r.confidence >= this.opts.singleConfidence && known;
+      // Bekannt und mit Komma: 2 Lesungen. Ohne Komma oder unbekannter Wert: 3 (häufiger Fehlgriff auf HUD-Zahlen).
+      const needed = known && r.separator ? 2 : 3;
+      if (count >= needed || solo) {
         this.confirmed.set(r.value, { value: r.value, firstSeen: now, lastSeen: now, hits: count, x: r.x, y: r.y });
         changed = true;
       }
