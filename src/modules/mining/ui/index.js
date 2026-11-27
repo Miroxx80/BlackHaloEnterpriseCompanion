@@ -240,6 +240,53 @@ export async function mount(root, api) {
   const observer = 'IntersectionObserver' in window ? new IntersectionObserver(([e]) => peek.classList.toggle('hide', e.isIntersecting), { threshold: 0.15 }) : null;
 
   let liveClock = null;
+
+  // ---------- Overlay über dem Spiel (Test) ----------
+  // Fenster einschalten: Tray-Menü der Desktop-App. Hier: was es zeigt (für alle Geräte gleich).
+  function overlayPanel() {
+    const section = el('section', { class: 'panel mn-sig', hidden: true, 'aria-labelledby': 'mn-h-ov' });
+    const visible = button('Overlay an', { iconName: 'target', onclick: () => set({ visible: !state?.visible }) });
+    const calibrate = button('Kalibrierung', { variant: 'ghost', iconName: 'wrench', onclick: () => set({ calibrate: !state?.calibrate }) });
+    const info = el('p', { class: 'mn-dim' });
+    let state = null;
+    const render = () => {
+      if (!state) return;
+      visible.querySelector('.lbl').textContent = state.visible ? 'Overlay aus' : 'Overlay an';
+      visible.setAttribute('aria-label', state.visible ? 'Overlay aus' : 'Overlay an');
+      visible.setAttribute('aria-pressed', String(state.visible));
+      calibrate.setAttribute('aria-pressed', String(state.calibrate));
+      calibrate.querySelector('.lbl').textContent = state.calibrate ? 'Kalibrierung aus' : 'Kalibrierung';
+      calibrate.setAttribute('aria-label', calibrate.querySelector('.lbl').textContent);
+      const r = state.result;
+      info.textContent = r?.band
+        ? `Zeigt das Band ${r.band[0]}–${r.band[1]} % am Energie-Bogen${r.unchecked ? ' (gestrichelt: Scan noch ungeprüft)' : ''}.`
+        : 'Sobald ein Scan vollständig ist, zeigt das Overlay die Halteleistung am Energie-Bogen.';
+    };
+    const set = async (patch) => {
+      try {
+        state = await api.post('/api/mining/overlay', patch);
+        render();
+      } catch (err) {
+        info.textContent = err.message;
+      }
+    };
+    Promise.all([api.get('/api/mining/overlay'), api.get('/api/mining/ocr')])
+      .then(([s, o]) => {
+        state = s;
+        section.hidden = !o.capture;
+        render();
+      })
+      .catch(() => {});
+    api.on('overlay', (s) => {
+      state = s;
+      render();
+    });
+    section.append(
+      el('div', { class: 'panel-head' }, el('h2', { id: 'mn-h-ov' }, 'Overlay', el('span', { class: 'tag' }, 'Test · Fenster im Tray-Menü einschalten'))),
+      el('div', { class: 'panel-body' }, el('div', { class: 'mn-live' }, visible, calibrate), info),
+    );
+    return section;
+  }
   // ---------- Radar-Signatur deuten ----------
   // Zahl vom Radar eingeben -> mögliche Vorkommen (Erz x Steine, Bodenfelder, Wracks). Rechnet der PC.
   function signaturePanel() {
@@ -400,7 +447,7 @@ export async function mount(root, api) {
     );
   }
 
-  root.append(head, editorPanel, signaturePanel(), el('div', { class: 'mining-grid' }, scanPanel, resultPanel), peek);
+  root.append(head, editorPanel, signaturePanel(), overlayPanel(), el('div', { class: 'mining-grid' }, scanPanel, resultPanel), peek);
 
   loadoutSelect.addEventListener('change', async () => {
     const previous = store.activeId;

@@ -11,6 +11,7 @@ import { ScreenError } from './ocr/image.js';
 import { readScan } from './ocr/pipeline.js';
 import { createPaddleDetector, createPaddleReader } from './ocr/paddle.js';
 import { readSignatures, SIGNATURE_BAND, SignatureTracker } from './ocr/signatures.js';
+import { POWER_ARC_1080 } from './ocr/layout.js';
 import { loadWin32 } from '../controls/input/win32.js';
 import sharp from 'sharp';
 import type { CalcOptions, Dataset, LoadoutInput, ScanInput } from './types.js';
@@ -235,10 +236,13 @@ const mod: BhModule = {
     };
 
     /** Änderung übernehmen, speichern und an alle Geräte verteilen. origin: wer geändert hat (Gerät/OCR). */
+    /** Overlay neu verteilen (wird unten gesetzt, sobald alles da ist). */
+    let notifyOverlay = () => {};
     function commitScan(next: ScanDraft, origin: string) {
       current = { revision: current.revision + 1, scan: next };
       saveScan();
       ctx.ws.broadcast('scan', { ...current, origin });
+      notifyOverlay();
       return current;
     }
 
@@ -442,6 +446,7 @@ const mod: BhModule = {
         live.status = `Fehler: ${(err as Error).message}`;
       }
       broadcastLive();
+      notifyOverlay();
       if (live.on) liveTimer = setTimeout(liveTick, Math.max(LIVE_MIN_PAUSE, liveInterval - (Date.now() - t0)));
     };
     const setLive = (on: boolean) => {
@@ -468,6 +473,90 @@ const mod: BhModule = {
       if (on && !screen) return reply.code(501).send({ error: 'Live-Lesen geht nur, wenn Black Halo als Desktop-App läuft.' });
       setLive(on);
       return liveState();
+    });
+
+    // ---------- Overlay über dem Spiel (Test) ----------
+    // Die Desktop-App zeigt ein durchsichtiges, durchklickbares Fenster (nur Anzeige). Es lädt /modules/mining/overlay.html
+    // und bekommt hier alles, was es zeichnet: Ergebnis zum aktuellen Scan (Band auf dem Energie-Bogen) und live
+    // gelesene Signaturen (Deutung neben dem Marker). Ein/aus und Kalibrierung steuert man vom Handy aus.
+    const overlayPrefs = { visible: true, calibrate: false };
+    const num = (s: string) => {
+      const t = String(s).replace(/\s*%\s*$/, '').trim().replace(',', '.');
+      return t !== '' && /^\d*\.?\d+$/.test(t) ? Number(t) : null;
+    };
+    const scanForCalc = (d: ScanDraft): ScanInput | null => {
+      const mass = /^\d+$/.test(d.mass.replace(/[\s.,']/g, '')) ? Number(d.mass.replace(/[\s.,']/g, '')) : null;
+      const resistance = num(d.resistance);
+      const instability = num(d.instability);
+      if (mass == null || resistance == null || instability == null) return null;
+      const scuText = d.scu.trim().toLowerCase().replace(/\s*scu$/, '');
+      const scuNum = num(scuText.replace(/m$/, ''));
+      return {
+        mass,
+        resistance,
+        resistanceColored: d.resColor !== 'white',
+        instability,
+        instabilityColored: d.instColor !== 'white',
+        scu: scuNum == null ? null : scuText.endsWith('m') ? scuNum / 1000 : scuNum,
+        parts: d.parts
+          .filter((p) => p.ore && num(p.pct) != null)
+          .map((p) => ({ oreId: p.ore === 'inert' ? null : p.ore, pct: num(p.pct)!, quality: /^\d+$/.test(p.quality) ? Number(p.quality) : null })),
+        gadgetAttached: d.gadget || null,
+      };
+    };
+    const overlayResult = () => {
+      const input = scanForCalc(current.scan);
+      const loadout = store.loadouts.find((l) => l.id === store.activeId);
+      if (!input || !loadout) return null;
+      try {
+        const r = calculate(data, input, loadout, DEFAULT_OPTIONS);
+        const best = r.gadgets.best;
+        return {
+          status: r.baseline.status,
+          band: r.baseline.band,
+          share: r.baseline.share,
+          backoffM: r.baseline.backoffM ?? null,
+          laser: r.setup.laser.name,
+          throttleMin: r.setup.laser.throttleMin,
+          gadget: best && r.gadgets.kind !== 'none-helps' ? { kind: r.gadgets.kind, name: best.gadget.name } : null,
+          unchecked: Object.keys(current.scan.marks ?? {}).length,
+        };
+      } catch {
+        return null;
+      }
+    };
+    const overlayState = () => ({
+      ...overlayPrefs,
+      arc: POWER_ARC_1080,
+      result: overlayResult(),
+      // Nur frisch gelesene Signaturen: Der Marker bewegt sich, sobald man sich dreht
+      contacts: tracker
+        .contacts(Date.now())
+        .filter((c) => Date.now() - c.lastSeen < 4000)
+        .map((c) => ({ value: c.value, x: c.x, y: c.y, lastSeen: c.lastSeen, ...summarize(c.value) })),
+    });
+    let lastOverlay = '';
+    notifyOverlay = () => {
+      const state = overlayState();
+      const key = JSON.stringify(state);
+      if (key === lastOverlay) return;
+      lastOverlay = key;
+      ctx.ws.broadcast('overlay', state);
+    };
+
+    /** GET /api/mining/overlay: was das Overlay zeichnet. */
+    ctx.http.get('/overlay', async () => overlayState());
+
+    /** POST /api/mining/overlay { visible?, calibrate? }: Overlay ein/aus, Kalibrierbogen ein/aus (für alle Geräte). */
+    ctx.http.post('/overlay', async (req, reply) => {
+      const body = (req.body ?? {}) as { visible?: unknown; calibrate?: unknown };
+      for (const k of ['visible', 'calibrate'] as const) {
+        if (body[k] === undefined) continue;
+        if (typeof body[k] !== 'boolean') return reply.code(400).send({ error: `${k}: true oder false` });
+        overlayPrefs[k] = body[k] as boolean;
+      }
+      notifyOverlay();
+      return overlayState();
     });
 
     /** Änderungen als Befehle: { ops: [...], origin: "<geräte-id>" }. Antwort: neuer Stand. */
@@ -510,6 +599,7 @@ const mod: BhModule = {
         writeStore(store);
         // Andere Geräte (z. B. Handy) übernehmen Loadout-Wechsel sofort
         ctx.ws.broadcast('loadouts', publicStore());
+        notifyOverlay();
         return publicStore();
       } catch (err) {
         return badRequest(reply, err);

@@ -187,6 +187,8 @@ Entwickeln unter Linux: `ONNXRUNTIME_NODE_INSTALL=skip npm install` (sonst lädt
 
 **Live lesen** (Knopf im Feld Radar-Signatur, nur mit der Desktop-App): Das Tool nimmt etwa jede Sekunde den Bereich um das Fadenkreuz auf, findet die Signatur-Schilder nach einem Ping und zeigt sie mit Deutung auf allen Geräten. Eine Zahl erscheint erst, wenn sie in zwei Bildern gleich gelesen wurde (oder einmal sehr sicher mit Komma). Läuft nur, solange Star Citizen im Vordergrund ist; Tippen auf einen Eintrag übernimmt ihn ins Feld (dann mit Ort). Bilder neu bestätigter Signaturen landen in `data\mining\signature-samples` (für eine spätere eigene Erkennung). Einstellungen in `config\local.json` unter `modules.mining`: `signatureIntervalMs` (Standard 800), `gameProcess` (Standard `StarCitizen.exe`).
 
+**Overlay über dem Spiel (Test):** Tray-Menü, „Overlay über dem Spiel (Test)“. Ein durchsichtiges, durchklickbares Fenster über dem Hauptbildschirm (Star Citizen im Modus „Randloses Fenster“). Kein Eingriff ins Spiel, nur Anzeige. Was es zeigt, steuerst Du im Mining-Bereich unter „Overlay“ (auch vom Handy): Band der Halteleistung am Energie-Bogen der Prospector (gestrichelt, solange der Scan ungeprüft ist), Urteil und Gadget-Rat darunter, die Deutung live gelesener Signaturen neben dem Marker, und zum Prüfen der Lage ein Kalibrierbogen. Das Overlay ist von Bildschirmaufnahmen ausgenommen (die eigene OCR liest es nicht mit; auch Windows-Screenshots zeigen es nicht).
+
 ## Stand
 
 - Fertig: Kern, Modul-System, Web-Shell, Desktop-App (Tray, Fenster, Server-Prozess mit Neustart), Windows-Installer, Module `status`, `pairing` (QR-Code), `controls` mit Windows-Treiber (Scancodes, Kombinationen, Halten, Vordergrund-Prüfung) und `mining` (Rechner, Sync, Crafting-Bonus, OCR).

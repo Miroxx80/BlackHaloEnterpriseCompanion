@@ -11,6 +11,7 @@ export interface TrayState {
   autostartAvailable: boolean;
   /** Tastenkürzel für "Scan einlesen", leer wenn aus oder nicht belegbar. */
   ocrHotkey: string;
+  overlay: boolean;
 }
 
 export interface TrayActions {
@@ -18,6 +19,7 @@ export interface TrayActions {
   openPairing(): void;
   readScan(): void;
   toggleAlwaysOnTop(value: boolean): void;
+  toggleOverlay(value: boolean): void;
   toggleAutostart(value: boolean): void;
   restartServer(): void;
   openLogs(): void;
@@ -55,6 +57,13 @@ export function createTray(iconPath: string, actions: TrayActions) {
         label: s.ocrHotkey ? `Scan einlesen (${s.ocrHotkey})` : 'Scan einlesen',
         click: actions.readScan,
         enabled: s.server === 'running',
+      },
+      {
+        label: 'Overlay über dem Spiel (Test)',
+        type: 'checkbox',
+        checked: s.overlay,
+        enabled: s.server === 'running',
+        click: (item) => actions.toggleOverlay(item.checked),
       },
       { type: 'separator' },
       {

@@ -15,9 +15,11 @@ export interface DesktopSettings {
   alwaysOnTop: boolean;
   /** Tastenkürzel für "Scan einlesen" (Electron-Schreibweise, z. B. "Alt+Shift+S"); leer = aus. */
   ocrHotkey: string;
+  /** Overlay-Fenster über dem Spiel (Test). Was es zeigt, steuert man vom Handy aus. */
+  overlay: boolean;
 }
 
-const DEFAULTS: DesktopSettings = { alwaysOnTop: false, ocrHotkey: 'Alt+Shift+S' };
+const DEFAULTS: DesktopSettings = { alwaysOnTop: false, ocrHotkey: 'Alt+Shift+S', overlay: false };
 
 function isBounds(v: unknown): v is WindowBounds {
   const b = v as WindowBounds;
@@ -36,6 +38,7 @@ export function createSettingsStore(file: string) {
       data = {
         alwaysOnTop: raw.alwaysOnTop === true,
         ocrHotkey: typeof raw.ocrHotkey === 'string' ? raw.ocrHotkey : DEFAULTS.ocrHotkey,
+        overlay: raw.overlay === true,
         window: isBounds(raw.window) ? raw.window : undefined,
       };
     } catch {

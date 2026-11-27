@@ -10,6 +10,7 @@ import { createSettingsStore } from './settings.js';
 import { ServerSupervisor } from './supervisor.js';
 import { createTray, type TrayState } from './tray.js';
 import { MainWindow } from './window.js';
+import { OverlayWindow } from './overlay.js';
 
 const here = dirname(fileURLToPath(import.meta.url)); // dist/desktop
 const rootDir = join(here, '..', '..');
@@ -48,6 +49,8 @@ if (!app.requestSingleInstanceLock()) {
     devTools: !app.isPackaged,
   });
 
+  const overlay = new OverlayWindow(log);
+
   const autostart = () =>
     app.isPackaged && app.getLoginItemSettings({ args: AUTOSTART_ARGS }).openAtLogin;
 
@@ -65,6 +68,7 @@ if (!app.requestSingleInstanceLock()) {
       autostart: autostart(),
       autostartAvailable: app.isPackaged,
       ocrHotkey: hotkeyActive ? settings.get().ocrHotkey : '',
+      overlay: settings.get().overlay,
     };
     tray?.update(s);
   };
@@ -72,6 +76,8 @@ if (!app.requestSingleInstanceLock()) {
   supervisor.on('ready', (info) => {
     const q = info.token ? `?token=${encodeURIComponent(info.token)}` : '';
     window.setServerUrl(`http://127.0.0.1:${info.port}/${q}`);
+    overlay.setServer(info.port, info.token);
+    if (settings.get().overlay) overlay.show();
   });
   supervisor.on('state', (state) => {
     if (state === 'failed') {
@@ -90,6 +96,7 @@ if (!app.requestSingleInstanceLock()) {
     log.line('INFO', 'Beende ...');
     globalShortcut.unregisterAll();
     window.close();
+    overlay.hide();
     tray?.destroy();
     tray = null; // refreshTray() darf das zerstörte Tray nicht mehr anfassen
     await supervisor.stop();
@@ -115,6 +122,12 @@ if (!app.requestSingleInstanceLock()) {
       toggleAlwaysOnTop: (value) => {
         settings.update({ alwaysOnTop: value });
         window.setAlwaysOnTop(value);
+        refreshTray();
+      },
+      toggleOverlay: (value) => {
+        settings.update({ overlay: value });
+        if (value) overlay.show();
+        else overlay.hide();
         refreshTray();
       },
       toggleAutostart: (value) => {

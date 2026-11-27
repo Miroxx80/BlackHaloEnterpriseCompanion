@@ -133,3 +133,29 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
     await app.close().catch(() => {});
   }
 });
+
+test('Desktop-App: Overlay-Fenster über dem Spiel (durchsichtig, ohne Fokus, zeichnet)', { skip: !electron && 'playwright nicht installiert' }, async () => {
+  const userDir = mkdtempSync(join(tmpdir(), 'bh-overlay-'));
+  // Overlay war beim letzten Mal eingeschaltet (Tray-Menü), Fenster startet versteckt ins Tray
+  writeFileSync(join(userDir, 'desktop.json'), JSON.stringify({ overlay: true }));
+  const args = ['.', '--hidden'];
+  if (process.getuid?.() === 0) args.push('--no-sandbox');
+  const executablePath = createRequire(import.meta.url)('electron');
+  const app = await electron.launch({ executablePath, args, env: { ...process.env, BH_USER_DIR: userDir, BH_PORT: String(await freePort()) } });
+  try {
+    const page = await until(async () => app.windows().find((w) => w.url().includes('/modules/mining/overlay.html')), 'Overlay-Fenster');
+    const props = await app.evaluate(({ BrowserWindow }) => {
+      const w = BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes('overlay.html'));
+      return { focusable: w.isFocusable(), top: w.isAlwaysOnTop(), visible: w.isVisible() };
+    });
+    assert.deepEqual(props, { focusable: false, top: true, visible: true });
+    // Kalibrierbogen zeichnen lassen (wie vom Handy): Overlay bekommt ihn über den Server
+    const local = JSON.parse(readFileSync(join(userDir, 'config', 'local.json'), 'utf8'));
+    const port = new URL(page.url()).port;
+    await fetch(`http://127.0.0.1:${port}/api/mining/overlay`, { method: 'POST', headers: { 'x-bh-token': local.security.token, 'content-type': 'application/json' }, body: '{"calibrate":true}' });
+    await until(() => page.evaluate(() => document.querySelectorAll('#o path, #o line').length > 5), 'Kalibrierbogen gezeichnet');
+    await Promise.all([app.waitForEvent('close'), app.evaluate(({ app: a }) => a.quit())]);
+  } finally {
+    await app.close().catch(() => {});
+  }
+});
