@@ -74,7 +74,15 @@ export class Updater extends EventEmitter {
     const u = await this.init();
     if (!u) return this.state;
     try {
-      await u.checkForUpdates();
+      try {
+        await u.checkForUpdates();
+      } catch (err) {
+        // GitHub antwortet manchmal kurz nicht (502/503/504, Zeitüberschreitung): einmal nach 3 s nachfragen
+        if (!isTransient(err)) throw err;
+        this.log.line('WARN', `Update: GitHub antwortet nicht, neuer Versuch (${shortError((err as Error).message ?? String(err))})`);
+        await new Promise((r) => setTimeout(r, 3000));
+        await u.checkForUpdates();
+      }
       if (notify && this.state.status === 'available' && Notification.isSupported()) {
         new Notification({ title: 'Black Halo: Update verfügbar', body: `Version ${this.state.latest} ist da. Installieren über das Tray-Menü oder in der App (Status).` }).show();
       }
@@ -103,7 +111,15 @@ function notesOf(notes: unknown): string | undefined {
 }
 
 /** Häufige Fehler übersetzen, sonst nur die erste Zeile (electron-updater hängt Header und Stacktrace an). */
+/** Fehler, bei denen ein zweiter Versuch hilft (Server-Fehler bei GitHub, Netz-Zeitüberschreitung). */
+export function isTransient(err: unknown): boolean {
+  const raw = (err as Error)?.message ?? String(err);
+  return /HttpError: 5\d\d|ETIMEDOUT|ECONNRESET|ESOCKETTIMEDOUT|net::ERR_TIMED_OUT|net::ERR_CONNECTION_RESET/.test(raw);
+}
+
 export function shortError(raw: string): string {
+  const server = /HttpError: (5\d\d)/.exec(raw);
+  if (server) return `GitHub antwortet gerade nicht (Fehler ${server[1]}). In ein paar Minuten nochmal versuchen.`;
   const missing = /Cannot find (\S+) in the latest release artifacts/.exec(raw);
   if (missing) return `Im neuesten Release auf GitHub fehlt die Datei ${missing[1]}. Beim Release alle drei Dateien aus release\\ hochladen (Setup-.exe, .blockmap, latest.yml).`;
   if (/HttpError: 404|status maybe not reported, but 404/.test(raw)) return 'GitHub meldet 404: Releases nicht erreichbar (Repo privat?) oder Datei fehlt.';
