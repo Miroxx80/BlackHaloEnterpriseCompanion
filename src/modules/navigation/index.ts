@@ -119,7 +119,14 @@ const mod: BhModule = {
       if (!Number.isInteger(limit) || limit < 1 || limit > MAX_SUGGEST) {
         return reply.code(400).send({ error: `limit muss zwischen 1 und ${MAX_SUGGEST} liegen` });
       }
-      return suggestDestinations(from.pos, places, bands, band, limit);
+      // Routen durch einen Planeten, Mond oder den Stern fallen weg (im Spiel evtl. gesperrt). Erst alle Kandidaten
+      // holen, dann filtern und kürzen, damit die Liste trotzdem voll wird.
+      return suggestDestinations(from.pos, places, bands, band, places.length)
+        .filter((s) => {
+          const to = byId.get(s.id);
+          return !to || !obstructions(from.pos, to.pos, bodies, ignoreFor(from, to)).some((o) => o.clearance < 0);
+        })
+        .slice(0, limit);
     });
   },
 };

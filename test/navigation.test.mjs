@@ -38,6 +38,7 @@ const P = {
   nyxGateway: [-62284323.874, 23467575.726, 20198379.369],
   pyroGateway: [3310495.68, -27979395.048, -2676322.341],
   wikeloSelo: [-20156591.641, -1263139.664, 0],
+  microtech: [22462085.252, 37185744.965, 0],
 };
 
 test('ARC L1 -> CRU L4 (Zentren) trifft die Cornerstone-Werte aller zehn Bänder', () => {
@@ -122,6 +123,43 @@ test('Start im Gürtel (Wikelo Selo in Band 4): Eintritt = Start, nur ein Durchg
   near(route.crossings[0].enter, route.length, 1e-6, 'Eintritt am Start');
   assert.ok(route.crossings.every((c) => c.pass === 1));
   assert.deepEqual(route.crossings.map((c) => c.band), [4, 3, 2, 1]);
+});
+
+test('Ziel im Gürtel (Crusader -> Wikelo Selo): Bänder unter 1 Gm ohne HUD-Stufe, keine Empfehlung', () => {
+  const route = haloRoute(P.crusader, P.wikeloSelo, BANDS);
+  assert.deepEqual(route.crossings.map((c) => c.band), [1, 2, 3, 4]);
+  const b4 = route.crossings.find((c) => c.band === 4);
+  near(b4.leave, 0, 1e-6, 'Route endet in Band 4');
+  for (const c of route.crossings.filter((x) => x.enter < 1e6)) {
+    assert.equal(c.hudGm, false, `Band ${c.band}: unter 1 Gm`);
+    assert.equal(c.hudInWindow, false, `Band ${c.band}`);
+  }
+  assert.equal(route.best, null, 'keine Empfehlung unter 1 Gm');
+  // Kein Vorschlag mit einer Kreuzung unter 1 Gm
+  const places = [{ id: 'wikelo-selo', pos: P.wikeloSelo, qt: true }];
+  for (const band of [3, 4]) assert.deepEqual(suggestDestinations(P.crusader, places, BANDS, band), []);
+});
+
+test('HUD-Stufen: nie unter 1,0 Gm und nie über der Routenlänge', () => {
+  // Start in Band 4 (Wikelo Selo -> microTech): Fenster beginnt am Start, schmaler als eine Stufe
+  const route = haloRoute(P.wikeloSelo, P.microtech, BANDS);
+  const b4 = route.crossings.find((c) => c.band === 4 && c.pass === 1);
+  near(b4.enter, route.length, 1e-6, 'Eintritt am Start');
+  assert.equal(b4.hudInWindow, false);
+  assert.ok(b4.hud * 1e6 <= route.length, `${b4.hud} Gm liegt über der Routenlänge ${route.length} km`);
+  // Alle Routen der Testpunkte: jede Stufe mit Gm-Anzeige liegt zwischen 1,0 Gm und der Routenlänge
+  const pts = Object.values(P);
+  for (const a of pts) {
+    for (const b of pts) {
+      const r = haloRoute(a, b, BANDS);
+      for (const c of r.crossings) {
+        if (!c.hudGm) continue;
+        assert.ok(c.hud >= 1 && c.hud * 1e6 <= r.length + 1e-6, `${c.band}: ${c.hud}`);
+        if (c.hudInWindow) assert.ok(c.hud * 1e6 <= c.enter + 1e-3 && c.hud * 1e6 >= c.leave - 1e-3);
+      }
+      if (r.best) assert.ok(r.best.hudGm && r.best.status === 'in');
+    }
+  }
 });
 
 test('Über und unter der Ebene: Gateways weit außerhalb', () => {
@@ -340,6 +378,17 @@ test('API: Daten, Halo-Route MIC-L1 -> Hurston, Fehler, Zielvorschläge', async 
       assert.equal(s.crossing.status, 'in');
     }
     for (let i = 1; i < list.length; i++) assert.ok(list[i].length >= list[i - 1].length);
+
+    // Vorschläge ohne Routen durch einen Körper: Yela -> ARC-L5 führt durch Cellin
+    const blocked = await (await get('/halo?from=yela&to=arc-l5')).json();
+    assert.ok(blocked.obstructions.some((o) => o.clearance < 0), 'Yela -> ARC-L5 ist blockiert');
+    const fromYela = await (await get('/suggest?from=yela&band=5&limit=50')).json();
+    assert.ok(fromYela.length > 0);
+    assert.ok(!fromYela.some((s) => s.id === 'arc-l5'), 'blockierte Route nicht vorgeschlagen');
+    for (const s of fromYela) {
+      const r = await (await get(`/halo?from=yela&to=${s.id}`)).json();
+      assert.ok(!r.obstructions.some((o) => o.clearance < 0), `yela -> ${s.id}`);
+    }
   } finally {
     await app.stop();
   }

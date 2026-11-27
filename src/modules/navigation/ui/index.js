@@ -45,6 +45,7 @@ const STYLE = `
 .nv-item .nv-name { font-weight: 600; overflow-wrap: anywhere; }
 .nv-item .nv-sub { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
 .nv-item .nv-hudl { font-family: var(--font-head); font-stretch: 87.5%; font-size: 17px; font-weight: 700; color: var(--amber); white-space: nowrap; }
+.nv-item .nv-hudl.nv-narrow { color: var(--warn); }
 .nv-item .nv-meta { font-size: var(--fs-xs); color: var(--text-faint); }
 .nv-credits { margin: 20px 0 0; font-size: var(--fs-xs); color: var(--text-faint); line-height: 1.6; }
 .nv .help { margin-top: 0; }
@@ -92,13 +93,20 @@ function savePrefs(prefs) {
 
 /** km -> Gm mit d Nachkommastellen, deutsches Komma. */
 const gm = (km, d = 1) => fmtDec(km / 1e6, d);
+/** km -> Mm (1000 km) ganzzahlig, für Bereiche unter 1 Gm. */
+const mm = (km) => Math.round(km / 1e3).toLocaleString('de-DE');
 /** HUD-Wert (Gm, eine Nachkommastelle) deutsch. */
 const hudText = (hud) => fmtDec(hud, 1);
-/** Fenster im Band: zwei Nachkommastellen, wenn es schmaler als 0,2 Gm ist (sonst stünde dort z. B. "13,3–13,2"). */
+/**
+ * Fenster im Band mit Einheit, immer zwei Nachkommastellen (einheitlich lesbar, schmale Bänder sind oft nur
+ * 0,1–0,2 Gm breit). Liegt das Fenster ganz unter 1 Gm (dort zeigt das HUD keine Gm), in Mm.
+ */
 const windowText = (c) => {
-  const d = c.enter - c.leave < 0.2e6 ? 2 : 1;
-  return `${gm(c.enter, d)}–${gm(c.leave, d)}`;
+  if (!c.hudGm) return `${mm(c.enter)}–${mm(c.leave)} Mm`;
+  return `${gm(c.enter, 2)}–${gm(c.leave, 2)} Gm`;
 };
+const NARROW_TEXT = 'Band hier schmaler als 0,1 Gm, der Wert liegt knapp daneben';
+const BELOW_GM_TEXT = 'unter 1 Gm vor dem Ziel, dort zeigt das HUD keine Gm';
 const signed = (km) => {
   if (Math.abs(km) >= 1e6) return `${km > 0 ? '+' : '−'}${gm(Math.abs(km))} Gm`;
   const r = Math.round(km);
@@ -152,7 +160,9 @@ export async function mount(root, api) {
   toSelect.addEventListener('change', () => changed(false));
 
   const field = (cls, label, control) => el('label', { class: `field ${cls}` }, el('span', { class: 'field-label' }, label), control);
-  const result = el('div', { class: 'nv-res', 'aria-live': 'polite' });
+  const result = el('div', { class: 'nv-res' });
+  // Nur die Empfehlung vorlesen lassen (feste Live-Region, nicht Tabelle und Hinweise nach jeder Änderung)
+  const spoken = el('div', { class: 'sr-only', 'aria-live': 'polite' });
 
   const haloPanel = panel(
     { idx: '01', title: 'Aaron Halo', tag: 'Abbruchpunkt im Quantum-Sprung' },
@@ -165,6 +175,7 @@ export async function mount(root, api) {
       { class: 'panel-body' },
       el('p', { class: 'help' }, icon('info', 's'), el('span', {}, 'Sprung zum Ziel planen, starten und bei der angezeigten Restentfernung aus dem Quantum-Sprung gehen.')),
     ),
+    spoken,
   );
 
   // ---------- Ziele vom Start aus ----------
@@ -181,12 +192,15 @@ export async function mount(root, api) {
           for (const x of segButtons) x.setAttribute('aria-pressed', String(x === segButtons[b.n - 1]));
           savePrefs(prefs);
           loadSuggestions();
+          // Die Empfehlung oben folgt dem gewählten Band
+          if (lastRoute) renderRoute(lastRoute);
         },
       },
       String(b.n),
     ),
   );
-  const suggestOut = el('div', { 'aria-live': 'polite' });
+  const suggestOut = el('div', {});
+  const suggestSpoken = el('div', { class: 'sr-only', 'aria-live': 'polite' });
   const suggestTag = el('span', { class: 'tag' });
   const suggestPanel = el(
     'section',
@@ -197,7 +211,8 @@ export async function mount(root, api) {
       { class: 'panel-body' },
       el('div', { class: 'seg nv-seg', role: 'group', 'aria-label': 'Band' }, segButtons),
       suggestOut,
-      el('p', { class: 'nv-dim' }, 'Kürzeste Routen zuerst. Nur Ziele, deren Route das Band innerhalb seiner Dicke kreuzt. Antippen setzt das Ziel.'),
+      suggestSpoken,
+      el('p', { class: 'nv-dim' }, 'Kürzeste Routen zuerst. Nur Ziele, deren Route das Band innerhalb seiner Dicke kreuzt und nicht durch einen Planeten oder Mond führt. Antippen setzt das Ziel und die Empfehlung oben gilt für dieses Band.'),
     ),
   );
 
@@ -208,7 +223,7 @@ export async function mount(root, api) {
   const credits = el(
     'p',
     { class: 'nv-credits' },
-    `Bänder: Vermessung von CaptSheppard / Cornerstone (cstone.space, Alpha 3.16.1), im Spiel 4.10 bestätigt. Positionen: Spieldaten ${data.build}.`,
+    `Bänder: Vermessung von CaptSheppard / Cornerstone (cstone.space, Alpha 3.16.1), Band 5 im Spiel 4.10.3 stichprobenartig bestätigt (MIC-L1 nach Hurston). Positionen: Spieldaten ${data.build} über scunpacked-data (StarCitizenWiki).`,
   );
   root.append(head, el('div', { class: 'nv-grid' }, haloPanel, suggestPanel), credits);
 
@@ -216,6 +231,8 @@ export async function mount(root, api) {
   let haloSeq = 0;
   let suggestSeq = 0;
   let lastSuggestions = [];
+  /** Letzte Antwort von /halo zur aktuellen Auswahl (für neues Zeichnen beim Bandwechsel). */
+  let lastRoute = null;
 
   function changed(startChanged) {
     prefs.from = fromSelect.value;
@@ -228,25 +245,35 @@ export async function mount(root, api) {
 
   async function loadRoute() {
     const my = ++haloSeq;
+    lastRoute = null;
     if (prefs.from === prefs.to) {
       result.replaceChildren(notice('note', 'Start und Ziel sind gleich. Wähle ein anderes Ziel.'));
+      spoken.textContent = 'Start und Ziel sind gleich.';
       return;
     }
     try {
       const r = await api.get(`/api/navigation/halo?from=${encodeURIComponent(prefs.from)}&to=${encodeURIComponent(prefs.to)}`);
-      if (my === haloSeq) renderRoute(r);
+      if (my !== haloSeq) return;
+      lastRoute = r;
+      renderRoute(r);
     } catch (err) {
-      if (my === haloSeq) result.replaceChildren(notice('alert', `Route nicht berechenbar: ${err.message}`));
+      if (my === haloSeq) {
+        result.replaceChildren(notice('alert', `Route nicht berechenbar: ${err.message}`));
+        spoken.textContent = 'Route nicht berechenbar.';
+      }
     }
   }
 
   function renderRoute({ route, obstructions }) {
     const parts = [el('p', { class: 'nv-len' }, el('span', {}, 'Route ', el('b', {}, `${gm(route.length)} Gm`)), el('span', {}, `${byId.get(prefs.from)?.short ?? ''} nach ${byId.get(prefs.to)?.short ?? ''}`))];
-    const best = route.best;
+    // Empfehlung für das gewählte Band (dieselbe Kreuzung wie in „Ziele vom Start aus“), sonst die allgemein beste
+    const chosen = route.crossings.find((c) => c.band === prefs.band && c.status === 'in' && c.hudGm) ?? null;
+    const best = chosen ?? route.best;
     if (!route.crossings.length) {
       parts.push(
         notice('note', 'Bei „Ziele vom Start aus“ findest du Ziele, deren Route durch den Halo führt.', { title: 'Diese Route kreuzt den Aaron Halo nicht.' }),
       );
+      spoken.textContent = 'Diese Route kreuzt den Aaron Halo nicht.';
     } else if (best) {
       const narrow = !best.hudInWindow;
       parts.push(
@@ -259,11 +286,30 @@ export async function mount(root, api) {
             {},
             el('span', { class: 'verdict-label' }, best.pass === 2 ? 'Empfehlung · 2. Durchquerung' : 'Empfehlung'),
             el('span', { class: 'verdict-text' }, `Bei ${hudText(best.hud)} Gm abbrechen`),
-            el('span', { class: 'verdict-sub' }, `Band ${best.band} · im Band zwischen ${windowText(best).replace('–', ' und ')} Gm`),
+            el('span', { class: 'verdict-sub' }, `Band ${best.band} · im Band zwischen ${windowText(best).replace('–', ' und ')}`),
           ),
         ),
       );
+      if (!chosen) parts.push(el('p', { class: 'nv-dim' }, `Band ${prefs.band} (gewählt unter „Ziele vom Start aus“) liegt auf dieser Route nicht nutzbar, die Empfehlung gilt für Band ${best.band}.`));
       if (narrow) parts.push(el('p', { class: 'nv-dim' }, 'Das Band ist hier schmaler als ein Schritt der HUD-Anzeige (0,1 Gm). Der Wert liegt knapp daneben, besser ein anderes Band oder Ziel wählen.'));
+      spoken.textContent = `Bei ${hudText(best.hud)} Gm abbrechen, Band ${best.band}${narrow ? ', knapp' : ''}.`;
+    } else if (route.crossings.some((c) => c.status === 'in')) {
+      // Im Band nur kurz vor dem Ziel (Ziel liegt im Gürtel, z. B. Wikelo Emporium Selo Station in Band 4)
+      parts.push(
+        el(
+          'div',
+          { class: 'verdict warn' },
+          icon('edge'),
+          el(
+            'span',
+            {},
+            el('span', { class: 'verdict-label' }, 'Empfehlung'),
+            el('span', { class: 'verdict-text' }, 'Kein HUD-Wert möglich'),
+            el('span', { class: 'verdict-sub' }, 'Die Route ist erst unter 1 Gm vor dem Ziel im Band. Dort zeigt das HUD keine Gm mehr. Wähle ein Ziel aus „Ziele vom Start aus“.'),
+          ),
+        ),
+      );
+      spoken.textContent = 'Kein HUD-Wert möglich, die Route ist erst kurz vor dem Ziel im Band.';
     } else {
       const side = route.crossings.every((c) => c.status === 'over') ? 'über' : route.crossings.every((c) => c.status === 'under') ? 'unter' : 'über oder unter';
       parts.push(
@@ -276,10 +322,11 @@ export async function mount(root, api) {
             {},
             el('span', { class: 'verdict-label' }, 'Empfehlung'),
             el('span', { class: 'verdict-text' }, 'Kein Band auf dieser Route'),
-            el('span', { class: 'verdict-sub' }, `Die Route führt ${side} den Bändern durch. Wähle ein Ziel aus „Ziele vom Start aus“.`),
+            el('span', { class: 'verdict-sub' }, `Die Route verläuft ${side} den Bändern. Wähle ein Ziel aus „Ziele vom Start aus“.`),
           ),
         ),
       );
+      spoken.textContent = `Kein Band auf dieser Route, sie verläuft ${side} den Bändern.`;
     }
     if (route.crossings.length) parts.push(crossingTable(route.crossings, best));
     for (const o of obstructions) {
@@ -306,7 +353,9 @@ export async function mount(root, api) {
         'tr',
         { class: cls.filter(Boolean).join(' ') || null },
         el('td', { class: 'nv-b' }, el('b', {}, String(c.band)), note ? el('small', {}, note) : null),
-        el('td', { class: `nv-hud${c.hudInWindow ? '' : ' nv-narrow'}`, title: c.hudInWindow ? null : 'Band hier schmaler als 0,1 Gm, der Wert liegt knapp daneben' }, hudText(c.hud)),
+        c.hudGm
+          ? el('td', { class: `nv-hud${c.hudInWindow ? '' : ' nv-narrow'}`, title: c.hudInWindow ? null : NARROW_TEXT }, hudText(c.hud))
+          : el('td', { class: 'nv-hud nv-narrow', title: BELOW_GM_TEXT }, el('span', { 'aria-hidden': 'true' }, '–'), el('span', { class: 'sr-only' }, BELOW_GM_TEXT)),
         el('td', {}, windowText(c)),
         el('td', { class: c.status === 'in' ? 'nv-st' : null }, STATUS_TEXT[c.status], el('small', {}, signed(c.height))),
       );
@@ -321,7 +370,11 @@ export async function mount(root, api) {
         el('thead', {}, el('tr', {}, el('th', { scope: 'col' }, 'Band'), el('th', { scope: 'col' }, 'Abbrechen bei'), el('th', { scope: 'col' }, 'Im Band'), el('th', { scope: 'col' }, 'Lage'))),
         el('tbody', {}, rows),
       ),
-      el('p', { class: 'nv-dim', style: { padding: '10px 18px 0' } }, 'Restentfernung zum Ziel in Gm, wie im HUD. Lage: Höhe über der Ebene an der dichtesten Stelle.'),
+      el(
+        'p',
+        { class: 'nv-dim', style: { padding: '10px 18px 0' } },
+        `Restentfernung zum Ziel in Gm, wie im HUD. Lage: Höhe über der Ebene an der dichtesten Stelle.${crossings.some((c) => !c.hudGm) ? ' „–“: erst unter 1 Gm vor dem Ziel, dort zeigt das HUD keine Gm (Bereich in Mm = 1.000 km).' : ''}`,
+      ),
     );
   }
 
@@ -334,8 +387,12 @@ export async function mount(root, api) {
       if (my !== suggestSeq) return;
       lastSuggestions = list;
       renderSuggestions();
+      suggestSpoken.textContent = list.length ? `${list.length} Ziele für Band ${prefs.band}.` : `Kein Ziel für Band ${prefs.band}.`;
     } catch (err) {
-      if (my === suggestSeq) suggestOut.replaceChildren(notice('alert', `Ziele nicht ladbar: ${err.message}`));
+      if (my === suggestSeq) {
+        suggestOut.replaceChildren(notice('alert', `Ziele nicht ladbar: ${err.message}`));
+        suggestSpoken.textContent = 'Ziele nicht ladbar.';
+      }
     }
   }
 
@@ -369,8 +426,12 @@ export async function mount(root, api) {
               el(
                 'span',
                 { class: 'nv-sub' },
-                el('span', { class: 'nv-hudl' }, `abbrechen bei ${hudText(s.crossing.hud)} Gm`),
-                el('span', { class: 'nv-meta' }, `Route ${gm(s.length)} Gm · im Band ${windowText(s.crossing)} Gm${s.crossing.pass === 2 ? ' · 2. Durchquerung' : ''}`),
+                el('span', { class: `nv-hudl${s.crossing.hudInWindow ? '' : ' nv-narrow'}` }, `abbrechen bei ${hudText(s.crossing.hud)} Gm`),
+                el(
+                  'span',
+                  { class: 'nv-meta' },
+                  `Route ${gm(s.length)} Gm · im Band ${windowText(s.crossing)}${s.crossing.pass === 2 ? ' · 2. Durchquerung' : ''}${s.crossing.hudInWindow ? '' : ' · knapp, Band schmaler als 0,1 Gm'}`,
+                ),
               ),
             ),
           ),

@@ -15,9 +15,11 @@ Not permitted without prior written permission of the copyright holder:
 Third-party components keep their own licences, for example the PaddleOCR
 models (Apache-2.0, see src/modules/mining/data/ocr/), the fonts (SIL Open
 Font License, see web/fonts/), the test images from ocrx-plugins (MIT, see
-test/fixtures/hud/signature/) and the npm packages (see their package
-licences). Star Citizen game data and screenshots belong to Cloud Imperium
-Games.
+test/fixtures/hud/signature/), the Aaron Halo band data and chart values
+from CaptSheppard / Cornerstone (cstone.space; see test/fixtures/halo/ and
+src/modules/navigation/data/dataset.json), which belong to their authors,
+and the npm packages (see their package licences). Star Citizen game data
+and screenshots belong to Cloud Imperium Games.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,

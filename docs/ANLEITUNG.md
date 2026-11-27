@@ -78,6 +78,8 @@ Der Aaron Halo ist der Asteroidengürtel in Stanton (rund 19,7 bis 21,3 Gm vom S
 - Manche Routen kreuzen den Gürtel zweimal (hinein und wieder hinaus), diese Zeilen sind als „2. Durchquerung“ markiert.
 - „über dem Band“ / „unter dem Band“: Die Route kreuzt den Gürtel zu hoch oder zu tief, dort ist kaum etwas. Das passiert z. B. bei den Gateways.
 - Führt die Route durch einen Planeten oder den Stern, erscheint eine Warnung. Im Spiel ist so ein Sprung evtl. gesperrt.
-- **Ziele vom Start aus:** Band wählen (Standard 5). Die Liste zeigt die kürzesten Routen vom Start, die dieses Band innerhalb seiner Dicke kreuzen. Antippen setzt das Ziel.
+- **Ziele vom Start aus:** Band wählen (Standard 5). Die Liste zeigt die kürzesten Routen vom Start, die dieses Band innerhalb seiner Dicke kreuzen (ohne Routen durch einen Planeten oder Mond). Antippen setzt das Ziel. Die Empfehlung oben gilt für das gewählte Band, solange die Route es kreuzt.
+- Gelb markierte Werte sind knapp: Das Band ist dort schmaler als ein HUD-Schritt (0,1 Gm).
+- Unter 1 Gm vor dem Ziel zeigt das HUD keine Gm mehr. Bänder, die erst so kurz vor dem Ziel kommen (z. B. auf dem Weg zur Wikelo Emporium Selo Station, die selbst in Band 4 liegt), stehen in der Tabelle mit „–“ und den Bereich in Mm (1 Mm = 1.000 km).
 - Im Spiel bestätigt (4.10): MIC-L1 Shallow Frontier Station -> Hurston, Abbruch bei 13,2 Gm, sehr dichter Bereich.
 - Daten: Positionen aus den Spieldaten 4.10.3, Bänder aus der Vermessung von CaptSheppard / Cornerstone (Alpha 3.16.1).

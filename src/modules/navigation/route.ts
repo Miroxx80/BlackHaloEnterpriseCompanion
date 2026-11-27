@@ -46,6 +46,12 @@ export interface Crossing {
   hud: number;
   /** true: der HUD-Wert liegt im Fenster [leave, enter]. */
   hudInWindow: boolean;
+  /**
+   * false: Das Fenster liegt ganz unter 1 Gm Restentfernung. Dort zeigt das HUD keine Gm mehr, es gibt also keine
+   * 0,1-Gm-Stufe zum Abbrechen (hud ist dann nur der gerundete Rechenwert, hudInWindow = false). Solche
+   * Kreuzungen sind nie "best" und erscheinen nicht in den Zielvorschlägen.
+   */
+  hudGm: boolean;
 }
 
 export interface HaloRoute {
@@ -53,7 +59,10 @@ export interface HaloRoute {
   length: number;
   /** Alle Kreuzungen in Reihenfolge der Route. */
   crossings: Crossing[];
-  /** Band 5 mit Status "in", sonst die "in"-Kreuzung mit dem breitesten Fenster, sonst null. */
+  /**
+   * Band 5 mit Status "in", sonst die "in"-Kreuzung mit dem breitesten Fenster, sonst null. Nur Kreuzungen, die
+   * das HUD in Gm ausdrücken kann (hudGm).
+   */
   best: Crossing | null;
 }
 
@@ -68,6 +77,8 @@ export interface Body {
 const MIN_LENGTH = 1e-6;
 /** Rundungsreserve beim Vergleich der HUD-Stufen mit dem Fenster (in Zehntel-Gm). */
 const STEP_EPS = 1e-9;
+/** Kleinste HUD-Stufe in Zehntel-Gm: unter 1 Gm zeigt das HUD keine Gm mehr. */
+const MIN_STEP = 10;
 
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -112,20 +123,32 @@ function sphereRoots(l: Line, r: number): [number, number] | null {
 /**
  * HUD-Empfehlung. Das HUD zeigt Entfernungen über 1 Gm in Gm mit EINER Nachkommastelle. Man bricht den Sprung ab,
  * sobald dort ein bestimmter Wert steht; abbrechen lässt sich also praktisch nur auf 0,1-Gm-Stufen.
- * Regel: Von allen Stufen k/10 Gm, die im Fenster [leave, enter] liegen, nehmen wir die, die der dichtesten Stelle
- * (exit) am nächsten liegt. Liegt keine Stufe im Fenster (Band schmaler als 0,1 Gm an dieser Stelle), bleibt der auf
- * 0,1 Gm gerundete exit-Wert, markiert mit hudInWindow = false.
+ * Regel: Von allen Stufen k/10 Gm (ab 1,0 Gm), die im Fenster [leave, enter] liegen, nehmen wir die, die der
+ * dichtesten Stelle (exit) am nächsten liegt. Liegt keine Stufe im Fenster (Band schmaler als 0,1 Gm an dieser
+ * Stelle), bleibt der auf 0,1 Gm gerundete exit-Wert, begrenzt auf 1,0 Gm bis zur Routenlänge (eine Stufe über der
+ * Routenlänge käme im Countdown nie), markiert mit hudInWindow = false. Liegt das ganze Fenster unter 1 Gm, gibt
+ * es keine Stufe: hudGm = false.
+ * Annahme: Die Stufe k gilt als der Moment, in dem die Restentfernung k/10 Gm beträgt. Ob das HUD rundet oder
+ * abschneidet (der Wert also schon bis zu 0,05 bzw. 0,1 Gm vorher dasteht), ist nicht bekannt; bei sehr schmalen
+ * Fenstern kann eine Stufe am Rand deshalb knapp danebenliegen.
  * Beispiel (im Spiel bestätigt, 4.10.3): MIC-L1 -> Hurston, Fenster 13,33–13,10 Gm, dichteste Stelle 13,22 Gm
  * -> Abbruch bei 13,2 landet in Band 5.
  */
-function hudStep(exit: number, enter: number, leave: number): { hud: number; hudInWindow: boolean } {
+function hudStep(
+  exit: number,
+  enter: number,
+  leave: number,
+  length: number,
+): { hud: number; hudInWindow: boolean; hudGm: boolean } {
   const toSteps = 1e-5; // km -> Zehntel-Gm
   const ideal = Math.round(exit * toSteps);
-  const lo = Math.ceil(leave * toSteps - STEP_EPS);
-  const hi = Math.floor(enter * toSteps + STEP_EPS);
-  if (lo > hi) return { hud: ideal / 10, hudInWindow: false };
+  const top = Math.floor(length * toSteps + STEP_EPS); // höchste Stufe, die der Countdown erreicht
+  const lo = Math.max(MIN_STEP, Math.ceil(leave * toSteps - STEP_EPS));
+  const hi = Math.min(top, Math.floor(enter * toSteps + STEP_EPS));
+  if (hi < MIN_STEP) return { hud: ideal / 10, hudInWindow: false, hudGm: false };
+  if (lo > hi) return { hud: Math.min(top, Math.max(MIN_STEP, ideal)) / 10, hudInWindow: false, hudGm: true };
   const k = Math.min(hi, Math.max(lo, ideal));
-  return { hud: k / 10, hudInWindow: true };
+  return { hud: k / 10, hudInWindow: true, hudGm: true };
 }
 
 function statusOf(height: number, band: Band): Crossing['status'] {
@@ -177,14 +200,15 @@ export function haloRoute(from: Vec3, to: Vec3, bands: Band[]): HaloRoute {
       leave,
       height,
       status: statusOf(height, band),
-      ...hudStep(exit, enter, leave),
+      ...hudStep(exit, enter, leave, l.length),
     };
   });
 
-  let best: Crossing | null = crossings.find((c) => c.band === 5 && c.status === 'in') ?? null;
+  // Nur Kreuzungen, für die das HUD eine Gm-Stufe zeigt (Ziel im Gürtel: die letzten Bänder liegen unter 1 Gm)
+  const usable = crossings.filter((c) => c.status === 'in' && c.hudGm);
+  let best: Crossing | null = usable.find((c) => c.band === 5) ?? null;
   if (!best) {
-    for (const c of crossings) {
-      if (c.status !== 'in') continue;
+    for (const c of usable) {
       if (!best || c.enter - c.leave > best.enter - best.leave) best = c;
     }
   }
@@ -219,7 +243,8 @@ export function obstructions(
 
 /**
  * Ziele, deren Route vom Startpunkt aus das gewünschte Band innerhalb seiner Dicke kreuzt (Status "in"), kürzeste
- * Route zuerst. Der Startpunkt selbst (Abstand unter 1 km) und Orte ohne Quantum-Ziel fallen weg.
+ * Route zuerst. Der Startpunkt selbst (Abstand unter 1 km) und Orte ohne Quantum-Ziel fallen weg, ebenso
+ * Kreuzungen unter 1 Gm Restentfernung (hudGm = false, dafür gibt es keine HUD-Stufe).
  */
 export function suggestDestinations(
   from: Vec3,
@@ -232,7 +257,7 @@ export function suggestDestinations(
   for (const place of places) {
     if (!place.qt || distance(from, place.pos) < 1) continue;
     const route = haloRoute(from, place.pos, bands);
-    const crossing = route.crossings.find((c) => c.band === band && c.status === 'in');
+    const crossing = route.crossings.find((c) => c.band === band && c.status === 'in' && c.hudGm);
     if (crossing) out.push({ id: place.id, length: route.length, crossing });
   }
   out.sort((x, y) => x.length - y.length);
