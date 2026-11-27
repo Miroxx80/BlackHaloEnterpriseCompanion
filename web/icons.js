@@ -27,6 +27,7 @@ export const ICONS = {
   plug: '<path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5"/>',
   unplug: '<path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5"/><path d="M3 3l18 18"/>',
   up: '<path d="M6 15l6-6 6 6"/>',
+  swap: '<path d="M3 8h16M15 4l4 4-4 4M21 16H5M9 12l-4 4 4 4"/>',
   shield: '<path d="M12 2.5 20 6v6c0 4.5-3.4 8-8 9.5C7.4 20 4 16.5 4 12V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
   cpu: '<path d="M6 6h12v12H6zM10 10h4v4h-4zM9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
   save: '<path d="M4 3h13l3 3v15H4z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/>',

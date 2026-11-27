@@ -4,6 +4,8 @@
 // Abbruch bei 13,2 Gm landet in Band 5.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { startApp } from '../dist/core/app.js';
 import { distance, formatGm, haloRoute, obstructions, suggestDestinations } from '../dist/modules/navigation/route.js';
 
 const near = (actual, expected, eps, what) =>
@@ -182,4 +184,163 @@ test('suggestDestinations: nur Quantum-Ziele mit Band "in", nach Länge sortiert
   }
   assert.equal(suggestDestinations(P.micL1Station, places, BANDS, 5, 1).length, 1);
   assert.equal(suggestDestinations(P.micL1Station, places, BANDS, 5, 1)[0].id, list[0].id);
+});
+
+// ---------- Cornerstone-Karten 3.16.1 (Abschrift in test/fixtures/halo, siehe README dort) ----------
+
+const dataset = JSON.parse(readFileSync(new URL('../src/modules/navigation/data/dataset.json', import.meta.url), 'utf8'));
+const chart = JSON.parse(readFileSync(new URL('./fixtures/halo/cornerstone-3.16.1.json', import.meta.url), 'utf8'));
+/** Höchste erlaubte Abweichung je Zelle (km). */
+const CHART_TOLERANCE = 20;
+
+/**
+ * Bekannte Ausnahmen, ausdrücklich statt einer größeren Toleranz:
+ * - Druckfehler: die Karte druckt einen falschen Wert, wir prüfen gegen den richtigen (left + right = Routenlänge).
+ * - Positionen, die 3.16.1 anders waren als in den Spieldaten 4.10.3. Damit rechnet der Test so, wie die Karte
+ *   gerechnet wurde. Mit unseren 4.10.3-Positionen weichen diese Spalten ab (microTech rund 140 km, CRU-L3 bis
+ *   22 km in Band 1).
+ */
+const MISPRINTS = {
+  // Seite 4, CRU-L1 -> ARC-L3, Band 8, links: gedruckt 10 992 695 (Ziffer 9 statt 2)
+  'CRU-L1>ARC-L3>8>left': 10922695,
+};
+const CHART_POSITIONS = {
+  // microTech 3.16.1 (alle drei MICROTECH-Spalten passen damit auf ~1 km). 4.10.3: 69 / 120 km weiter außen.
+  microtech: [22462016, 37185625, 0],
+  // CRU-L3 3.16.1 genau gegenüber von Crusader. Die 4.10.3-Markierung liegt rund 12 km daneben.
+  'cru-l3-centre': [18962176, 2664960, 0],
+};
+
+/** Kartenbezeichnung -> Position: L-Punkte über ihre Mittelpunkt-Markierung, Planeten über ihren Mittelpunkt. */
+function chartPos(label, positions = CHART_POSITIONS) {
+  const id = /^[A-Z]{3}-L[1-5]$/.test(label) ? `${label.toLowerCase()}-centre` : label.toLowerCase();
+  if (positions[id]) return positions[id];
+  const place = dataset.places.find((p) => p.id === id);
+  assert.ok(place, `Kartenbezeichnung ${label} (${id}) fehlt im Datensatz`);
+  return place.pos;
+}
+
+/**
+ * Beide Zahlen einer Zelle nachrechnen. Die Karte zeigt die Kreuzung nahe der Raffinerie: beim Hinflug die erste
+ * Kreuzung des Bands, beim Rückflug dieselbe Stelle, also die letzte (wichtig für MIC-L1 -> ArcCorp, die den
+ * Gürtel zweimal kreuzt).
+ */
+function chartCells(page, column, positions) {
+  const a = chartPos(page.refinery, positions);
+  const b = chartPos(column.to, positions);
+  const there = haloRoute(a, b, dataset.halo.bands);
+  const back = haloRoute(b, a, dataset.halo.bands);
+  return column.bands.flatMap((cell) => {
+    const key = `${page.refinery}>${column.to}>${cell.band}`;
+    const fw = there.crossings.filter((c) => c.band === cell.band);
+    const bw = back.crossings.filter((c) => c.band === cell.band);
+    assert.ok(fw.length && bw.length, `${key}: keine Kreuzung`);
+    return [
+      { key: `${key}>left`, printed: cell.left, ours: fw[0].exit },
+      { key: `${key}>right`, printed: cell.right, ours: bw.at(-1).exit },
+    ];
+  });
+}
+
+test('Cornerstone-Karten 3.16.1: alle Zellen auf 20 km (bekannte Ausnahmen ausdrücklich)', () => {
+  assert.equal(chart.pages.length, 5);
+  let cells = 0;
+  const misprintsSeen = new Set();
+  for (const page of chart.pages) {
+    for (const column of page.columns) {
+      assert.equal(column.bands.length, 10, `${page.refinery} -> ${column.to}`);
+      assert.deepEqual(column.bands.map((b) => b.band).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      for (const cell of chartCells(page, column)) {
+        cells++;
+        let expected = cell.printed;
+        if (cell.key in MISPRINTS) {
+          expected = MISPRINTS[cell.key];
+          misprintsSeen.add(cell.key);
+          assert.ok(Math.abs(cell.ours - cell.printed) > 1000, `${cell.key}: Druckfehler gibt es nicht mehr?`);
+        }
+        near(cell.ours, expected, CHART_TOLERANCE, cell.key);
+      }
+    }
+  }
+  assert.equal(cells, 23 * 10 * 2);
+  assert.deepEqual([...misprintsSeen], Object.keys(MISPRINTS), 'alle bekannten Druckfehler wurden geprüft');
+});
+
+test('Cornerstone-Karten: left + right = Routenlänge, Seiten mit Band 10..1 bedeuten dasselbe', () => {
+  for (const page of chart.pages) {
+    for (const column of page.columns) {
+      const length = distance(chartPos(page.refinery), chartPos(column.to));
+      for (const cell of column.bands) {
+        const left = MISPRINTS[`${page.refinery}>${column.to}>${cell.band}>left`] ?? cell.left;
+        near(left + cell.right, length, 3, `${page.refinery} -> ${column.to} Band ${cell.band}`);
+      }
+    }
+  }
+});
+
+test('Cornerstone-Karten: Abweichung mit 4.10.3-Positionen nur bei microTech und CRU-L3', () => {
+  // Gegenprobe: ohne die 3.16.1-Positionen weichen genau diese Spalten ab, alle anderen bleiben unter 20 km
+  for (const page of chart.pages) {
+    for (const column of page.columns) {
+      const worst = Math.max(
+        ...chartCells(page, column, {})
+          .filter((c) => !(c.key in MISPRINTS))
+          .map((c) => Math.abs(c.ours - c.printed)),
+      );
+      const what = `${page.refinery} -> ${column.to}: ${worst.toFixed(1)} km`;
+      if (column.to === 'MICROTECH') assert.ok(worst > 100 && worst < 200, what);
+      else if (column.to === 'CRU-L3') assert.ok(worst > CHART_TOLERANCE && worst < 30, what);
+      else assert.ok(worst <= CHART_TOLERANCE, what);
+    }
+  }
+});
+
+// ---------- API ----------
+
+test('API: Daten, Halo-Route MIC-L1 -> Hurston, Fehler, Zielvorschläge', async () => {
+  const app = await startApp({ overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' } } } });
+  const get = (path) => fetch(`http://127.0.0.1:${app.port}/api/navigation${path}`);
+  try {
+    const data = await (await get('/data')).json();
+    assert.match(data.build, /^4\.10\.3/);
+    assert.equal(data.system, 'Stanton');
+    assert.equal(data.halo.bands.length, 10);
+    assert.ok(data.places.length >= 40);
+    assert.ok(data.places.every((p) => p.kind !== 'marker'), 'keine Markierungen');
+    assert.ok(data.star.radius > 0);
+
+    const res = await get('/halo?from=mic-l1&to=hurston');
+    assert.equal(res.status, 200);
+    const r = await res.json();
+    assert.equal(r.from.name, 'MIC-L1 Shallow Frontier Station');
+    assert.equal(r.to.id, 'hurston');
+    assert.equal(r.route.best.band, 5);
+    assert.equal(r.route.best.hud, 13.2);
+    assert.deepEqual(r.obstructions, []);
+
+    // Seraphim liegt im Orbit von Crusader: Crusader zählt nicht als Hindernis
+    const ser = await (await get('/halo?from=seraphim&to=arc-l1')).json();
+    assert.ok(!ser.obstructions.some((o) => o.id === 'crusader'));
+    // HUR-L3 liegt Hurston genau gegenüber: die Route führt durch den Stern
+    const sun = await (await get('/halo?from=hur-l3&to=hurston')).json();
+    assert.ok(sun.obstructions.some((o) => o.id === 'stanton' && o.clearance < 0), 'HUR-L3 -> Hurston führt durch den Stern');
+
+    assert.equal((await get('/halo?from=gibts&to=hurston')).status, 400);
+    assert.match((await (await get('/halo?from=mic-l1&to=gibts')).json()).error, /Ziel/);
+    assert.equal((await get('/halo?from=hur-l1-centre&to=hurston')).status, 400, 'Markierungen sind keine Ziele');
+    assert.equal((await get('/suggest?from=mic-l1&band=11')).status, 400);
+    assert.equal((await get('/suggest?from=mic-l1&band=x')).status, 400);
+    assert.equal((await get('/suggest?from=gibts&band=5')).status, 400);
+
+    const list = await (await get('/suggest?from=mic-l1&band=5&limit=8')).json();
+    assert.ok(list.length > 0 && list.length <= 8);
+    assert.ok(list.some((s) => s.id === 'hurston'));
+    for (const s of list) {
+      assert.equal(s.crossing.band, 5);
+      assert.equal(s.crossing.status, 'in');
+    }
+    for (let i = 1; i < list.length; i++) assert.ok(list[i].length >= list[i - 1].length);
+  } finally {
+    await app.stop();
+  }
 });

@@ -65,3 +65,19 @@ Oben im Mining-Bereich: Zahl vom Radar eintippen (z. B. 16.960), optional den Or
 ### Overlay über dem Spiel
 
 Tray-Menü, „Overlay über dem Spiel“, oder vom Handy (Mining, „Overlay“). Ein durchsichtiges, durchklickbares Fenster über dem Hauptbildschirm (Star Citizen im Modus „Randloses Fenster“). Beim Live-Lesen steht die Deutung jeder Radar-Signatur direkt neben dem Marker. Kein Eingriff ins Spiel, nur Anzeige. Das Overlay ist von Bildschirmaufnahmen ausgenommen, damit die eigene Texterkennung es nicht mitliest.
+
+## Sprunghilfen: Aaron Halo
+
+Der Aaron Halo ist der Asteroidengürtel in Stanton (rund 19,7 bis 21,3 Gm vom Stern). Er ist in 10 Bänder geteilt, Band 5 ist das dichteste, Band 1 fast leer. Ein Quantum-Sprung, dessen gerade Strecke den Gürtel kreuzt, lässt sich mitten im Band abbrechen.
+
+1. Unter **Sprunghilfen** Start und Ziel wählen (der Pfeil-Knopf tauscht beide). Die Auswahl merkt sich jedes Gerät.
+2. Oben steht die Empfehlung, z. B. **„Bei 13,2 Gm abbrechen“**, darunter, zwischen welchen Restentfernungen du im Band bist.
+3. Im Spiel den Sprung zum Ziel planen und starten. Sobald die Restentfernung im HUD den Wert zeigt, aus dem Quantum-Sprung gehen.
+
+- Die Tabelle zeigt alle Bänder in der Reihenfolge der Route. „Abbrechen bei“ ist der Wert in Gm, wie ihn das HUD zeigt (eine Nachkommastelle). „Im Band“ ist der Bereich der Restentfernung, in dem du im Band bist.
+- Manche Routen kreuzen den Gürtel zweimal (hinein und wieder hinaus), diese Zeilen sind als „2. Durchquerung“ markiert.
+- „über dem Band“ / „unter dem Band“: Die Route kreuzt den Gürtel zu hoch oder zu tief, dort ist kaum etwas. Das passiert z. B. bei den Gateways.
+- Führt die Route durch einen Planeten oder den Stern, erscheint eine Warnung. Im Spiel ist so ein Sprung evtl. gesperrt.
+- **Ziele vom Start aus:** Band wählen (Standard 5). Die Liste zeigt die kürzesten Routen vom Start, die dieses Band innerhalb seiner Dicke kreuzen. Antippen setzt das Ziel.
+- Im Spiel bestätigt (4.10): MIC-L1 Shallow Frontier Station -> Hurston, Abbruch bei 13,2 Gm, sehr dichter Bereich.
+- Daten: Positionen aus den Spieldaten 4.10.3, Bänder aus der Vermessung von CaptSheppard / Cornerstone (Alpha 3.16.1).

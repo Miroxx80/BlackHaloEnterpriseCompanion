@@ -9,6 +9,7 @@ Begleit-App für Star Citizen unter Windows. Läuft im Tray neben dem Spiel, ste
   - **Scan einlesen:** liest das Scan-Panel per Texterkennung vom Bildschirm (Knopf „Am PC einlesen“ am Handy). Unsichere Werte werden gelb markiert.
   - **Radar-Signatur:** deutet die Zahl vom Radar (z. B. 16.960 = Kupfer ×4), auch live vom Bildschirm.
   - **Overlay:** zeigt die Deutung der Signaturen direkt neben den Markern über dem Spiel.
+- **Sprunghilfen (Aaron Halo):** Start und Ziel in Stanton wählen, das Tool sagt, bei welcher Restentfernung im HUD du den Quantum-Sprung abbrichst, um mitten im Asteroidengürtel zu landen (z. B. MIC-L1 -> Hurston: „Bei 13,2 Gm abbrechen“, Band 5). Mit Vorschlägen für Ziele, deren Route durch ein bestimmtes Band führt.
 - **Sync:** PC, Handy und zweiter Bildschirm zeigen denselben Stand.
 
 Voraussetzungen: Windows und Star Citizen im Modus „Randloses Fenster“. Texterkennung und Overlay brauchen 1920×1080 und das englische HUD.
@@ -47,5 +48,6 @@ Black Halo ist ein inoffizielles Fanprojekt und steht in keiner Verbindung zur C
 **Datenquellen und Dank:**
 - Spieldaten (Star Citizen 4.10.3) über [scunpacked-data](https://github.com/StarCitizenWiki/scunpacked-data) (StarCitizenWiki, ScDataDumper von octfx). Spieldaten © Cloud Imperium Games.
 - Das Bruchmodell folgt den veröffentlichten Messungen von [Bedrock](https://github.com/SC-Ravaxx/Bedrock) (SC-Ravaxx). Code aus Bedrock wird nicht verwendet.
+- Aaron Halo: Lage und Dicke der Bänder aus der Vermessung von CaptSheppard / Cornerstone ([cstone.space](https://cstone.space), Alpha 3.16.1). Danke für die Arbeit.
 - Texterkennung: [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) PP-OCRv4 (Apache-2.0).
 - Schriften: Barlow Condensed und JetBrains Mono (SIL Open Font License).

@@ -1,0 +1,381 @@
+{
+  "_comment": "Abschrift der Karten \"Aaron Halo Mining Routes 3.16.1-LIVE Rel.1\" von CaptSheppard / Cornerstone (cstone.space). Werte in km so, wie sie auf den Karten stehen (auch erkennbare Druckfehler bleiben stehen). left = Restentfernung zum Ziel (to) beim Flug Raffinerie -> Ziel an der dichtesten Stelle des Bands, right = Restentfernung zur Raffinerie beim Rückflug. Nur als Testreferenz verwendet, siehe README.md.",
+  "source": "CaptSheppard / Cornerstone (cstone.space), Aaron Halo Mining Routes 3.16.1-LIVE Rel.1",
+  "pages": [
+    {
+      "page": 3,
+      "refinery": "ARC-L1",
+      "columns": [
+        {
+          "to": "CRU-L4",
+          "bands": [
+            { "band": 1, "left": 12744803, "right": 11256961 },
+            { "band": 2, "left": 13157847, "right": 10843917 },
+            { "band": 3, "left": 13510150, "right": 10491614 },
+            { "band": 4, "left": 13934165, "right": 10067599 },
+            { "band": 5, "left": 14292609, "right": 9709155 },
+            { "band": 6, "left": 14637246, "right": 9364518 },
+            { "band": 7, "left": 15058764, "right": 8943000 },
+            { "band": 8, "left": 15524706, "right": 8477058 },
+            { "band": 9, "left": 15938061, "right": 8063703 },
+            { "band": 10, "left": 16188952, "right": 7812812 }
+          ]
+        },
+        {
+          "to": "CRUSADER",
+          "bands": [
+            { "band": 1, "left": 32477533, "right": 7173358 },
+            { "band": 2, "left": 32661536, "right": 6989355 },
+            { "band": 3, "left": 32824869, "right": 6826022 },
+            { "band": 4, "left": 33028998, "right": 6621894 },
+            { "band": 5, "left": 33207787, "right": 6443104 },
+            { "band": 6, "left": 33384898, "right": 6265993 },
+            { "band": 7, "left": 33608233, "right": 6042658 },
+            { "band": 8, "left": 33863390, "right": 5787501 },
+            { "band": 9, "left": 34096746, "right": 5554145 },
+            { "band": 10, "left": 34241481, "right": 5409410 }
+          ]
+        },
+        {
+          "to": "CRU-L5",
+          "bands": [
+            { "band": 1, "left": 38842891, "right": 6324828 },
+            { "band": 2, "left": 38997920, "right": 6169798 },
+            { "band": 3, "left": 39135946, "right": 6031773 },
+            { "band": 4, "left": 39308978, "right": 5858741 },
+            { "band": 5, "left": 39461005, "right": 5706713 },
+            { "band": 6, "left": 39612032, "right": 5555686 },
+            { "band": 7, "left": 39803066, "right": 5364653 },
+            { "band": 8, "left": 40022104, "right": 5145615 },
+            { "band": 9, "left": 40223137, "right": 4944581 },
+            { "band": 10, "left": 40348158, "right": 4819561 }
+          ]
+        },
+        {
+          "to": "HURSTON",
+          "bands": [
+            { "band": 1, "left": 12680614, "right": 7630180 },
+            { "band": 2, "left": 12881847, "right": 7428947 },
+            { "band": 3, "left": 13060115, "right": 7250679 },
+            { "band": 4, "left": 13282453, "right": 7028341 },
+            { "band": 5, "left": 13476792, "right": 6834002 },
+            { "band": 6, "left": 13668952, "right": 6641842 },
+            { "band": 7, "left": 13910778, "right": 6400015 },
+            { "band": 8, "left": 14186429, "right": 6124364 },
+            { "band": 9, "left": 14437964, "right": 5872830 },
+            { "band": 10, "left": 14593715, "right": 5717079 }
+          ]
+        },
+        {
+          "to": "CRU-L3",
+          "bands": [
+            { "band": 1, "left": 10989473, "right": 11722536 },
+            { "band": 2, "left": 11446936, "right": 11265073 },
+            { "band": 3, "left": 11832950, "right": 10879059 },
+            { "band": 4, "left": 12293296, "right": 10418713 },
+            { "band": 5, "left": 12679383, "right": 10032626 },
+            { "band": 6, "left": 13048324, "right": 9663684 },
+            { "band": 7, "left": 13496942, "right": 9215066 },
+            { "band": 8, "left": 13989945, "right": 8722063 },
+            { "band": 9, "left": 14425115, "right": 8286894 },
+            { "band": 10, "left": 14688359, "right": 8023649 }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 4,
+      "refinery": "CRU-L1",
+      "columns": [
+        {
+          "to": "ARC-L3",
+          "bands": [
+            { "band": 10, "left": 10399822, "right": 8249818 },
+            { "band": 9, "left": 10598811, "right": 8050828 },
+            { "band": 8, "left": 10992695, "right": 7726945 },
+            { "band": 7, "left": 11281455, "right": 7368185 },
+            { "band": 6, "left": 11599756, "right": 7049884 },
+            { "band": 5, "left": 11855245, "right": 6794395 },
+            { "band": 4, "left": 12116102, "right": 6533538 },
+            { "band": 3, "left": 12417809, "right": 6231830 },
+            { "band": 2, "left": 12662417, "right": 5987223 },
+            { "band": 1, "left": 12941643, "right": 5707996 }
+          ]
+        },
+        {
+          "to": "MICROTECH",
+          "bands": [
+            { "band": 10, "left": 23692286, "right": 32248403 },
+            { "band": 9, "left": 23835770, "right": 32104919 },
+            { "band": 8, "left": 24067067, "right": 31873622 },
+            { "band": 7, "left": 24319912, "right": 31620778 },
+            { "band": 6, "left": 24541168, "right": 31399522 },
+            { "band": 5, "left": 24716593, "right": 31224096 },
+            { "band": 4, "left": 24893646, "right": 31047044 },
+            { "band": 3, "left": 25095747, "right": 30844943 },
+            { "band": 2, "left": 25257422, "right": 30683267 },
+            { "band": 1, "left": 25439520, "right": 30501170 }
+          ]
+        },
+        {
+          "to": "ARCCORP",
+          "bands": [
+            { "band": 10, "left": 8495032, "right": 32264993 },
+            { "band": 9, "left": 8638461, "right": 32121564 },
+            { "band": 8, "left": 8869666, "right": 31890358 },
+            { "band": 7, "left": 9122408, "right": 31637616 },
+            { "band": 6, "left": 9343573, "right": 31416452 },
+            { "band": 5, "left": 9518924, "right": 31241101 },
+            { "band": 4, "left": 9695900, "right": 31064125 },
+            { "band": 3, "left": 9897911, "right": 30862113 },
+            { "band": 2, "left": 10059514, "right": 30700511 },
+            { "band": 1, "left": 10241527, "right": 30518497 }
+          ]
+        },
+        {
+          "to": "ARC-L5",
+          "bands": [
+            { "band": 10, "left": 10751623, "right": 15041829 },
+            { "band": 9, "left": 10963200, "right": 14830252 },
+            { "band": 8, "left": 11308489, "right": 14484963 },
+            { "band": 7, "left": 11692394, "right": 14101058 },
+            { "band": 6, "left": 12034386, "right": 13759066 },
+            { "band": 5, "left": 12309915, "right": 13483537 },
+            { "band": 4, "left": 12592254, "right": 13201198 },
+            { "band": 3, "left": 12920204, "right": 12873248 },
+            { "band": 2, "left": 13187281, "right": 12606171 },
+            { "band": 1, "left": 13493581, "right": 12299871 }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 5,
+      "refinery": "HUR-L1",
+      "columns": [
+        {
+          "to": "ARC-L3",
+          "bands": [
+            { "band": 10, "left": 7826807, "right": 31533916 },
+            { "band": 9, "left": 7954410, "right": 31406314 },
+            { "band": 8, "left": 8159661, "right": 31201062 },
+            { "band": 7, "left": 8383391, "right": 30977332 },
+            { "band": 6, "left": 8578602, "right": 30782121 },
+            { "band": 5, "left": 8732988, "right": 30627735 },
+            { "band": 4, "left": 8888450, "right": 30472273 },
+            { "band": 3, "left": 9065457, "right": 30295266 },
+            { "band": 2, "left": 9206705, "right": 30154018 },
+            { "band": 1, "left": 9365409, "right": 29995314 }
+          ]
+        },
+        {
+          "to": "MICROTECH",
+          "bands": [
+            { "band": 10, "left": 23930720, "right": 14818560 },
+            { "band": 9, "left": 24077578, "right": 14671702 },
+            { "band": 8, "left": 24314430, "right": 14434850 },
+            { "band": 7, "left": 24573517, "right": 14175762 },
+            { "band": 6, "left": 24800389, "right": 13948890 },
+            { "band": 5, "left": 24980372, "right": 13768907 },
+            { "band": 4, "left": 25162122, "right": 13587157 },
+            { "band": 3, "left": 25369709, "right": 13379570 },
+            { "band": 2, "left": 25535872, "right": 13213408 },
+            { "band": 1, "left": 25723131, "right": 13026148 }
+          ]
+        },
+        {
+          "to": "ARC-L4",
+          "bands": [
+            { "band": 10, "left": 7779747, "right": 9862904 },
+            { "band": 9, "left": 7906290, "right": 9736361 },
+            { "band": 8, "left": 8109810, "right": 9532840 },
+            { "band": 7, "left": 8331613, "right": 9311037 },
+            { "band": 6, "left": 8525108, "right": 9117543 },
+            { "band": 5, "left": 8678114, "right": 8964537 },
+            { "band": 4, "left": 8832164, "right": 8810486 },
+            { "band": 3, "left": 9007536, "right": 8635114 },
+            { "band": 2, "left": 9147459, "right": 8495192 },
+            { "band": 1, "left": 9304651, "right": 8337999 }
+          ]
+        },
+        {
+          "to": "ARCCORP",
+          "bands": [
+            { "band": 10, "left": 8617124, "right": 14621194 },
+            { "band": 9, "left": 8763612, "right": 14474706 },
+            { "band": 8, "left": 8999855, "right": 14238463 },
+            { "band": 7, "left": 9258258, "right": 13980060 },
+            { "band": 6, "left": 9484513, "right": 13753805 },
+            { "band": 5, "left": 9663995, "right": 13574323 },
+            { "band": 4, "left": 9845228, "right": 13393090 },
+            { "band": 3, "left": 10052211, "right": 13186107 },
+            { "band": 2, "left": 10217879, "right": 13020439 },
+            { "band": 1, "left": 10404569, "right": 12833749 }
+          ]
+        },
+        {
+          "to": "ARC-L5",
+          "bands": [
+            { "band": 10, "left": 8289910, "right": 26333268 },
+            { "band": 9, "left": 8428312, "right": 26194866 },
+            { "band": 8, "left": 8651255, "right": 25971923 },
+            { "band": 7, "left": 8894734, "right": 25728444 },
+            { "band": 6, "left": 9107588, "right": 25515590 },
+            { "band": 5, "left": 9276208, "right": 25346970 },
+            { "band": 4, "left": 9446261, "right": 25176918 },
+            { "band": 3, "left": 9640204, "right": 24982974 },
+            { "band": 2, "left": 9795223, "right": 24827955 },
+            { "band": 1, "left": 9969678, "right": 24653500 }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 6,
+      "refinery": "HUR-L2",
+      "columns": [
+        {
+          "to": "MICROTECH",
+          "bands": [
+            { "band": 10, "left": 25087250, "right": 13019199 },
+            { "band": 9, "left": 25252180, "right": 12854270 },
+            { "band": 8, "left": 25518934, "right": 12587515 },
+            { "band": 7, "left": 25811853, "right": 12294597 },
+            { "band": 6, "left": 26069363, "right": 12037086 },
+            { "band": 5, "left": 26274360, "right": 11832090 },
+            { "band": 4, "left": 26482033, "right": 11624417 },
+            { "band": 3, "left": 26720081, "right": 11386368 },
+            { "band": 2, "left": 26911312, "right": 11195138 },
+            { "band": 1, "left": 27127585, "right": 10978865 }
+          ]
+        },
+        {
+          "to": "ARC-L4",
+          "bands": [
+            { "band": 10, "left": 7851739, "right": 7344736 },
+            { "band": 9, "left": 7979906, "right": 7216570 },
+            { "band": 8, "left": 8186080, "right": 7010396 },
+            { "band": 7, "left": 8410836, "right": 6785639 },
+            { "band": 6, "left": 8606961, "right": 6589514 },
+            { "band": 5, "left": 8762084, "right": 6434391 },
+            { "band": 4, "left": 8918299, "right": 6278176 },
+            { "band": 3, "left": 9096178, "right": 6100297 },
+            { "band": 2, "left": 9238133, "right": 5958342 },
+            { "band": 1, "left": 9397645, "right": 5798830 }
+          ]
+        },
+        {
+          "to": "ARCCORP",
+          "bands": [
+            { "band": 10, "left": 9327706, "right": 13267186 },
+            { "band": 9, "left": 9493210, "right": 13101681 },
+            { "band": 8, "left": 9760921, "right": 12833970 },
+            { "band": 7, "left": 10054928, "right": 12539963 },
+            { "band": 6, "left": 10313430, "right": 12281461 },
+            { "band": 5, "left": 10519241, "right": 12075650 },
+            { "band": 4, "left": 10727763, "right": 11867129 },
+            { "band": 3, "left": 10966813, "right": 11628078 },
+            { "band": 2, "left": 11158873, "right": 11436018 },
+            { "band": 1, "left": 11376112, "right": 11218780 }
+          ]
+        },
+        {
+          "to": "ARC-L5",
+          "bands": [
+            { "band": 10, "left": 8535192, "right": 27736791 },
+            { "band": 9, "left": 8679610, "right": 27592373 },
+            { "band": 8, "left": 8912443, "right": 27359539 },
+            { "band": 7, "left": 9167014, "right": 27104969 },
+            { "band": 6, "left": 9389822, "right": 26882161 },
+            { "band": 5, "left": 9566505, "right": 26705478 },
+            { "band": 4, "left": 9744854, "right": 26527129 },
+            { "band": 3, "left": 9948468, "right": 26323515 },
+            { "band": 2, "left": 10111380, "right": 26160603 },
+            { "band": 1, "left": 10294899, "right": 25977084 }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 7,
+      "refinery": "MIC-L1",
+      "columns": [
+        {
+          "to": "ARCCORP",
+          "bands": [
+            { "band": 1, "left": 25894701, "right": 29748105 },
+            { "band": 2, "left": 26557234, "right": 29085573 },
+            { "band": 3, "left": 27083813, "right": 28558994 },
+            { "band": 4, "left": 27684295, "right": 27958511 },
+            { "band": 5, "left": 28170495, "right": 27472312 },
+            { "band": 6, "left": 28623498, "right": 27019309 },
+            { "band": 7, "left": 29162034, "right": 26480773 },
+            { "band": 8, "left": 29741288, "right": 25901518 },
+            { "band": 9, "left": 30243707, "right": 25399100 },
+            { "band": 10, "left": 30544212, "right": 25098595 }
+          ]
+        },
+        {
+          "to": "HURSTON",
+          "bands": [
+            { "band": 1, "left": 12425594, "right": 21842365 },
+            { "band": 2, "left": 12626134, "right": 21641825 },
+            { "band": 3, "left": 12803803, "right": 21464155 },
+            { "band": 4, "left": 13025414, "right": 21242545 },
+            { "band": 5, "left": 13219133, "right": 21048826 },
+            { "band": 6, "left": 13410694, "right": 20857265 },
+            { "band": 7, "left": 13651788, "right": 20616171 },
+            { "band": 8, "left": 13926629, "right": 20341329 },
+            { "band": 9, "left": 14177448, "right": 20090510 },
+            { "band": 10, "left": 14332766, "right": 19935193 }
+          ]
+        },
+        {
+          "to": "HUR-L4",
+          "bands": [
+            { "band": 1, "left": 6853484, "right": 19398707 },
+            { "band": 2, "left": 7008512, "right": 19243678 },
+            { "band": 3, "left": 7146537, "right": 19105653 },
+            { "band": 4, "left": 7319568, "right": 18932622 },
+            { "band": 5, "left": 7471595, "right": 18780596 },
+            { "band": 6, "left": 7622621, "right": 18629570 },
+            { "band": 7, "left": 7813653, "right": 18438537 },
+            { "band": 8, "left": 8032690, "right": 18219501 },
+            { "band": 9, "left": 8233722, "right": 18018468 },
+            { "band": 10, "left": 8358742, "right": 17893448 }
+          ]
+        },
+        {
+          "to": "CRUSADER",
+          "bands": [
+            { "band": 1, "left": 32160432, "right": 21135335 },
+            { "band": 2, "left": 32346156, "right": 20949611 },
+            { "band": 3, "left": 32510986, "right": 20784782 },
+            { "band": 4, "left": 32716943, "right": 20578824 },
+            { "band": 5, "left": 32897299, "right": 20398469 },
+            { "band": 6, "left": 33075930, "right": 20219838 },
+            { "band": 7, "left": 33301137, "right": 19994631 },
+            { "band": 8, "left": 33558375, "right": 19737393 },
+            { "band": 9, "left": 33793582, "right": 19502185 },
+            { "band": 10, "left": 33939442, "right": 19356326 }
+          ]
+        },
+        {
+          "to": "CRU-L5",
+          "bands": [
+            { "band": 1, "left": 8080212, "right": 28825797 },
+            { "band": 2, "left": 8623570, "right": 28282439 },
+            { "band": 3, "left": 9071561, "right": 27834448 },
+            { "band": 4, "left": 9596012, "right": 27309997 },
+            { "band": 5, "left": 10029216, "right": 26876793 },
+            { "band": 6, "left": 10438517, "right": 26467492 },
+            { "band": 7, "left": 10931065, "right": 25974944 },
+            { "band": 8, "left": 11466902, "right": 25439107 },
+            { "band": 9, "left": 11935912, "right": 24970097 },
+            { "band": 10, "left": 12218065, "right": 24687944 }
+          ]
+        }
+      ]
+    }
+  ]
+}

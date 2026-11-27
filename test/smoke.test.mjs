@@ -43,7 +43,7 @@ test('echte Module: REST, UI-Dateien und WebSocket', async () => {
   try {
     const mods = await (await fetch(`${base}/api/modules`)).json();
     const states = Object.fromEntries(mods.modules.map((m) => [m.id, m.state]));
-    assert.deepEqual(states, { controls: 'running', mining: 'running', pairing: 'running', status: 'running' });
+    assert.deepEqual(states, { controls: 'running', mining: 'running', navigation: 'running', pairing: 'running', status: 'running' });
 
     const buttons = await (await fetch(`${base}/api/controls/buttons`)).json();
     assert.equal(buttons.buttons.length, 4);
@@ -54,6 +54,7 @@ test('echte Module: REST, UI-Dateien und WebSocket', async () => {
     assert.equal((await fetch(`${base}/modules/controls/index.js`)).status, 200);
     assert.equal((await fetch(`${base}/modules/status/index.js`)).status, 200);
     assert.equal((await fetch(`${base}/modules/mining/index.js`)).status, 200);
+    assert.equal((await fetch(`${base}/modules/navigation/index.js`)).status, 200);
 
     const ws = await openWs(app.port);
     const hello = await ws.next('core:hello');
@@ -81,7 +82,7 @@ test('Rolle hub lädt Companion-Module nicht', async () => {
   try {
     const mods = await (await fetch(`http://127.0.0.1:${app.port}/api/modules`)).json();
     const states = Object.fromEntries(mods.modules.map((m) => [m.id, m.state]));
-    assert.deepEqual(states, { controls: 'skipped', mining: 'skipped', pairing: 'skipped', status: 'running' });
+    assert.deepEqual(states, { controls: 'skipped', mining: 'skipped', navigation: 'skipped', pairing: 'skipped', status: 'running' });
     assert.equal((await fetch(`http://127.0.0.1:${app.port}/api/controls/buttons`)).status, 404);
   } finally {
     await app.stop();

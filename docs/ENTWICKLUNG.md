@@ -48,6 +48,15 @@ Zum Ausprobieren ohne Installer: `npm run dist:dir` erzeugt nur den Programmordn
 
 **Updates im Tool** (`src/desktop/updater.ts`, electron-updater): Beim Start sieht die installierte App einmal auf GitHub nach und meldet eine neue Version (Windows-Benachrichtigung, Hinweis in der Seitenleiste). Herunterladen und Installieren erst auf Knopfdruck: Seite „Status“ (auch vom Handy) oder Tray-Menü. Danach installiert sich die neue Version still und startet neu. In der Entwicklungsversion (`npm run desktop`) gibt es keine Updates.
 
+## Spieldaten aktualisieren
+
+Die Module bringen ihre Daten als `src/modules/<id>/data/dataset.json` mit. Erzeugt werden sie aus [scunpacked-data](https://github.com/StarCitizenWiki/scunpacked-data), optional mit einem Commit als Argument:
+
+- `node scripts/mining-data.mjs`: Mining (Laser, Module, Gadgets, Erze, Signaturen).
+- `node scripts/navigation-data.mjs`: Sprunghilfen (Orte in Stanton, Sternradius, Bänder des Aaron Halo). Das Skript prüft Namen, Quantum-Ziele und die Referenzroute ARC L1 -> CRU L4 gegen die Cornerstone-Karte und bricht bei Abweichungen ab. Die Monde von microTech liegen in scunpacked gespiegelt, das Skript korrigiert das.
+
+Referenzwerte für die Sprunghilfen: `test/fixtures/halo` (Abschrift der Cornerstone-Karten 3.16.1, siehe README dort).
+
 ## Architektur
 
 ```
