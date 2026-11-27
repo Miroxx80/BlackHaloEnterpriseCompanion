@@ -812,3 +812,7 @@ Hauptaussage (ab welchem Abstand die Mindestleistung passt), sonst eine kompakte
 den Spieldaten (Bedrock: zwei passende Messungen). **Test im Spiel:** Stein mit "zu stark", Laser auf Mindestleistung,
 langsam zurücksetzen, bis die Ladung im grünen Bereich stehen bleibt; den Abstand am LASER-RANGE-Bogen ablesen und mit
 der ersten Zeile der Tabelle vergleichen. Zweiter Punkt: dieselbe Messung bei z. B. 50 %.
+
+**Erster Messpunkt im Spiel (2026-11-27, Org-Leitung):** Prospector mit Helix I, Rechner "Laser zu stark, ab ca. 30 m
+Abstand (20 %)". Im Spiel bei Mindestleistung 20 % und ~30 m Abstand: Ladung nahe am stabilen Punkt. Linearer Abfall
+damit an einem Punkt bestätigt (zusammen mit Bedrocks zwei Messungen). Offen: zweiter Punkt bei höherer Leistung (~50 %).

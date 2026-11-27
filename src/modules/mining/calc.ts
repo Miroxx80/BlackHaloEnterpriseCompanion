@@ -48,7 +48,8 @@ export interface Assessment {
   backoffM?: number;
   /**
    * Nötige Leistung je Abstand (außer "impossible"): Bis rangeFull volle Leistung, bis rangeZero linear auf null
-   * (Form nicht in den Spieldaten, zwei Messungen von Bedrock passen zu linear). m: Abstand in Metern, pct: Einstellung.
+   * (Form nicht in den Spieldaten; zwei Messungen von Bedrock und ein PC-Test der Orga passen zu linear).
+   * m: Abstand in Metern, pct: Einstellung.
    */
   distances?: { m: number; pct: number }[];
   resistancePct: number;

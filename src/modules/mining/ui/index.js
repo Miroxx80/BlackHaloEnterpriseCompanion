@@ -978,7 +978,7 @@ export async function mount(root, api) {
     // Erste Zeile gilt bis zur optimalen Reichweite (außer bei "zu stark": ab diesem Abstand)
     const first = a.status === 'too-strong' ? 'ab ' : 'bis ';
     const items = rows.flatMap((d, i) => [i ? ' · ' : '', el('b', {}, `${i ? '' : first}${d.m} m → ${d.pct} %`)]);
-    return el('p', { class: 'mn-dist' }, lead, ' ', ...items, el('br'), 'Mehr Abstand braucht mehr Leistung (Abfall mit der Entfernung linear angenommen, im Spiel noch nicht geprüft).');
+    return el('p', { class: 'mn-dist' }, lead, ' ', ...items, el('br'), 'Mehr Abstand braucht mehr Leistung (Abfall mit der Entfernung linear, im Spiel an einem Punkt bestätigt).');
   }
 
   const bandText = (a) => (!a.band ? '–' : a.band[0] === a.band[1] ? `${a.band[0]} %` : `${a.band[0]}–${a.band[1]} %`);
