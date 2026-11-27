@@ -106,11 +106,25 @@ function connect() {
     if (msg.type === 'core:hello') {
       buildNav(msg.payload.modules);
       document.getElementById('rail-foot').textContent = `BHE-COMPANION v${msg.payload.version ?? '?'} · ${msg.payload.role}`;
+      get('/api/status/update').then(showUpdateBadge).catch(() => {});
     }
+    if (msg.type === 'status:update') showUpdateBadge(msg.payload);
     for (const fn of listeners.get(msg.type) ?? []) {
       try { fn(msg.payload); } catch (err) { console.error(err); }
     }
   };
+}
+
+/** Hinweis unten in der Seitenleiste, wenn eine neue Version bereitsteht (Link zur Status-Seite). */
+function showUpdateBadge(u) {
+  const foot = document.getElementById('rail-foot');
+  foot.querySelector('.upd-badge')?.remove();
+  if (u?.status !== 'available') return;
+  const a = document.createElement('a');
+  a.className = 'upd-badge';
+  a.href = '#status';
+  a.textContent = `Update v${u.latest} verfügbar`;
+  foot.append(a);
 }
 
 // ---- API, das jedes Modul bekommt ----

@@ -234,3 +234,34 @@ test('Desktop: Zugangsschlüssel erzeugen, behalten, ungültigen ersetzen, kaput
   writeFileSync(file, '[]');
   assert.equal(ensureToken(file, quiet), 'skipped');
 });
+
+test('Updates: ohne Desktop-App "unsupported", mit Desktop-App an sie weitergeleitet', async () => {
+  const opts = () => ({ overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' } } }, dataRoot: mkdtempSync(join(tmpdir(), 'bh-upd-')) });
+  const plain = await startApp(opts());
+  try {
+    const base = `http://127.0.0.1:${plain.port}/api/status/update`;
+    assert.equal((await (await fetch(base)).json()).status, 'unsupported');
+    assert.equal((await fetch(base, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"action":"check"}' })).status, 501);
+  } finally {
+    await plain.stop();
+  }
+  let state = { status: 'idle', current: '0.2.0' };
+  const listeners = new Set();
+  const service = {
+    state: () => state,
+    check: async () => ((state = { status: 'available', current: '0.2.0', latest: '0.3.0' }), state),
+    install: async () => ((state = { ...state, status: 'downloading', progress: 0 }), state),
+    onChange: (fn) => (listeners.add(fn), () => listeners.delete(fn)),
+  };
+  const app = await startApp({ ...opts(), services: { 'desktop.update': service } });
+  try {
+    const base = `http://127.0.0.1:${app.port}/api/status/update`;
+    const post = (action) => fetch(base, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action }) });
+    assert.equal((await (await post('check')).json()).latest, '0.3.0');
+    assert.equal((await (await post('install')).json()).status, 'downloading');
+    assert.equal((await post('rm -rf')).status, 400);
+    assert.equal(listeners.size, 1, 'Status-Modul hört auf Änderungen (für Handy und Seitenleiste)');
+  } finally {
+    await app.stop();
+  }
+});

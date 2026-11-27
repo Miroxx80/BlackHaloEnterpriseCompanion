@@ -1,5 +1,6 @@
 import { Menu, Tray, nativeImage, type MenuItemConstructorOptions } from 'electron';
 import type { ServerState } from './supervisor.js';
+import type { UpdateState } from '../core/types.js';
 
 export interface TrayState {
   server: ServerState;
@@ -12,6 +13,9 @@ export interface TrayState {
   /** Tastenkürzel für "Scan einlesen", leer wenn aus oder nicht belegbar. */
   ocrHotkey: string;
   overlay: boolean;
+  update: UpdateState;
+  /** Updates nur in der installierten Version. */
+  updatesAvailable: boolean;
 }
 
 export interface TrayActions {
@@ -20,6 +24,8 @@ export interface TrayActions {
   readScan(): void;
   toggleAlwaysOnTop(value: boolean): void;
   toggleOverlay(value: boolean): void;
+  checkUpdate(): void;
+  installUpdate(): void;
   toggleAutostart(value: boolean): void;
   restartServer(): void;
   openLogs(): void;
@@ -80,6 +86,8 @@ export function createTray(iconPath: string, actions: TrayActions) {
         click: (item) => actions.toggleAutostart(item.checked),
       },
       { type: 'separator' },
+      updateItem(s, actions),
+      { type: 'separator' },
       { label: 'Server neu starten', click: actions.restartServer },
       { label: 'Log-Ordner öffnen', click: actions.openLogs },
       { label: 'Config-Ordner öffnen', click: actions.openConfig },
@@ -90,4 +98,16 @@ export function createTray(iconPath: string, actions: TrayActions) {
   }
 
   return { update, destroy: () => tray.destroy() };
+}
+
+/** Menüpunkt für Updates je nach Stand. */
+function updateItem(s: TrayState, actions: TrayActions): MenuItemConstructorOptions {
+  const u = s.update;
+  if (!s.updatesAvailable) return { label: 'Nach Updates suchen (nur installierte Version)', enabled: false };
+  if (u.status === 'available') return { label: `Update auf v${u.latest} installieren`, click: actions.installUpdate };
+  if (u.status === 'downloading') return { label: `Update wird geladen (${u.progress ?? 0} %) ...`, enabled: false };
+  if (u.status === 'ready') return { label: 'Update wird installiert ...', enabled: false };
+  if (u.status === 'checking') return { label: 'Suche nach Updates ...', enabled: false };
+  const hint = u.status === 'none' ? ' (aktuell)' : u.status === 'error' ? ' (Fehler, erneut versuchen)' : '';
+  return { label: `Nach Updates suchen${hint}`, click: actions.checkUpdate };
 }

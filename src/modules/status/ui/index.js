@@ -1,5 +1,5 @@
 // UI-Vertrag: export function mount(root, api) -> optional Cleanup-Funktion
-import { el, icon, chip, pageHead, panel } from '/ui.js';
+import { el, icon, chip, pageHead, panel, button, notice } from '/ui.js';
 
 const STATES = {
   running: { cls: 'run', label: 'Läuft' },
@@ -28,8 +28,42 @@ export function mount(root, api) {
   }
   setServer(true);
 
+  // ---- Version & Updates (nur Desktop-App, installierte Version) ----
+  const updBody = el('div', { class: 'panel-body' });
+  let upd = null;
+  const renderUpdate = () => {
+    if (!upd) return;
+    const parts = [];
+    const action = (label, act, variant) => button(label, { variant, iconName: act === 'install' ? 'save' : 'reset', onclick: () => run(act) });
+    if (upd.status === 'unsupported') parts.push(el('p', { class: 'upd-hint' }, upd.error || 'Updates gibt es nur in der installierten Desktop-App.'));
+    else if (upd.status === 'available') {
+      parts.push(notice('note', `Version ${upd.latest} ist verfügbar (installiert: ${upd.current}).`, { iconName: 'info' }));
+      if (upd.notes) parts.push(el('pre', { class: 'upd-notes' }, upd.notes));
+      parts.push(action(`Update auf v${upd.latest} installieren`, 'install', 'primary'), el('p', { class: 'upd-hint' }, 'Die App lädt den Installer, installiert und startet neu. Dauert ca. 1 Minute.'));
+    } else if (upd.status === 'downloading') parts.push(el('p', {}, `Update wird geladen ... ${upd.progress ?? 0} %`));
+    else if (upd.status === 'ready') parts.push(el('p', {}, 'Update wird installiert, die App startet gleich neu.'));
+    else if (upd.status === 'checking') parts.push(el('p', {}, 'Suche nach Updates ...'));
+    else {
+      if (upd.status === 'none') parts.push(el('p', {}, `Aktuell: v${upd.current} ist die neueste Version.`));
+      if (upd.status === 'error') parts.push(notice('alert', `Update-Prüfung fehlgeschlagen: ${upd.error}`));
+      parts.push(action('Nach Updates suchen', 'check'));
+    }
+    updBody.replaceChildren(...parts);
+  };
+  const run = async (act) => {
+    try {
+      upd = await api.post('/api/status/update', { action: act });
+    } catch (err) {
+      upd = { ...(upd ?? {}), status: 'error', error: err.message };
+    }
+    renderUpdate();
+  };
+  api.get('/api/status/update').then((s) => { upd = s; renderUpdate(); }).catch(() => {});
+  api.on('update', (s) => { upd = s; renderUpdate(); });
+
   root.replaceChildren(
     pageHead(api, { title: 'Status', meta: [serverChip] }),
+    panel({ idx: 'UPD', title: 'Version & Updates', id: 'status-h-upd', cls: 'upd' }, updBody),
     el(
       'div',
       { class: 'two-col' },

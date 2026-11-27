@@ -129,30 +129,12 @@ GrimHEX (search summary only): "Per-head Max Rock Mass = 5 · P_active · (1 −
 
 ### 3.2 Bedrock [S1]. The reference tool, with an empirically fitted curve
 
-`MiningAdvice.h`:
+`MiningAdvice.h` (GPL-3.0, here only described, not copied):
 
-```cpp
-inline constexpr float BREAK_DECAY_PER_MASS = 0.2f;   // "decayPerMass in miningglobalparamsship.xml, used as is"
-inline constexpr float BREAK_EDGE = 1.05f;            // >1.05 share = cannot hold
-inline constexpr float BREAK_COMFORTABLE = 0.90f;     // <=0.90 = room to raise charge
-inline constexpr float RESISTANCE_CURVE = 1.21f;
-//     P_eff = P x (1 - (R x M)^1.21)
-inline float resistanceLetsThrough(float rockResistancePercent, float headResistancePercent) {
-    if (rockResistancePercent <= 0 || headResistancePercent <= 0) return 1.0f;
-    const float held = (rockResistancePercent / 100.0f) * (headResistancePercent / 100.0f);
-    if (held >= 1.0f) return 0.0f;
-    return 1.0f - std::pow(held, RESISTANCE_CURVE);
-}
-inline ThrottleAdvice throttleFor(float mass, const MiningLaser* laser, float powerAtRange, float decayPerMass) {
-    const float givesBack = mass * decayPerMass;
-    const float share = givesBack / powerAtRange;          // 1.0 = full throttle
-    out.toHold = share * 100.0f;
-    out.toRise = out.toHold * 1.08f;
-    out.possible = share <= 1.0f;
-    out.overpowered = share < laser->throttleMin;
-    out.headroom = out.possible ? (1.0f - share) * 100.0f : 0.0f;
-}
-```
+- `BREAK_DECAY_PER_MASS = 0.2` ("decayPerMass in miningglobalparamsship.xml, used as is").
+- `BREAK_EDGE = 1.05`: a share above 1.05 cannot be held. `BREAK_COMFORTABLE = 0.90`: at or below 0.90 there is room to raise the charge.
+- Resistance curve: `P_eff = P × (1 − (R × M)^1.21)` with R = rock resistance, M = head resistance factor (both as fractions). Returns 1 if either is 0, and 0 if R × M ≥ 1.
+- Throttle: `share = mass × decayPerMass / powerAtRange` (1.0 = full throttle). Hold at `share × 100 %`, rise at `× 1.08`. Possible if `share ≤ 1`, overpowered if `share < throttleMin`, headroom `(1 − share) × 100 %`.
 
 - **The decay model is validated** on two heads at 0 % resistance: 9 rocks, within 2.2 percentage points except one near the throttle minimum. Examples: Helix I at 4,631 W, 16,838 kg, bar stood at 70.5 % vs model 72.7 %; crafted Hofstede-S2 at 6,177 W, 25,175 kg, 80 % vs 81.5 %. "0.19 or 0.21 fit both heads worse than 0.2."
 - **The 1.21 exponent** comes from 4 rocks on a Helix I plus 3 on a Hofstede-S2. Refitting moves it between 1.16 and 1.27. Bedrock: "the exponent is a measurement, not a law. resistanceCurveFactor = 0.6 ... is unexplained; it is not this 1.21 by any obvious road." The linear formula "asks more throttle than rocks with resistance need" (e.g. a 13,147 kg QUANTAINIUM at 47 % green: line 107 %, curve 95.3 %, observed 95.4–100 %). *Confidence: medium. Small sample, one author.*
@@ -160,12 +142,7 @@ inline ThrottleAdvice throttleFor(float mass, const MiningLaser* laser, float po
 
 ### 3.3 sc-holotable [S3]. Client-derived, linear
 
-```rust
-/// The heaviest rock of this resistance the setup can charge at all:
-/// `(1 - R) * E / decayPerMass`.
-pub fn max_mass(&self, ruleset: &Ruleset) -> f32 { (1.0 - self.resistance) * self.power() / ruleset.decay_per_mass }
-pub fn balance_throttle(&self, ruleset) -> Option<f32> { let t = decay_rate / gain_rate(1.0); (t <= 1.0).then_some(t) }
-```
+(Code not quoted: the repository has no licence.) The heaviest rock of a given resistance the setup can charge at all is `(1 − R) × E / decayPerMass`. The balance throttle is `t = decay_rate / gain_rate(1.0)`, valid if `t ≤ 1`.
 
 Resistance on the modified rock is `clamp(R × factor + add, 0, 1)`, where `factor = Π(1 + v/100)` over **every hitting laser, its modules and every gadget**. So multiple lasers multiply the rock's resistance, as in mort13.
 

@@ -16,12 +16,13 @@
     "dev": "npm run build && npm run start",
     "test": "npm run build && node --test test/smoke.test.mjs test/input.test.mjs test/mining.test.mjs test/ocr.test.mjs",
     "test:desktop": "npm run build && node --test test/desktop.test.mjs",
-    "dist": "node scripts/check-win.mjs && npm run build && electron-builder --win --x64",
+    "dist": "node scripts/check-win.mjs && npm run build && electron-builder --win --x64 --publish never",
     "dist:dir": "npm run build && electron-builder --dir"
   },
   "dependencies": {
     "@fastify/static": "^10.1.12",
     "@fastify/websocket": "^11.0.0",
+    "electron-updater": "6.8.11",
     "fastify": "^5.0.0",
     "koffi": "^3.3.8",
     "onnxruntime-node": "^1.22.0",
@@ -81,6 +82,13 @@
       "target": "dir",
       "icon": "assets/icon.png",
       "category": "Game"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Miroxx80",
+        "repo": "BlackHaloEnterpriseCompanion"
+      }
+    ]
   }
 }

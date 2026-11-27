@@ -11,6 +11,7 @@ import { ServerSupervisor } from './supervisor.js';
 import { createTray, type TrayState } from './tray.js';
 import { MainWindow } from './window.js';
 import { OverlayWindow } from './overlay.js';
+import { Updater } from './updater.js';
 
 const here = dirname(fileURLToPath(import.meta.url)); // dist/desktop
 const rootDir = join(here, '..', '..');
@@ -50,6 +51,8 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   const overlay = new OverlayWindow(log);
+  const updater = new Updater(log);
+  supervisor.updateHandler = { state: () => updater.state, check: () => updater.check(), install: () => updater.install() };
 
   const autostart = () =>
     app.isPackaged && app.getLoginItemSettings({ args: AUTOSTART_ARGS }).openAtLogin;
@@ -69,6 +72,8 @@ if (!app.requestSingleInstanceLock()) {
       autostartAvailable: app.isPackaged,
       ocrHotkey: hotkeyActive ? settings.get().ocrHotkey : '',
       overlay: settings.get().overlay,
+      update: updater.state,
+      updatesAvailable: app.isPackaged,
     };
     tray?.update(s);
   };
@@ -130,6 +135,8 @@ if (!app.requestSingleInstanceLock()) {
         else overlay.hide();
         refreshTray();
       },
+      checkUpdate: () => void updater.check(),
+      installUpdate: () => void updater.install(),
       toggleAutostart: (value) => {
         if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: value, args: AUTOSTART_ARGS });
         refreshTray();
@@ -151,6 +158,12 @@ if (!app.requestSingleInstanceLock()) {
     }
     supervisor.start();
     refreshTray();
+    updater.on('state', (s) => {
+      supervisor.pushUpdateState(s);
+      refreshTray();
+    });
+    // Einmal beim Start nachsehen (nur installierte Version), nur melden, nichts installieren
+    if (app.isPackaged) setTimeout(() => void updater.check(true), 20_000);
     if (!startHidden) window.show();
   });
 }

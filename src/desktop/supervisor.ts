@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { utilityProcess, type UtilityProcess } from 'electron';
 import type { LogFile } from './log.js';
 import type { ServerInfo, ServerMessage, SupervisorMessage } from './protocol.js';
+import type { UpdateState } from '../core/types.js';
 
 export type ServerState = 'starting' | 'running' | 'restarting' | 'failed' | 'stopped';
 
@@ -21,6 +22,13 @@ export class ServerSupervisor extends EventEmitter {
   lastError = '';
   /** Liefert einen Screenshot, wenn der Server danach fragt (gesetzt von main.ts). */
   captureHandler: ((region?: { x: number; y: number; width: number; height: number }) => Promise<Buffer>) | null = null;
+  /** Updates (gesetzt von main.ts): Stand und Befehle für den Server. */
+  updateHandler: { state(): UpdateState; check(): Promise<UpdateState>; install(): Promise<UpdateState> } | null = null;
+
+  /** Neuen Update-Stand an den Server schicken (für Oberfläche und Handy). */
+  pushUpdateState(state: UpdateState) {
+    this.child?.postMessage({ type: 'update-state', state } satisfies SupervisorMessage);
+  }
 
   private child: UtilityProcess | null = null;
   private crashes: number[] = [];
@@ -99,11 +107,14 @@ export class ServerSupervisor extends EventEmitter {
         this.lastError = '';
         this.setState('running');
         this.safeEmit('ready', info);
+        if (this.updateHandler) this.pushUpdateState(this.updateHandler.state());
         this.log.line('INFO', `Server läuft auf Port ${info.port}`);
       } else if (msg?.type === 'fatal') {
         this.lastError = msg.message;
       } else if (msg?.type === 'capture-request') {
         void this.answerCapture(child, msg.id, msg.region);
+      } else if (msg?.type === 'update-request') {
+        void this.answerUpdate(child, msg.id, msg.action);
       }
     });
 
@@ -126,6 +137,14 @@ export class ServerSupervisor extends EventEmitter {
       reply = { type: 'capture-result', id, error: (err as Error).message };
     }
     if (this.child === child) child.postMessage(reply);
+  }
+
+  private async answerUpdate(child: UtilityProcess, id: number, action: 'check' | 'install') {
+    const h = this.updateHandler;
+    const state: UpdateState = h
+      ? await (action === 'install' ? h.install() : h.check()).catch((err: Error) => ({ ...h.state(), status: 'error' as const, error: err.message }))
+      : { status: 'unsupported', current: '?' };
+    if (this.child === child) child.postMessage({ type: 'update-result', id, state } satisfies SupervisorMessage);
   }
 
   private onCrash(code: number) {

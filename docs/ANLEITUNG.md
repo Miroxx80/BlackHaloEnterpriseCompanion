@@ -1,0 +1,67 @@
+# Anleitung
+
+Details zur Bedienung. Kurzüberblick und Installation: [README](../README.md).
+
+## Tablet oder Handy verbinden
+
+Im Fenster auf „Verbinden“ (oder Tray, „Gerät verbinden“) und den QR-Code mit dem Handy scannen. Das Gerät muss im selben WLAN sein wie der PC. Fragt die Windows-Firewall nach Netzwerkzugriff, für **private Netzwerke** erlauben.
+
+Einstellungen, Zugangsschlüssel und Loadouts liegen unter `%APPDATA%\BlackHalo` (Ordner öffnen über das Tray-Menü) und bleiben bei Updates und beim Deinstallieren erhalten. Eigene Einstellungen gehören in `%APPDATA%\BlackHalo\config\local.json`.
+
+## Tasten anpassen
+
+Die Buttons stehen unter `modules.controls` in der Config. Eigene Buttons gehören in die lokale Config (`%APPDATA%\BlackHalo\config\local.json`). Dort ersetzt die Liste `buttons` die Standardliste komplett.
+
+```json
+{
+  "modules": {
+    "controls": {
+      "target": { "process": "StarCitizen.exe" },
+      "buttons": [
+        { "id": "landing-gear", "label": "Fahrwerk", "key": "n" },
+        { "id": "eject", "label": "Aussteigen", "key": "y", "hold": 1500 },
+        { "id": "power", "label": "Energie", "key": "ralt+u" }
+      ]
+    }
+  }
+}
+```
+
+- **`key`:** eine Taste oder Kombination mit `+`, höchstens 4 Tasten. Namen wie in Star Citizens Keybinds (US-Layout): `a`–`z`, `0`–`9`, `f1`–`f24`, `lalt`/`ralt`, `lctrl`/`rctrl`, `lshift`/`rshift`, `space`, `enter`, `tab`, `escape`, `up`/`down`/`left`/`right`, `np_0`–`np_9`, `np_add` usw. (vollständige Liste in `src/modules/controls/input/keys.ts`). Kurzformen: `alt`, `ctrl`/`strg`, `shift`, `esc`.
+- **US-Layout heißt:** Es zählt die Position der Taste, nicht die Beschriftung. Auf einer deutschen Tastatur ist `z` die Taste mit dem „Y“ und umgekehrt. Genau so erwartet es das Spiel.
+- **`hold`:** Taste so viele Millisekunden halten (für Aktionen, die im Spiel „halten“ verlangen). Ohne `hold` gibt es einen kurzen Druck (50 ms).
+- **`target.process`:** Programm, das die Tasten bekommt. Standard `StarCitizen.exe`, zum Testen z. B. `notepad.exe`.
+- **`driver`:** `auto` (Standard: unter Windows echte Tasten, sonst `mock`), `windows` oder `mock` (nur protokollieren).
+- Feintuning, nur falls nötig: `tapMs` (Dauer eines kurzen Drucks), `comboGapMs` (Pause zwischen den Tasten einer Kombination), `focusSettleMs` (Wartezeit nach dem Wechsel ins Spiel).
+
+**So kommt der Tastendruck an:** Vor jedem Druck prüft das Tool, ob das Zielprogramm im Vordergrund ist, und holt es notfalls nach vorn (auch aus der Minimierung). Gelingt das nicht oder läuft es nicht, wird **nichts** gesendet, und die Oberfläche zeigt eine Meldung. Tasten landen nie in einem anderen Fenster. Mehrere Drücke laufen strikt nacheinander. Mehr als 5 wartende werden abgelehnt.
+
+**Wichtig:** Läuft Star Citizen bzw. der RSI Launcher **als Administrator**, lässt Windows Tastendrücke von normalen Programmen nicht durch (ohne Fehlermeldung). Dann das Spiel normal starten, nicht als Administrator.
+
+Ein Knopfdruck ist genau eine Tastenaktion, wie bei einem Stream Deck. Keine Automatik, keine Wiederholungen, keine Verbindung zwischen Texterkennung und Tastendrücken. Das Tool liest keinen Spielspeicher, schleust nichts ins Spiel ein und ändert keine Spieldateien. Tasten gehen über die normale Windows-Schnittstelle (`SendInput`).
+
+## Mining Companion
+
+Rechner für die Prospector: Steinwerte eingeben (oder einlesen), Loadout wählen. Das Tool sagt, ob der Stein brechbar ist, mit wie viel Laserleistung, und auf welche Entfernung (z. B. „45 % bei 39 m“). Reicht der Laser nur mit Gadget, steht dort „Machbar mit Gadget“. Der aktuelle Scan ist zwischen PC, Handy und zweitem Bildschirm synchron.
+
+### Scan einlesen (OCR)
+
+Das Tool liest das Scan-Panel aus einem Bild des Bildschirms (1920×1080, englisches HUD).
+
+- **Am PC einlesen** (Knopf im Rechner, z. B. am Handy, während du im Spiel bist): Die Desktop-App fotografiert den Hauptbildschirm und trägt die Werte ein. Star Citizen sollte im Modus „Randloses Fenster“ laufen, im exklusiven Vollbild kann die Aufnahme schwarz sein.
+- Der Hotkey Alt+Shift+S kommt nicht an, solange das Spiel den Fokus hat. Im Spiel deshalb den Knopf am Handy nutzen.
+- Alternativ im Rechner: „Screenshot einlesen“ (Bilddatei) oder ein Bild mit **Strg+V** einfügen.
+- Unsichere Werte (v. a. 0/6/8/9) sind **gelb markiert**. Prüfen, ggf. korrigieren, dann „Alles geprüft“. Vor hellem Planetenboden ist mehr gelb.
+- „Alles geprüft“ speichert den Scan zusammen mit dem Bildausschnitt in `data\mining\ocr-samples\confirmed` (lokal, bis 200 Stück). Damit wird die Erkennung verbessert. Die letzten 60 Lesungen liegen in `data\mining\ocr-samples`.
+- Die Texterkennung (PaddleOCR) läuft lokal auf der CPU, ca. 0,2–0,4 s pro Bild.
+- Ausschalten: in `config\local.json` unter `modules.mining` `"ocr": false`.
+
+### Radar-Signatur
+
+Oben im Mining-Bereich: Zahl vom Radar eintippen (z. B. 16.960), optional den Ort wählen. Das Tool zeigt, was dahinter steckt: Erz × Anzahl Steine (16.960 = Kupfer ×4), Bodenvorkommen (ROC 4000, Handabbau 3000, Bergung/Pflanzen 2000 je Teil), Wracks. Mehrdeutige Werte zeigen alle Möglichkeiten, sonst Kombinationen aus zwei Kontakten. Daten: Spieldaten 4.10.3 (scunpacked).
+
+**Live lesen** (Knopf im Feld Radar-Signatur, nur mit der Desktop-App): Das Tool nimmt etwa jede Sekunde den Bereich um das Fadenkreuz auf, findet die Signatur-Schilder nach einem Ping und zeigt sie mit Deutung auf allen Geräten. Eine Zahl erscheint erst, wenn sie mehrfach gleich gelesen wurde. Läuft nur, solange Star Citizen im Vordergrund ist. Tippen auf einen Eintrag übernimmt ihn ins Feld. Einstellungen unter `modules.mining`: `signatureIntervalMs` (Standard 800), `gameProcess` (Standard `StarCitizen.exe`).
+
+### Overlay über dem Spiel
+
+Tray-Menü, „Overlay über dem Spiel“, oder vom Handy (Mining, „Overlay“). Ein durchsichtiges, durchklickbares Fenster über dem Hauptbildschirm (Star Citizen im Modus „Randloses Fenster“). Beim Live-Lesen steht die Deutung jeder Radar-Signatur direkt neben dem Marker. Kein Eingriff ins Spiel, nur Anzeige. Das Overlay ist von Bildschirmaufnahmen ausgenommen, damit die eigene Texterkennung es nicht mitliest.

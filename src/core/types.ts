@@ -62,6 +62,26 @@ export interface ScreenCaptureService {
   capture(region?: CaptureRegion): Promise<Buffer>;
 }
 export const SCREEN_CAPTURE_SERVICE = 'desktop.screen';
+/** Stand der App-Updates (nur Desktop-App, installierte Version). */
+export interface UpdateState {
+  status: 'idle' | 'checking' | 'available' | 'none' | 'downloading' | 'ready' | 'error' | 'unsupported';
+  current: string;
+  latest?: string;
+  /** Download-Fortschritt in %. */
+  progress?: number;
+  error?: string;
+  notes?: string;
+}
+/** Service "desktop.update": Updates über die Desktop-App (GitHub Releases). */
+export interface UpdateService {
+  state(): UpdateState;
+  check(): Promise<UpdateState>;
+  /** Herunterladen und installieren; die App startet danach neu. */
+  install(): Promise<UpdateState>;
+  onChange(fn: (s: UpdateState) => void): () => void;
+}
+export const UPDATE_SERVICE = 'desktop.update';
+
 export interface CaptureRegion {
   x: number;
   y: number;

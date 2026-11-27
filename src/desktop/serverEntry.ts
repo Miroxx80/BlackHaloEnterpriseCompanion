@@ -3,7 +3,7 @@
 import { join } from 'node:path';
 import { startApp } from '../core/app.js';
 import { lanAddresses } from '../core/net.js';
-import { SCREEN_CAPTURE_SERVICE, type ScreenCaptureService } from '../core/types.js';
+import { SCREEN_CAPTURE_SERVICE, UPDATE_SERVICE, type ScreenCaptureService, type UpdateService, type UpdateState } from '../core/types.js';
 import type { ServerMessage, SupervisorMessage } from './protocol.js';
 import { ensureToken } from './token.js';
 
@@ -52,7 +52,38 @@ const screenCapture: ScreenCaptureService = {
     }),
 };
 
+// Updates macht ebenfalls der Hauptprozess; der Server kennt den Stand und leitet Befehle weiter.
+let updateState: UpdateState = { status: 'idle', current: '?' };
+const updateListeners = new Set<(s: UpdateState) => void>();
+const updateCalls = new Map<number, (s: UpdateState) => void>();
+const setUpdateState = (s: UpdateState) => {
+  updateState = s;
+  for (const fn of updateListeners) fn(s);
+};
+const updateRequest = (action: 'check' | 'install') =>
+  new Promise<UpdateState>((resolve) => {
+    const id = nextCaptureId++;
+    updateCalls.set(id, resolve);
+    send({ type: 'update-request', id, action });
+  });
+const updates: UpdateService = {
+  state: () => updateState,
+  check: () => updateRequest('check'),
+  install: () => updateRequest('install'),
+  onChange(fn) {
+    updateListeners.add(fn);
+    return () => updateListeners.delete(fn);
+  },
+};
+
 parent?.on('message', ({ data }) => {
+  if (data?.type === 'update-state') return setUpdateState(data.state);
+  if (data?.type === 'update-result') {
+    setUpdateState(data.state);
+    updateCalls.get(data.id)?.(data.state);
+    updateCalls.delete(data.id);
+    return;
+  }
   if (data?.type === 'capture-result') {
     const pending = captures.get(data.id);
     if (!pending) return;
@@ -73,7 +104,7 @@ try {
   app = await startApp({
     localConfigPath,
     dataRoot: join(userDir, 'data'),
-    services: parent ? { [SCREEN_CAPTURE_SERVICE]: screenCapture } : {},
+    services: parent ? { [SCREEN_CAPTURE_SERVICE]: screenCapture, [UPDATE_SERVICE]: updates } : {},
   });
   if (stopRequested) {
     await stop();

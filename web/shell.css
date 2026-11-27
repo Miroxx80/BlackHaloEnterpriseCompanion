@@ -545,3 +545,9 @@ div.verdict { cursor: default; }
 .empty { color: var(--text-dim); }
 /* Ein Modul-Bereich (Inhalt einer Seite) */
 .view { display: block; }
+
+/* Status: Version & Updates */
+.upd-hint { margin: 8px 0 0; font-size: var(--fs-s); color: var(--text-dim); }
+.upd-notes { margin: 10px 0; padding: 10px 12px; max-height: 180px; overflow: auto; white-space: pre-wrap; font-size: var(--fs-s); background: var(--s2, var(--bg)); border: var(--bw) solid var(--line); }
+.panel.upd .btn { margin-top: 10px; }
+.rail-foot .upd-badge { display: block; margin-top: 6px; color: var(--amber); text-decoration: none; }

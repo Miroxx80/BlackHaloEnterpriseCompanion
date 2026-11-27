@@ -1,5 +1,5 @@
 // Tests für den Eingabe-Teil von "controls". Die Windows-API wird nachgebaut, damit alles
-// auch unter Linux läuft. Was nur echtes Windows prüfen kann, steht in der Test-Checkliste im README.
+// auch unter Linux läuft. Echte Tastendrücke ans Spiel lassen sich nur am Windows-PC prüfen.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { startApp } from '../dist/core/app.js';
