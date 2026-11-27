@@ -30,7 +30,11 @@ export class Updater extends EventEmitter {
       return null;
     }
     this.loading ??= (async () => {
-      const { autoUpdater } = await import('electron-updater');
+      // CommonJS-Paket: autoUpdater ist ein Getter, den Node beim import() nicht als benannten Export erkennt.
+      // Er hängt am Default-Export (module.exports).
+      const mod = await import('electron-updater');
+      const autoUpdater = mod.autoUpdater ?? (mod.default as unknown as typeof mod).autoUpdater;
+      if (!autoUpdater) throw new Error('electron-updater nicht geladen');
       autoUpdater.autoDownload = false;
       autoUpdater.autoInstallOnAppQuit = false;
       autoUpdater.logger = { info: (m: unknown) => this.log.line('INFO', `Update: ${m}`), warn: (m: unknown) => this.log.line('WARN', `Update: ${m}`), error: (m: unknown) => this.log.line('ERROR', `Update: ${m}`), debug: () => {} };
@@ -47,7 +51,14 @@ export class Updater extends EventEmitter {
       autoUpdater.on('error', (err) => this.set({ status: 'error', error: err?.message ?? String(err) }));
       this.updater = autoUpdater;
     })();
-    await this.loading;
+    try {
+      await this.loading;
+    } catch (err) {
+      // Beim nächsten Versuch neu laden
+      this.loading = null;
+      this.set({ status: 'error', error: (err as Error).message });
+      return null;
+    }
     return this.updater;
   }
 
