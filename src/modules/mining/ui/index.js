@@ -1006,9 +1006,22 @@ export async function mount(root, api) {
     return g;
   }
 
+  /** Nicht schaffbar, aber ein Gadget reicht: dann "Machbar mit Gadget" statt "Nicht schaffbar". */
+  const gadgetRescue = (r) =>
+    r.baseline.status === 'impossible' && r.gadgets.kind === 'required' && r.gadgets.best ? r.gadgets.best : null;
+
   function renderResult(r) {
     const a = r.baseline;
-    const v = verdict(a);
+    const rescue = gadgetRescue(r);
+    const v = rescue
+      ? {
+          cls: 'warn',
+          icon: 'gadget',
+          text: 'MACHBAR MIT GADGET',
+          sub: `${rescue.gadget.name} anbringen, dann ${bandText(rescue.assessment)} Laserleistung`,
+          long: `MACHBAR MIT GADGET – ${rescue.gadget.name}`,
+        }
+      : verdict(a);
     const parts = r.rock.parts;
 
     // Haupterz: größter Gesamtanteil (ohne Inert); Hauptzeile: dessen größter Einzelanteil
@@ -1176,16 +1189,18 @@ export async function mount(root, api) {
       ),
     );
 
-    resultContent.replaceChildren(readout, table, el('div', { class: 'result-body' }, body), foot);
+    // Ohne Zusammensetzung gibt es keine Erz-Tabelle (null würde sonst als Text "null" erscheinen)
+    resultContent.replaceChildren(...[readout, table, el('div', { class: 'result-body' }, body), foot].filter(Boolean));
 
-    const said = `${v.long}. ${peekLine(a)}`;
+    const peekInfo = rescue ? `Mit ${rescue.gadget.name}: ${bandText(rescue.assessment)}` : peekLine(a);
+    const said = `${v.long}. ${peekInfo}`;
     if (said !== lastSpoken) {
       lastSpoken = said;
       spoken.textContent = said;
     }
 
     peekWord.textContent = v.text;
-    peekText.textContent = peekLine(a);
+    peekText.textContent = peekInfo;
     peek.style.setProperty('--pc', `var(--${v.cls})`);
     peek.hidden = false;
     if (observer) {
