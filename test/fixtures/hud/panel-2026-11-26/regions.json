@@ -293,5 +293,63 @@
         "quality": 0
       }
     ]
+  },
+  "region-confirmed-6859kg.png": {
+    "mass": 6859,
+    "resistance": {
+      "value": 1.0,
+      "color": "white"
+    },
+    "instability": {
+      "value": 2.23,
+      "color": "white"
+    },
+    "scu": 23.44,
+    "parts": [
+      {
+        "pct": 6.83,
+        "ore": "Raw_Corundum",
+        "quality": 504
+      },
+      {
+        "pct": 5.71,
+        "ore": "Ore_Aluminum",
+        "quality": 783
+      },
+      {
+        "pct": 43.79,
+        "ore": "Ore_Aluminum",
+        "quality": 318
+      },
+      {
+        "pct": 43.65,
+        "ore": "inert",
+        "quality": 0
+      }
+    ]
+  },
+  "region-confirmed-inst-85.png": {
+    "mass": 1448,
+    "resistance": {
+      "value": 37.0,
+      "color": "green"
+    },
+    "instability": {
+      "value": 85.56,
+      "color": "white"
+    },
+    "scu": 4.38,
+    "parts": [
+      {
+        "pct": 11.95,
+        "ore": "Raw_Aslarite",
+        "quality": 854
+      },
+      {
+        "pct": 88.04,
+        "ore": "Raw_Aslarite",
+        "quality": 287
+      }
+    ]
   }
 }

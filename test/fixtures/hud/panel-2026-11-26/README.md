@@ -11,3 +11,4 @@
 - `region-*-ice-2296kg/460kg`: zwei Eis-Steine je ohne/mit Scheinwerfer (PC-Test 4). Mit Licht erschien eine leere
   Phantom-Zeile in der Zusammensetzung -> Zeilen ohne lesbaren Inhalt werden ausgelassen.
 - `region-confirmed-*`: aus den ersten bestätigten Trainingsdaten ("Alles geprüft", 21 Scans, Weltraum und 3 Planeten). Schwierige Fälle: Masse 10323 als 18323 gelesen, zwei fehlende Zeilen, Panel um 117 px verschoben.
+- `region-confirmed-6859kg.png`, `region-confirmed-inst-85.png`: zweites Trainingspaket (2026-11-27). Masse 6859 als 6059, Instabilität 85.56 als 05.56 gelesen (beides markiert).

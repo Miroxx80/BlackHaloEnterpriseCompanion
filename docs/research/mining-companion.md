@@ -798,3 +798,8 @@ Auswertung mit `scripts/ocr-eval.mjs` (nach `npm run build`):
   - Nächste Nachbarn (8x12): 77 % richtig. Einig und gleich wie PaddleOCR: 500 Ziffern, 0 falsch, aber nur 31 von 230 zweifelhaften 0/6/8/9 bestätigt.
   - Spezialmodell 0/6/8/9 (logistische Regression, 10x15): 70–73 % (PaddleOCR 87 %), sicher nur 19–39 von 232 zweifelhaften bestätigt.
 - Fazit: Bei ~6x9 px pro Ziffer und Farbsaum reicht die Information mit 21 Scans nicht. Neu bewerten mit deutlich mehr bestätigten Scans (Ordner füllt sich über "Alles geprüft") oder höherer Auflösung (1440p/4K).
+
+**Zweites Trainingspaket (2026-11-27, zusammen 33 Scans, 576 Felder):** 88 % richtig, 0 falsche Werte ohne Markierung,
+unnötig gelb 273. Eigene Ziffernerkennung mit 1.329 Ziffern (ehrlich getestet, ohne doppelte Bilder): Spezialmodell
+0/6/8/9 75 % (PaddleOCR 88 %); sicher bestätigt würden 68–70 von 344 zweifelhaften Ziffern (vorher 19–39 von 232).
+Besser, aber noch nicht einbauwürdig; weiter sammeln.
