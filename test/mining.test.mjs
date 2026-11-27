@@ -492,4 +492,8 @@ test('Abstand -> Leistung: linearer Abfall zwischen optimaler und maximaler Reic
   const r = calculate(data, scan({ mass: 900, resistance: 20, instability: 10 }), { laserId: helix.id, moduleIds: [] });
   assert.equal(r.baseline.status, 'too-strong');
   assert.equal(r.baseline.distances[0].pct, 20);
+  assert.equal(r.baseline.nearMaxRange, undefined, 'ab 37 m: normal zu stark');
+  // Sehr kleiner Stein: passt erst kurz vor der maximalen Reichweite -> Hinweis
+  const tiny = calculate(data, scan({ mass: 150, resistance: 20, instability: 10 }), { laserId: helix.id, moduleIds: [] });
+  assert.deepEqual(tiny.baseline.nearMaxRange, { fromM: tiny.baseline.distances[0].m, maxM: 45 });
 });

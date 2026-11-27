@@ -978,7 +978,7 @@ export async function mount(root, api) {
     // Erste Zeile gilt bis zur optimalen Reichweite (außer bei "zu stark": ab diesem Abstand)
     const first = a.status === 'too-strong' ? 'ab ' : 'bis ';
     const items = rows.flatMap((d, i) => [i ? ' · ' : '', el('b', {}, `${i ? '' : first}${d.m} m → ${d.pct} %`)]);
-    return el('p', { class: 'mn-dist' }, lead, ' ', ...items, el('br'), 'Mehr Abstand braucht mehr Leistung (Abfall mit der Entfernung linear, im Spiel an einem Punkt bestätigt).');
+    return el('p', { class: 'mn-dist' }, lead, ' ', ...items);
   }
 
   const bandText = (a) => (!a.band ? '–' : a.band[0] === a.band[1] ? `${a.band[0]} %` : `${a.band[0]}–${a.band[1]} %`);
@@ -1136,6 +1136,15 @@ export async function mount(root, api) {
         el('p', { class: 'power-line' }, powerLine(a, r)),
         a.status === 'too-strong' ? distanceLine(a, 'Abstand → Leistung:') : gauge(a, r, v.cls),
         a.status === 'too-strong' ? null : distanceLine(a, 'Mit Abstand:'),
+        a.nearMaxRange
+          ? notice(
+              'alert',
+              a.nearMaxRange.fromM == null
+                ? `Selbst an der maximalen Reichweite (${a.nearMaxRange.maxM} m) ist die Mindestleistung zu viel für diesen Stein. Ein Laser mit niedrigerer Mindestleistung passt besser.`
+                : `Kaum zu halten: Die Mindestleistung passt erst ab ca. ${a.nearMaxRange.fromM} m, kurz vor der maximalen Reichweite (${a.nearMaxRange.maxM} m). Ein Laser mit niedrigerer Mindestleistung passt besser.`,
+              { iconName: 'edge' },
+            )
+          : null,
       ),
     );
 

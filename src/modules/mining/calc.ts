@@ -52,6 +52,11 @@ export interface Assessment {
    * m: Abstand in Metern, pct: Einstellung.
    */
   distances?: { m: number; pct: number }[];
+  /**
+   * Nur bei "too-strong": Selbst die Mindestleistung passt erst in den letzten Metern vor der maximalen Reichweite
+   * (oder gar nicht). Praktisch kaum zu halten; ein Laser mit niedrigerer Mindestleistung passt besser.
+   */
+  nearMaxRange?: { fromM: number | null; maxM: number };
   resistancePct: number;
   instability: number;
 }
@@ -202,6 +207,9 @@ function assess(
   };
   if (status !== 'impossible' && through > 0) result.distances = distanceTable(share, laser);
   if (status === 'too-strong') {
+    const span = laser.rangeZero - laser.rangeFull;
+    const fromM = result.distances?.[0]?.m ?? null;
+    if (fromM == null || fromM >= laser.rangeZero - Math.max(2, 0.1 * span)) result.nearMaxRange = { fromM, maxM: laser.rangeZero };
     // Laser ist selbst bei Mindestleistung zu stark: mit Abstand nimmt die Leistung ab (linear zwischen
     // rangeFull und rangeZero, Schätzung). Ziel wie Bedrock: Mindestleistung + 25 Punkte, 35–60 %.
     const target = clamp(laser.throttleMin + 0.25, 0.35, 0.6);
