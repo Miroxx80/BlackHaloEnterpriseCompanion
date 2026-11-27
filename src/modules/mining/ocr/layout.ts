@@ -48,9 +48,3 @@ export const PROSPECTOR_1080: HudLayout = {
   rows: { x: 1358, width: 195, firstTop: 655, firstHeight: 20, nextHeight: 15, max: 8 },
 };
 
-/**
- * Laserleistungs-Spur im Prospector-HUD (rechter Bogen) bei 1920x1080, vermessen an
- * test/fixtures/hud/power-arc-1920x1080.json: Kreis um center mit radius; 0 % bei angle0, 100 % bei angle100
- * (Grad, atan2(y - cy, x - cx), y nach unten), linear dazwischen. Grundlage für das Overlay.
- */
-export const POWER_ARC_1080 = { center: [1061.6, 607.2] as [number, number], radius: 209.5, angle0: 49.1, angle100: 11.2 };

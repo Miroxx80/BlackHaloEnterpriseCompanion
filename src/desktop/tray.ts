@@ -59,7 +59,7 @@ export function createTray(iconPath: string, actions: TrayActions) {
         enabled: s.server === 'running',
       },
       {
-        label: 'Overlay über dem Spiel (Test)',
+        label: 'Overlay über dem Spiel',
         type: 'checkbox',
         checked: s.overlay,
         enabled: s.server === 'running',

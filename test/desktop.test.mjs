@@ -134,7 +134,7 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
   }
 });
 
-test('Desktop-App: Overlay-Fenster über dem Spiel (durchsichtig, ohne Fokus, zeichnet)', { skip: !electron && 'playwright nicht installiert' }, async () => {
+test('Desktop-App: Overlay-Fenster über dem Spiel (durchsichtig, ohne Fokus, verbunden)', { skip: !electron && 'playwright nicht installiert' }, async () => {
   const userDir = mkdtempSync(join(tmpdir(), 'bh-overlay-'));
   // Overlay war beim letzten Mal eingeschaltet (Tray-Menü), Fenster startet versteckt ins Tray
   writeFileSync(join(userDir, 'desktop.json'), JSON.stringify({ overlay: true }));
@@ -149,11 +149,12 @@ test('Desktop-App: Overlay-Fenster über dem Spiel (durchsichtig, ohne Fokus, ze
       return { focusable: w.isFocusable(), top: w.isAlwaysOnTop(), visible: w.isVisible() };
     });
     assert.deepEqual(props, { focusable: false, top: true, visible: true });
-    // Kalibrierbogen zeichnen lassen (wie vom Handy): Overlay bekommt ihn über den Server
+    // Seite hat ihren Stand vom Server (mit Zugangsschlüssel) und folgt dem Schalter vom Handy
     const local = JSON.parse(readFileSync(join(userDir, 'config', 'local.json'), 'utf8'));
     const port = new URL(page.url()).port;
-    await fetch(`http://127.0.0.1:${port}/api/mining/overlay`, { method: 'POST', headers: { 'x-bh-token': local.security.token, 'content-type': 'application/json' }, body: '{"calibrate":true}' });
-    await until(() => page.evaluate(() => document.querySelectorAll('#o path, #o line').length > 5), 'Kalibrierbogen gezeichnet');
+    const res = await fetch(`http://127.0.0.1:${port}/api/mining/overlay`, { method: 'POST', headers: { 'x-bh-token': local.security.token, 'content-type': 'application/json' }, body: '{"visible":false}' });
+    assert.deepEqual(await res.json(), { visible: false, contacts: [] });
+    assert.ok(await page.evaluate(() => Boolean(document.getElementById('o'))));
     await Promise.all([app.waitForEvent('close'), app.evaluate(({ app: a }) => a.quit())]);
   } finally {
     await app.close().catch(() => {});

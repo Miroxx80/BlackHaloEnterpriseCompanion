@@ -11,7 +11,6 @@ import { ScreenError } from './ocr/image.js';
 import { readScan } from './ocr/pipeline.js';
 import { createPaddleDetector, createPaddleReader } from './ocr/paddle.js';
 import { readSignatures, SIGNATURE_BAND, SignatureTracker } from './ocr/signatures.js';
-import { POWER_ARC_1080 } from './ocr/layout.js';
 import { loadWin32 } from '../controls/input/win32.js';
 import sharp from 'sharp';
 import type { CalcOptions, Dataset, LoadoutInput, ScanInput } from './types.js';
@@ -238,13 +237,10 @@ const mod: BhModule = {
     /** Änderung übernehmen, speichern und an alle Geräte verteilen. origin: wer geändert hat (Gerät/OCR). */
     /** Overlay neu verteilen (wird unten gesetzt, sobald alles da ist). */
     let notifyOverlay = () => {};
-    /** Versatz des Mining-HUD aus der letzten OCR (das HUD wandert; der Energie-Bogen wandert mit dem Scan-Panel). */
-    let hudOffset: { dx: number; dy: number; at: number } | null = null;
     function commitScan(next: ScanDraft, origin: string) {
       current = { revision: current.revision + 1, scan: next };
       saveScan();
       ctx.ws.broadcast('scan', { ...current, origin });
-      notifyOverlay();
       return current;
     }
 
@@ -321,7 +317,6 @@ const mod: BhModule = {
         const sample = keepSample(panelPng, result);
         let applied = false;
         if (apply && result.panelFound) {
-          hudOffset = result.offset ? { dx: result.offset[0], dy: result.offset[1], at: Date.now() } : null;
           commitScan(validator.validateDraft({ ...result.draft, marks: result.marks, ocrSample: sample }), 'ocr');
           applied = true;
         }
@@ -479,66 +474,14 @@ const mod: BhModule = {
       return liveState();
     });
 
-    // ---------- Overlay über dem Spiel (Test) ----------
+    // ---------- Overlay über dem Spiel ----------
     // Die Desktop-App zeigt ein durchsichtiges, durchklickbares Fenster (nur Anzeige). Es lädt /modules/mining/overlay.html
-    // und bekommt hier alles, was es zeichnet: Ergebnis zum aktuellen Scan (Band auf dem Energie-Bogen) und live
-    // gelesene Signaturen (Deutung neben dem Marker). Ein/aus und Kalibrierung steuert man vom Handy aus.
-    const overlayPrefs = { visible: true, calibrate: false };
-    const num = (s: string) => {
-      const t = String(s).replace(/\s*%\s*$/, '').trim().replace(',', '.');
-      return t !== '' && /^\d*\.?\d+$/.test(t) ? Number(t) : null;
-    };
-    const scanForCalc = (d: ScanDraft): ScanInput | null => {
-      const mass = /^\d+$/.test(d.mass.replace(/[\s.,']/g, '')) ? Number(d.mass.replace(/[\s.,']/g, '')) : null;
-      const resistance = num(d.resistance);
-      const instability = num(d.instability);
-      if (mass == null || resistance == null || instability == null) return null;
-      const scuText = d.scu.trim().toLowerCase().replace(/\s*scu$/, '');
-      const scuNum = num(scuText.replace(/m$/, ''));
-      return {
-        mass,
-        resistance,
-        resistanceColored: d.resColor !== 'white',
-        instability,
-        instabilityColored: d.instColor !== 'white',
-        scu: scuNum == null ? null : scuText.endsWith('m') ? scuNum / 1000 : scuNum,
-        parts: d.parts
-          .filter((p) => p.ore && num(p.pct) != null)
-          .map((p) => ({ oreId: p.ore === 'inert' ? null : p.ore, pct: num(p.pct)!, quality: /^\d+$/.test(p.quality) ? Number(p.quality) : null })),
-        gadgetAttached: d.gadget || null,
-      };
-    };
-    const overlayResult = () => {
-      const input = scanForCalc(current.scan);
-      const loadout = store.loadouts.find((l) => l.id === store.activeId);
-      if (!input || !loadout) return null;
-      try {
-        const r = calculate(data, input, loadout, DEFAULT_OPTIONS);
-        const best = r.gadgets.best;
-        return {
-          status: r.baseline.status,
-          band: r.baseline.band,
-          share: r.baseline.share,
-          backoffM: r.baseline.backoffM ?? null,
-          laser: r.setup.laser.name,
-          throttleMin: r.setup.laser.throttleMin,
-          // Nur wenn ein Gadget nötig oder empfohlen ist ("optional" gibt es bei fast jedem Stein)
-          gadget: best && (r.gadgets.kind === 'required' || r.gadgets.kind === 'recommended') ? { kind: r.gadgets.kind, name: best.gadget.name } : null,
-          unchecked: Object.keys(current.scan.marks ?? {}).length,
-        };
-      } catch {
-        return null;
-      }
-    };
+    // und zeigt die Deutung live gelesener Radar-Signaturen neben dem Marker. Ein/aus vom Handy aus.
+    // (Ein Band am Energie-Bogen wurde getestet und verworfen: Das HUD wackelt ständig mit dem Kopf, das Overlay
+    // müsste etwa 10x pro Sekunde nachgeführt werden.)
+    const overlayPrefs = { visible: true };
     const overlayState = () => ({
       ...overlayPrefs,
-      // Bogen um den Versatz verschoben, den die OCR beim letzten Einlesen am Scan-Panel gemessen hat
-      arc: {
-        ...POWER_ARC_1080,
-        center: [POWER_ARC_1080.center[0] + (hudOffset?.dx ?? 0), POWER_ARC_1080.center[1] + (hudOffset?.dy ?? 0)] as [number, number],
-      },
-      hudOffset: hudOffset ? [hudOffset.dx, hudOffset.dy] : null,
-      result: overlayResult(),
       // Nur Signaturen aus dem zuletzt gelesenen Bild: Marker bewegen sich, alte Beschriftungen würden überlappen
       contacts: tracker
         .contacts(Date.now())
@@ -565,14 +508,11 @@ const mod: BhModule = {
     /** GET /api/mining/overlay: was das Overlay zeichnet. */
     ctx.http.get('/overlay', async () => overlayState());
 
-    /** POST /api/mining/overlay { visible?, calibrate? }: Overlay ein/aus, Kalibrierbogen ein/aus (für alle Geräte). */
+    /** POST /api/mining/overlay { visible }: Overlay ein/aus (für alle Geräte). */
     ctx.http.post('/overlay', async (req, reply) => {
-      const body = (req.body ?? {}) as { visible?: unknown; calibrate?: unknown };
-      for (const k of ['visible', 'calibrate'] as const) {
-        if (body[k] === undefined) continue;
-        if (typeof body[k] !== 'boolean') return reply.code(400).send({ error: `${k}: true oder false` });
-        overlayPrefs[k] = body[k] as boolean;
-      }
+      const visible = (req.body as { visible?: unknown } | null)?.visible;
+      if (typeof visible !== 'boolean') return reply.code(400).send({ error: 'visible: true oder false' });
+      overlayPrefs.visible = visible;
       notifyOverlay();
       return overlayState();
     });
@@ -617,7 +557,6 @@ const mod: BhModule = {
         writeStore(store);
         // Andere Geräte (z. B. Handy) übernehmen Loadout-Wechsel sofort
         ctx.ws.broadcast('loadouts', publicStore());
-        notifyOverlay();
         return publicStore();
       } catch (err) {
         return badRequest(reply, err);

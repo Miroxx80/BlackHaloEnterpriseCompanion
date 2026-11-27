@@ -14,13 +14,11 @@
 <body>
 <svg id="o" viewBox="0 0 1920 1080" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>
 <script type="module">
-// Overlay über dem Spiel: nur Anzeige (Fenster ist durchklickbar und nimmt keinen Fokus an). Zeichnet in
-// Bildschirm-Koordinaten bei 1920x1080 (Prospector-HUD vermessen). Daten: GET /api/mining/overlay + WebSocket.
+// Overlay über dem Spiel: nur Anzeige (Fenster ist durchklickbar und nimmt keinen Fokus an). Zeichnet die Deutung
+// live gelesener Radar-Signaturen neben den Marker, in Bildschirm-Koordinaten (1920x1080). Daten: /api/mining/overlay + WebSocket.
 const token = new URLSearchParams(location.search).get('token') || '';
 const svg = document.getElementById('o');
 const NS = 'http://www.w3.org/2000/svg';
-const COLORS = { ok: '#4ade80', slow: '#a3e635', edge: '#ffb020', 'too-strong': '#ff5a4f', impossible: '#ff5a4f' };
-const WORDS = { ok: 'BRECHBAR', slow: 'LANGSAM', edge: 'GRENZFALL', 'too-strong': 'LASER ZU STARK', impossible: 'LASER REICHT NICHT' };
 let state = null;
 
 const node = (tag, attrs = {}, text) => {
@@ -31,61 +29,10 @@ const node = (tag, attrs = {}, text) => {
 };
 const fmt = (v) => v.toLocaleString('de-DE');
 
-/** Punkt auf dem Energie-Bogen bei pct (0..100) mit Abstand dr vom Bogen nach außen. */
-function arcPoint(arc, pct, dr = 0) {
-  const a = ((arc.angle0 + (arc.angle100 - arc.angle0) * pct / 100) * Math.PI) / 180;
-  return [arc.center[0] + (arc.radius + dr) * Math.cos(a), arc.center[1] + (arc.radius + dr) * Math.sin(a)];
-}
-function arcPath(arc, from, to, dr = 0) {
-  const steps = Math.max(2, Math.ceil(Math.abs(to - from) / 2));
-  const pts = [];
-  for (let i = 0; i <= steps; i++) pts.push(arcPoint(arc, from + ((to - from) * i) / steps, dr).map((v) => v.toFixed(1)).join(','));
-  return 'M' + pts.join(' L');
-}
-
 function render() {
   svg.replaceChildren();
   if (!state || !state.visible) return;
-  const arc = state.arc;
-
-  // Kalibrierung: ganzer Bogen mit Strichen alle 10 %, zum Prüfen, ob das Overlay auf dem HUD liegt
-  if (state.calibrate) {
-    svg.append(node('path', { d: arcPath(arc, 0, 100, 0), fill: 'none', stroke: '#00e5ff', 'stroke-width': 2, opacity: 0.9 }));
-    for (let p = 0; p <= 100; p += 10) {
-      const [x1, y1] = arcPoint(arc, p, -10), [x2, y2] = arcPoint(arc, p, 10);
-      svg.append(node('line', { x1, y1, x2, y2, stroke: '#00e5ff', 'stroke-width': p % 50 ? 1.5 : 3 }));
-      if (p % 20 === 0) {
-        const [tx, ty] = arcPoint(arc, p, 30);
-        svg.append(node('text', { x: tx, y: ty + 5, fill: '#00e5ff', 'font-size': 15, 'text-anchor': 'middle' }, `${p}`));
-      }
-    }
-    svg.append(node('text', { x: 960, y: 1040, fill: '#00e5ff', 'font-size': 22, 'text-anchor': 'middle' }, 'KALIBRIERUNG: Liegt der blaue Bogen auf der Leistungs-Spur (0 unten, 100 oben)?'));
-    svg.append(node('text', { x: 960, y: 1066, fill: '#00e5ff', 'font-size': 16, 'text-anchor': 'middle' },
-      state.hudOffset ? `Versatz aus dem letzten eingelesenen Scan: ${state.hudOffset[0]} / ${state.hudOffset[1]} px` : 'Noch kein Scan eingelesen: Bogen an der Standard-Stelle'));
-  }
-
-  // Band der Halteleistung neben dem Energie-Bogen
-  const r = state.result;
-  if (r) {
-    const color = COLORS[r.status] || '#ffffff';
-    const unchecked = r.unchecked > 0;
-    if (r.band) {
-      const [lo, hi] = [Math.max(0, r.band[0]), Math.min(100, Math.max(r.band[1], r.band[0] + 1))];
-      svg.append(node('path', { d: arcPath(arc, lo, hi, 16), fill: 'none', stroke: color, 'stroke-width': 10, 'stroke-linecap': 'butt', opacity: 0.85, ...(unchecked ? { 'stroke-dasharray': '6 5' } : {}) }));
-      const [tx, ty] = arcPoint(arc, (lo + hi) / 2, 40);
-      svg.append(node('text', { x: tx, y: ty + 6, fill: color, 'font-size': 20 }, `${r.band[0]}–${r.band[1]} %${unchecked ? ' (ungeprüft)' : ''}`));
-    }
-    // Infobox unten rechts neben dem Bogenanfang (oben rechts liegt das Scan-Panel des Spiels)
-    const lines = [[WORDS[r.status] || r.status, color, 22]];
-    if (r.status === 'too-strong' && r.backoffM) lines.push([`Abstand ca. ${r.backoffM} m`, '#ffffff', 17]);
-    if (r.gadget) lines.push([`Gadget: ${r.gadget.name}`, '#ffd28c', 17]);
-    if (unchecked) lines.push([`${r.unchecked} Feld${r.unchecked === 1 ? '' : 'er'} ungeprüft`, '#ffb020', 17]);
-    const [bx, by] = arcPoint(arc, 0, 30);
-    lines.forEach(([t, c, size], i) => svg.append(node('text', { x: bx + 10, y: by + 4 + i * 23, fill: c, 'font-size': size }, t)));
-  }
-
-  // Radar-Signaturen: Deutung neben dem Marker (nur frisch gelesene)
-  // Nah beieinander: nur eine Beschriftung (sonst überlappen sie)
+  // Radar-Signaturen: Deutung neben dem Marker (nur frisch gelesene); nah beieinander nur eine (sonst überlappen sie)
   const placed = [];
   for (const c of state.contacts || []) {
     if (Date.now() - c.lastSeen > 3000) continue;
@@ -114,7 +61,7 @@ function connect() {
   ws.onclose = () => setTimeout(connect, 2000);
 }
 connect();
-// Signatur-Beschriftungen nach 4 s ausblenden, auch ohne neue Nachricht
+// Signatur-Beschriftungen nach 3 s ausblenden, auch ohne neue Nachricht
 setInterval(() => { if (state?.contacts?.length) render(); }, 500);
 </script>
 </body>

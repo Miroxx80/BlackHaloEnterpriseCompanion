@@ -15,7 +15,7 @@ export interface DesktopSettings {
   alwaysOnTop: boolean;
   /** Tastenkürzel für "Scan einlesen" (Electron-Schreibweise, z. B. "Alt+Shift+S"); leer = aus. */
   ocrHotkey: string;
-  /** Overlay-Fenster über dem Spiel (Test). Was es zeigt, steuert man vom Handy aus. */
+  /** Overlay-Fenster über dem Spiel (Deutung der Radar-Signaturen). Ein/aus auch vom Handy aus. */
   overlay: boolean;
 }
 

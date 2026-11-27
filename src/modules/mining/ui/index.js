@@ -246,7 +246,6 @@ export async function mount(root, api) {
   function overlayPanel() {
     const section = el('section', { class: 'panel mn-sig', hidden: true, 'aria-labelledby': 'mn-h-ov' });
     const visible = button('Overlay an', { iconName: 'target', onclick: () => set({ visible: !state?.visible }) });
-    const calibrate = button('Kalibrierung', { variant: 'ghost', iconName: 'wrench', onclick: () => set({ calibrate: !state?.calibrate }) });
     const info = el('p', { class: 'mn-dim' });
     let state = null;
     const render = () => {
@@ -254,13 +253,7 @@ export async function mount(root, api) {
       visible.querySelector('.lbl').textContent = state.visible ? 'Overlay aus' : 'Overlay an';
       visible.setAttribute('aria-label', state.visible ? 'Overlay aus' : 'Overlay an');
       visible.setAttribute('aria-pressed', String(state.visible));
-      calibrate.setAttribute('aria-pressed', String(state.calibrate));
-      calibrate.querySelector('.lbl').textContent = state.calibrate ? 'Kalibrierung aus' : 'Kalibrierung';
-      calibrate.setAttribute('aria-label', calibrate.querySelector('.lbl').textContent);
-      const r = state.result;
-      info.textContent = r?.band
-        ? `Zeigt das Band ${r.band[0]}–${r.band[1]} % am Energie-Bogen${r.unchecked ? ' (gestrichelt: Scan noch ungeprüft)' : ''}.`
-        : 'Sobald ein Scan vollständig ist, zeigt das Overlay die Halteleistung am Energie-Bogen.';
+      info.textContent = 'Zeigt beim Live-Lesen die Deutung jeder Radar-Signatur direkt neben dem Marker im Spiel.';
     };
     const set = async (patch) => {
       try {
@@ -282,8 +275,8 @@ export async function mount(root, api) {
       render();
     });
     section.append(
-      el('div', { class: 'panel-head' }, el('h2', { id: 'mn-h-ov' }, 'Overlay', el('span', { class: 'tag' }, 'Test · Fenster im Tray-Menü einschalten'))),
-      el('div', { class: 'panel-body' }, el('div', { class: 'mn-live' }, visible, calibrate), info),
+      el('div', { class: 'panel-head' }, el('h2', { id: 'mn-h-ov' }, 'Overlay', el('span', { class: 'tag' }, 'Fenster im Tray-Menü einschalten'))),
+      el('div', { class: 'panel-body' }, el('div', { class: 'mn-live' }, visible), info),
     );
     return section;
   }
