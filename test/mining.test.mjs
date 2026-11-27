@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startApp } from '../dist/core/app.js';
-import { calculate } from '../dist/modules/mining/calc.js';
+import { calculate, distanceTable } from '../dist/modules/mining/calc.js';
 import { matchSignature, parseSignature, signatureTable } from '../dist/modules/mining/signature.js';
 
 const data = JSON.parse(readFileSync(new URL('../src/modules/mining/data/dataset.json', import.meta.url), 'utf8'));
@@ -473,4 +473,23 @@ test('API: Signatur deuten', async () => {
   } finally {
     await app.stop();
   }
+});
+
+test('Abstand -> Leistung: linearer Abfall zwischen optimaler und maximaler Reichweite', () => {
+  const helix = data.lasers.find((l) => l.name === 'Helix I'); // voll bis 15 m, null bei 45 m, Minimum 20 %
+  // Laser zu stark (benötigt 10 %): 20 % reichen ab 30 m (dort kommt die Hälfte an), 100 % bis 42 m
+  const strong = distanceTable(0.1, helix);
+  assert.deepEqual(strong[0], { m: 30, pct: 20 });
+  assert.ok(strong.every((r, i) => i === 0 || (r.m > strong[i - 1].m && r.pct > strong[i - 1].pct)), 'mehr Abstand, mehr Leistung');
+  // Schaffbar (benötigt 50 %): bis 15 m 50 %, 100 % bis 30 m
+  const ok = distanceTable(0.5, helix);
+  assert.deepEqual(ok[0], { m: 15, pct: 50 });
+  assert.deepEqual(ok[ok.length - 1], { m: 30, pct: 100 });
+  assert.ok(ok.length <= 6);
+  // Nicht schaffbar: keine Tabelle
+  assert.deepEqual(distanceTable(1.2, helix), []);
+  // Im Ergebnis: Zu stark -> Tabelle beginnt mit der Mindestleistung
+  const r = calculate(data, scan({ mass: 900, resistance: 20, instability: 10 }), { laserId: helix.id, moduleIds: [] });
+  assert.equal(r.baseline.status, 'too-strong');
+  assert.equal(r.baseline.distances[0].pct, 20);
 });

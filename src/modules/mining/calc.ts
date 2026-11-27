@@ -44,8 +44,13 @@ export interface Assessment {
   status: Status;
   /** Schwerster Stein dieser Resistenz, den das Setup noch bricht (kg). */
   maxMass: number;
-  /** Nur bei "too-strong": geschätzter Abstand (m), ab dem der Laser bei Mindestleistung passt. */
+  /** Nur bei "too-strong": geschätzter Abstand (m), ab dem der Laser bei Mindestleistung + 25 Punkte passt. */
   backoffM?: number;
+  /**
+   * Nötige Leistung je Abstand (außer "impossible"): Bis rangeFull volle Leistung, bis rangeZero linear auf null
+   * (Form nicht in den Spieldaten, zwei Messungen von Bedrock passen zu linear). m: Abstand in Metern, pct: Einstellung.
+   */
+  distances?: { m: number; pct: number }[];
   resistancePct: number;
   instability: number;
 }
@@ -194,6 +199,7 @@ function assess(
     resistancePct: clamp(resistancePct, 0, 100),
     instability,
   };
+  if (status !== 'impossible' && through > 0) result.distances = distanceTable(share, laser);
   if (status === 'too-strong') {
     // Laser ist selbst bei Mindestleistung zu stark: mit Abstand nimmt die Leistung ab (linear zwischen
     // rangeFull und rangeZero, Schätzung). Ziel wie Bedrock: Mindestleistung + 25 Punkte, 35–60 %.
@@ -202,6 +208,29 @@ function assess(
     result.backoffM = Math.round(laser.rangeFull + (1 - f) * (laser.rangeZero - laser.rangeFull));
   }
   return result;
+}
+
+/**
+ * Abstand -> nötige Leistung. Durchkommende Leistung bei Abstand d: P x f(d), f = 1 bis rangeFull, dann linear bis 0
+ * bei rangeZero. Nötige Einstellung t = share / f(d), also d(t) = rangeFull + (1 - share / t) x (rangeZero - rangeFull).
+ * Zeilen für Mindestleistung, 30, 40 ... 100 % (nur einstellbare Werte), auf höchstens 6 ausgedünnt.
+ */
+export function distanceTable(share: number, laser: Laser): { m: number; pct: number }[] {
+  const span = laser.rangeZero - laser.rangeFull;
+  if (!(share > 0) || share > 1 || span <= 0) return [];
+  const steps = [laser.throttleMin, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].filter((t) => t >= laser.throttleMin && t >= share);
+  // Erste Zeile: bis zur optimalen Reichweite die eigentliche Haltleistung (wenn sie einstellbar ist)
+  if (share >= laser.throttleMin) steps.unshift(share);
+  const rows: { m: number; pct: number }[] = [];
+  for (const t of [...new Set(steps)].sort((a, b) => a - b)) {
+    const m = Math.round(laser.rangeFull + (1 - share / t) * span);
+    if (rows.length && rows[rows.length - 1].m === m) continue;
+    rows.push({ m, pct: Math.round(t * 100) });
+  }
+  if (rows.length <= 6) return rows;
+  // Erste und letzte behalten, dazwischen gleichmäßig auswählen
+  const keep = [0, ...[1, 2, 3, 4].map((i) => Math.round((i * (rows.length - 1)) / 5)), rows.length - 1];
+  return [...new Set(keep)].map((i) => rows[i]);
 }
 
 /** Aktive-Modul-Varianten: Surge läuft parallel (auch doppelt), andere aktive Module nur einzeln. */

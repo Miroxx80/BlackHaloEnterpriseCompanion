@@ -3,6 +3,8 @@
 import { el, icon, chip, pageHead, button, notice, fmtInt, fmtDec } from '/ui.js';
 
 const STYLE = `
+.mn-dist { margin: 10px 0 0; font-size: var(--fs-s); color: var(--text-dim); line-height: 1.6; }
+.mn-dist b { color: var(--text); font-family: var(--font-mono, monospace); font-weight: 600; white-space: nowrap; }
 .mn-sig { margin-bottom: 20px; }
 .mn-sig .fields { grid-template-columns: minmax(140px, 220px) minmax(180px, 320px); }
 .mn-sig-list { display: grid; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
@@ -960,10 +962,23 @@ export async function mount(root, api) {
       case 'edge':
         return { cls: 'warn', icon: 'edge', text: 'GRENZFALL', sub: 'Nur mit voller Leistung, vielleicht', long: 'GRENZFALL – nur mit voller Leistung, vielleicht' };
       case 'too-strong':
-        return { cls: 'warn', icon: 'edge', text: 'LASER ZU STARK', sub: `Ca. ${a.backoffM} m Abstand halten`, long: `LASER ZU STARK – ca. ${a.backoffM} m Abstand halten` };
+        return { cls: 'warn', icon: 'edge', text: 'LASER ZU STARK', sub: tooStrongSub(a), long: `LASER ZU STARK – ${tooStrongSub(a)}` };
       default:
         return { cls: 'bad', icon: 'ban', text: 'NICHT SCHAFFBAR', long: 'NICHT SCHAFFBAR' };
     }
+  }
+
+  /** "Ab ca. 30 m Abstand (20 %)": kleinster Abstand, ab dem die Mindestleistung passt. */
+  const tooStrongSub = (a) => (a.distances?.length ? `Ab ca. ${a.distances[0].m} m Abstand (${a.distances[0].pct} %)` : `Ca. ${a.backoffM} m Abstand halten`);
+
+  /** Abstand -> Leistung als Zeile ("30 m → 20 % · 35 m → 30 % ..."); Abfall linear angenommen. */
+  function distanceLine(a, lead) {
+    const rows = a.distances ?? [];
+    if (rows.length < 2) return null;
+    // Erste Zeile gilt bis zur optimalen Reichweite (außer bei "zu stark": ab diesem Abstand)
+    const first = a.status === 'too-strong' ? 'ab ' : 'bis ';
+    const items = rows.flatMap((d, i) => [i ? ' · ' : '', el('b', {}, `${i ? '' : first}${d.m} m → ${d.pct} %`)]);
+    return el('p', { class: 'mn-dist' }, lead, ' ', ...items, el('br'), 'Mehr Abstand braucht mehr Leistung (Abfall mit der Entfernung linear angenommen, im Spiel noch nicht geprüft).');
   }
 
   const bandText = (a) => (!a.band ? '–' : a.band[0] === a.band[1] ? `${a.band[0]} %` : `${a.band[0]}–${a.band[1]} %`);
@@ -973,7 +988,7 @@ export async function mount(root, api) {
     if (a.status === 'impossible') return ['Benötigt ', el('b', {}, `${fmtInt(a.share * 100)} %`), ' der Laserleistung'];
     if (a.status === 'edge') return ['Benötigt rechnerisch ', el('b', {}, `${fmtInt(a.share * 100)} %`), ', also volle Leistung (100 %)'];
     if (a.status === 'too-strong') {
-      return ['Schon die Mindestleistung (', el('b', {}, `${Math.round(r.setup.laser.throttleMin * 100)} %`), `) ist zu viel – ab ca. ${a.backoffM} m Abstand passt es`];
+      return ['Schon die Mindestleistung (', el('b', {}, `${Math.round(r.setup.laser.throttleMin * 100)} %`), ') ist zu viel. Mit Abstand sinkt die Leistung:'];
     }
     return [el('b', {}, bandText(a)), ' Laserleistung halten die Ladung stabil'];
   }
@@ -981,7 +996,7 @@ export async function mount(root, api) {
   function peekLine(a) {
     if (a.status === 'impossible') return `Benötigt ${fmtInt(a.share * 100)} % Leistung`;
     if (a.status === 'edge') return 'Nur mit voller Leistung, vielleicht';
-    if (a.status === 'too-strong') return `Ca. ${a.backoffM} m Abstand halten`;
+    if (a.status === 'too-strong') return tooStrongSub(a);
     return `${bandText(a)} Laserleistung`;
   }
 
@@ -1113,7 +1128,16 @@ export async function mount(root, api) {
         v.sub ? el('span', { class: 'verdict-sub' }, v.sub) : null,
       ),
     );
-    body.push(verdictEl, el('div', { class: 'power' }, el('p', { class: 'power-line' }, powerLine(a, r)), gauge(a, r, v.cls)));
+    body.push(
+      verdictEl,
+      el(
+        'div',
+        { class: 'power' },
+        el('p', { class: 'power-line' }, powerLine(a, r)),
+        a.status === 'too-strong' ? distanceLine(a, 'Abstand → Leistung:') : gauge(a, r, v.cls),
+        a.status === 'too-strong' ? null : distanceLine(a, 'Mit Abstand:'),
+      ),
+    );
 
     // Aktive Module nur zeigen, wenn es ohne sie nicht gut geht (sonst nur Ablenkung)
     const variants = a.status === 'ok' ? [] : r.variants;
@@ -1124,7 +1148,8 @@ export async function mount(root, api) {
           { class: 'mn-variants' },
           variants.map((x) => {
             const vv = verdict(x.assessment);
-            return el('li', {}, `${cap(x.label)}: `, el('b', { class: `mn-c-${vv.cls}` }, vv.long), ' · ', powerLine(x.assessment, r));
+            const detail = x.assessment.status === 'too-strong' ? tooStrongSub(x.assessment) : powerLine(x.assessment, r);
+            return el('li', {}, `${cap(x.label)}: `, el('b', { class: `mn-c-${vv.cls}` }, vv.long), ' · ', detail);
           }),
         ),
       );

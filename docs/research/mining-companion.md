@@ -803,3 +803,12 @@ Auswertung mit `scripts/ocr-eval.mjs` (nach `npm run build`):
 unnötig gelb 273. Eigene Ziffernerkennung mit 1.329 Ziffern (ehrlich getestet, ohne doppelte Bilder): Spezialmodell
 0/6/8/9 75 % (PaddleOCR 88 %); sicher bestätigt würden 68–70 von 344 zweifelhaften Ziffern (vorher 19–39 von 232).
 Besser, aber noch nicht einbauwürdig; weiter sammeln.
+
+## Abstand -> Leistung (2026-11-27)
+
+Der Rechner zeigt jetzt eine Tabelle "Abstand -> nötige Leistung": durchkommende Leistung P x f(d), f = 1 bis
+`rangeFull`, linear auf 0 bei `rangeZero`; nötige Einstellung t = Anteil / f(d). Bei "Laser zu stark" ist das die
+Hauptaussage (ab welchem Abstand die Mindestleistung passt), sonst eine kompakte Zeile. Die lineare Form ist nicht in
+den Spieldaten (Bedrock: zwei passende Messungen). **Test im Spiel:** Stein mit "zu stark", Laser auf Mindestleistung,
+langsam zurücksetzen, bis die Ladung im grünen Bereich stehen bleibt; den Abstand am LASER-RANGE-Bogen ablesen und mit
+der ersten Zeile der Tabelle vergleichen. Zweiter Punkt: dieselbe Messung bei z. B. 50 %.
