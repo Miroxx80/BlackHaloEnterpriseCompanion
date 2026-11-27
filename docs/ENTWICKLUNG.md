@@ -27,7 +27,7 @@ Tests:
 
 Auf einem **Windows-PC** im Projektordner (unter Linux/macOS bricht `npm run dist` ab, weil sonst die falsche Binary für die Tastendrücke eingepackt würde):
 
-1. Version in `package.json` (`"version"`) erhöhen, z. B. `0.3.0`.
+1. Version in `package.json` (`"version"`) erhöhen, z. B. `0.4.0`.
 2. Bauen:
 
    ```
@@ -35,9 +35,9 @@ Auf einem **Windows-PC** im Projektordner (unter Linux/macOS bricht `npm run dis
    npm run dist
    ```
 
-3. Auf GitHub ein Release mit Tag `v0.3.0` anlegen (Tag = Version mit `v` davor) und **alle drei Dateien** aus `release\` hochladen:
-   - `BlackHalo-Setup-0.3.0.exe`
-   - `BlackHalo-Setup-0.3.0.exe.blockmap`
+3. Auf GitHub ein Release mit Tag `v0.4.0` anlegen (Tag = Version mit `v` davor) und **alle drei Dateien** aus `release\` hochladen:
+   - `BlackHalo-Setup-0.4.0.exe`
+   - `BlackHalo-Setup-0.4.0.exe.blockmap`
    - `latest.yml`
 
    Ohne `latest.yml` findet der Update-Knopf die neue Version nicht. Das Release darf kein Entwurf und keine Vorabversion sein. Der Text des Releases erscheint im Tool als Änderungsnotiz.

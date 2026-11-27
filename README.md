@@ -24,7 +24,7 @@ Voraussetzungen: Windows und Star Citizen im Modus „Randloses Fenster“. Text
 
 Das Tool sieht beim Start nach, ob es eine neue Version gibt, und meldet sie unten in der Seitenleiste. Installiert wird mit einem Klick unter „Status“ (geht auch vom Handy) oder im Tray-Menü. Danach startet das Tool neu. Einstellungen und Loadouts unter `%APPDATA%\BlackHalo` bleiben erhalten.
 
-Version 0.1.0 hat noch keinen Update-Knopf. Von dort einmal den neuen Installer von Hand über die alte Version installieren.
+Die Versionen 0.1.0 und 0.2.0 haben noch keinen Update-Knopf. Von dort einmal den neuen Installer von Hand über die alte Version installieren.
 
 ## Sicherheit und Spielregeln
 
