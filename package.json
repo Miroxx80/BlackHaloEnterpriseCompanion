@@ -63,7 +63,7 @@
           ]
         }
       ],
-      "icon": "assets/icon.png",
+      "icon": "assets/icon.ico",
       "files": [
         "!node_modules/onnxruntime-node/bin/napi-v6/{darwin,linux}/**",
         "!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**"

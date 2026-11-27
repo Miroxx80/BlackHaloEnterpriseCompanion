@@ -42,6 +42,8 @@ Auf einem **Windows-PC** im Projektordner (unter Linux/macOS bricht `npm run dis
 
    Ohne `latest.yml` findet der Update-Knopf die neue Version nicht. Das Release darf kein Entwurf und keine Vorabversion sein. Der Text des Releases erscheint im Tool als Änderungsnotiz.
 
+Das Windows-Icon ist die fertige Datei `assets/icon.ico` (das Icon-Werkzeug von electron-builder stürzt unter Windows teils ab). Ändert sich das Logo `assets/icon.png`: `node scripts/make-ico.mjs`.
+
 Zum Ausprobieren ohne Installer: `npm run dist:dir` erzeugt nur den Programmordner (`release\win-unpacked\BlackHalo.exe`).
 
 **Updates im Tool** (`src/desktop/updater.ts`, electron-updater): Beim Start sieht die installierte App einmal auf GitHub nach und meldet eine neue Version (Windows-Benachrichtigung, Hinweis in der Seitenleiste). Herunterladen und Installieren erst auf Knopfdruck: Seite „Status“ (auch vom Handy) oder Tray-Menü. Danach installiert sich die neue Version still und startet neu. In der Entwicklungsversion (`npm run desktop`) gibt es keine Updates.
