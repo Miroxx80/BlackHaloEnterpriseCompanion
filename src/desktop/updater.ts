@@ -23,6 +23,13 @@ export class Updater extends EventEmitter {
     this.emit('state', this.state);
   }
 
+  /** Fehler kurz und verständlich anzeigen, die volle Meldung steht im Log. */
+  private fail(err: unknown) {
+    const raw = (err as Error)?.message ?? String(err);
+    this.log.line('ERROR', `Update: ${raw}`);
+    this.set({ status: 'error', error: shortError(raw) });
+  }
+
   /** electron-updater erst bei Bedarf laden (nur in der installierten Version sinnvoll). */
   private async init() {
     if (!app.isPackaged) {
@@ -48,7 +55,7 @@ export class Updater extends EventEmitter {
         // Installer läuft still (Installation pro Benutzer) und startet die App danach wieder
         setImmediate(() => autoUpdater.quitAndInstall(true, true));
       });
-      autoUpdater.on('error', (err) => this.set({ status: 'error', error: err?.message ?? String(err) }));
+      autoUpdater.on('error', (err) => this.fail(err));
       this.updater = autoUpdater;
     })();
     try {
@@ -56,7 +63,7 @@ export class Updater extends EventEmitter {
     } catch (err) {
       // Beim nächsten Versuch neu laden
       this.loading = null;
-      this.set({ status: 'error', error: (err as Error).message });
+      this.fail(err);
       return null;
     }
     return this.updater;
@@ -72,7 +79,7 @@ export class Updater extends EventEmitter {
         new Notification({ title: 'Black Halo: Update verfügbar', body: `Version ${this.state.latest} ist da. Installieren über das Tray-Menü oder in der App (Status).` }).show();
       }
     } catch (err) {
-      this.set({ status: 'error', error: (err as Error).message });
+      this.fail(err);
     }
     return this.state;
   }
@@ -84,7 +91,7 @@ export class Updater extends EventEmitter {
     if (this.state.status !== 'available') await this.check();
     if (this.state.status !== 'available') return this.state;
     this.set({ status: 'downloading', progress: 0 });
-    u.downloadUpdate().catch((err: Error) => this.set({ status: 'error', error: err.message }));
+    u.downloadUpdate().catch((err: unknown) => this.fail(err));
     return this.state;
   }
 }
@@ -93,4 +100,15 @@ function notesOf(notes: unknown): string | undefined {
   if (typeof notes === 'string') return notes.replace(/<[^>]+>/g, '').trim().slice(0, 2000) || undefined;
   if (Array.isArray(notes)) return notes.map((n) => (n as { note?: string }).note ?? '').join('\n').replace(/<[^>]+>/g, '').trim().slice(0, 2000) || undefined;
   return undefined;
+}
+
+/** Häufige Fehler übersetzen, sonst nur die erste Zeile (electron-updater hängt Header und Stacktrace an). */
+export function shortError(raw: string): string {
+  const missing = /Cannot find (\S+) in the latest release artifacts/.exec(raw);
+  if (missing) return `Im neuesten Release auf GitHub fehlt die Datei ${missing[1]}. Beim Release alle drei Dateien aus release\\ hochladen (Setup-.exe, .blockmap, latest.yml).`;
+  if (/HttpError: 404|status maybe not reported, but 404/.test(raw)) return 'GitHub meldet 404: Releases nicht erreichbar (Repo privat?) oder Datei fehlt.';
+  if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|ERR_INTERNET_DISCONNECTED|net::ERR_/.test(raw)) return 'GitHub nicht erreichbar. Internetverbindung prüfen.';
+  if (/sha512 checksum mismatch/i.test(raw)) return 'Download beschädigt (Prüfsumme passt nicht). Bitte nochmal versuchen.';
+  const first = raw.split('\n')[0].trim();
+  return first.length > 200 ? `${first.slice(0, 200)}…` : first;
 }
