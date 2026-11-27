@@ -3,7 +3,7 @@
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { app, globalShortcut, Menu, shell } from 'electron';
+import { app, dialog, globalShortcut, Menu, shell } from 'electron';
 import { createLogFile } from './log.js';
 import { captureAndRead, captureScreen } from './ocrCapture.js';
 import { createSettingsStore } from './settings.js';
@@ -24,6 +24,15 @@ const startHidden = process.argv.includes('--hidden');
 
 if (!app.requestSingleInstanceLock()) {
   // Läuft schon: die laufende Instanz öffnet ihr Fenster (second-instance), diese hier beendet sich.
+  // Beim Entwickeln (npm run desktop) deutlich sagen: Sonst sieht man still die installierte Version im Tray.
+  if (!app.isPackaged) {
+    dialog.showErrorBox(
+      'Black Halo läuft bereits',
+      'Eine andere Black-Halo-Instanz läuft schon (z. B. die installierte Version im Tray, per Autostart) und wurde ' +
+        'nach vorn geholt. Diese Entwicklerversion startet deshalb nicht.\n\nZum Testen der Entwicklerversion: ' +
+        'Tray-Icon rechts unten, Rechtsklick, "Beenden". Dann npm run desktop erneut starten.',
+    );
+  }
   app.quit();
 } else {
   const log = createLogFile(join(userDir, 'logs'));
