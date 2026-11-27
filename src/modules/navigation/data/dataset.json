@@ -1,0 +1,984 @@
+{
+  "_comment": "Generiert von scripts/navigation-data.mjs aus scunpacked-data (Positionen in km, Stern im Ursprung) und der Aaron-Halo-Vermessung von Cornerstone. Nicht von Hand ändern.",
+  "build": "4.10.3-LIVE.13165946",
+  "source": {
+    "repo": "https://github.com/StarCitizenWiki/scunpacked-data",
+    "commit": "3cc8072b24df2a2d71eb6207708e2039f909b342"
+  },
+  "system": "Stanton",
+  "places": [
+    {
+      "id": "hurston",
+      "name": "Hurston",
+      "short": "Hurston",
+      "kind": "planet",
+      "group": "Hurston",
+      "qt": true,
+      "pos": [
+        12850457.093,
+        0,
+        0
+      ],
+      "radius": 1008.9
+    },
+    {
+      "id": "crusader",
+      "name": "Crusader",
+      "short": "Crusader",
+      "kind": "planet",
+      "group": "Crusader",
+      "qt": true,
+      "pos": [
+        -18962176,
+        -2664960,
+        0
+      ],
+      "radius": 7540
+    },
+    {
+      "id": "arccorp",
+      "name": "ArcCorp",
+      "short": "ArcCorp",
+      "kind": "planet",
+      "group": "ArcCorp",
+      "qt": true,
+      "pos": [
+        18587664.74,
+        -22151916.92,
+        0
+      ],
+      "radius": 807.13
+    },
+    {
+      "id": "microtech",
+      "name": "microTech",
+      "short": "microTech",
+      "kind": "planet",
+      "group": "microTech",
+      "qt": true,
+      "pos": [
+        22462085.252,
+        37185744.965,
+        0
+      ],
+      "radius": 1010.875
+    },
+    {
+      "id": "aberdeen",
+      "name": "Aberdeen",
+      "short": "Aberdeen",
+      "kind": "moon",
+      "group": "Hurston",
+      "qt": true,
+      "pos": [
+        12905757.636,
+        40955.551,
+        0
+      ],
+      "radius": 279.048
+    },
+    {
+      "id": "arial",
+      "name": "Arial",
+      "short": "Arial",
+      "kind": "moon",
+      "group": "Hurston",
+      "qt": true,
+      "pos": [
+        12892673.309,
+        -31476.129,
+        0
+      ],
+      "radius": 349.55
+    },
+    {
+      "id": "ita",
+      "name": "Ita",
+      "short": "Ita",
+      "kind": "moon",
+      "group": "Hurston",
+      "qt": true,
+      "pos": [
+        12830194.716,
+        114913.609,
+        0
+      ],
+      "radius": 329
+    },
+    {
+      "id": "magda",
+      "name": "Magda",
+      "short": "Magda",
+      "kind": "moon",
+      "group": "Hurston",
+      "qt": true,
+      "pos": [
+        12792686.359,
+        -74464.581,
+        0
+      ],
+      "radius": 345.85
+    },
+    {
+      "id": "cellin",
+      "name": "Cellin",
+      "short": "Cellin",
+      "kind": "moon",
+      "group": "Crusader",
+      "qt": true,
+      "pos": [
+        -18987611.119,
+        -2709009.661,
+        0
+      ],
+      "radius": 264
+    },
+    {
+      "id": "daymar",
+      "name": "Daymar",
+      "short": "Daymar",
+      "kind": "moon",
+      "group": "Crusader",
+      "qt": true,
+      "pos": [
+        -18930539.54,
+        -2610158.765,
+        0
+      ],
+      "radius": 299
+    },
+    {
+      "id": "yela",
+      "name": "Yela",
+      "short": "Yela",
+      "kind": "moon",
+      "group": "Crusader",
+      "qt": true,
+      "pos": [
+        -19022916.799,
+        -2613996.152,
+        0
+      ],
+      "radius": 317
+    },
+    {
+      "id": "lyria",
+      "name": "Lyria",
+      "short": "Lyria",
+      "kind": "moon",
+      "group": "ArcCorp",
+      "qt": true,
+      "pos": [
+        18703607.172,
+        -22121650.134,
+        0
+      ],
+      "radius": 227
+    },
+    {
+      "id": "wala",
+      "name": "Wala",
+      "short": "Wala",
+      "kind": "moon",
+      "group": "ArcCorp",
+      "qt": true,
+      "pos": [
+        18379649.31,
+        -22000466.768,
+        0
+      ],
+      "radius": 287
+    },
+    {
+      "id": "calliope",
+      "name": "Calliope",
+      "short": "Calliope",
+      "kind": "moon",
+      "group": "microTech",
+      "qt": true,
+      "pos": [
+        22398369.308,
+        37168840.679,
+        0
+      ],
+      "radius": 244
+    },
+    {
+      "id": "clio",
+      "name": "Clio",
+      "short": "Clio",
+      "kind": "moon",
+      "group": "microTech",
+      "qt": true,
+      "pos": [
+        22476728.221,
+        37091020.074,
+        0
+      ],
+      "radius": 341.17
+    },
+    {
+      "id": "euterpe",
+      "name": "Euterpe",
+      "short": "Euterpe",
+      "kind": "moon",
+      "group": "microTech",
+      "qt": true,
+      "pos": [
+        22488109.736,
+        37081123.565,
+        0
+      ],
+      "radius": 217
+    },
+    {
+      "id": "hur-l1",
+      "name": "HUR-L1 Green Glade Station",
+      "short": "HUR-L1",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        11561412.556,
+        -262.923,
+        -484.614
+      ],
+      "radius": 0
+    },
+    {
+      "id": "hur-l2",
+      "name": "HUR-L2 Faithful Dream Station",
+      "short": "HUR-L2",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        14139635.583,
+        -1967.278,
+        -527.794
+      ],
+      "radius": 0
+    },
+    {
+      "id": "hur-l3",
+      "name": "HUR-L3 Thundering Express Station",
+      "short": "HUR-L3",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        -12844743.551,
+        -1554.387,
+        1335.043
+      ],
+      "radius": 0
+    },
+    {
+      "id": "hur-l4",
+      "name": "HUR-L4 Melodic Fields Station",
+      "short": "HUR-L4",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        6427627.577,
+        11124766.832,
+        666.284
+      ],
+      "radius": 0
+    },
+    {
+      "id": "hur-l5",
+      "name": "HUR-L5 High Course Station",
+      "short": "HUR-L5",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        6425723.013,
+        -11128362.131,
+        -842.035
+      ],
+      "radius": 0
+    },
+    {
+      "id": "cru-l1",
+      "name": "CRU-L1 Ambitious Dream Station",
+      "short": "CRU-L1",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        -17068753.721,
+        -2399482.273,
+        -20.044
+      ],
+      "radius": 0
+    },
+    {
+      "id": "cru-l4",
+      "name": "CRU-L4 Shallow Fields Station",
+      "short": "CRU-L4",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        -7173768.307,
+        -17750056.492,
+        -2174.784
+      ],
+      "radius": 0
+    },
+    {
+      "id": "cru-l5",
+      "name": "CRU-L5 Beautiful Glen Station",
+      "short": "CRU-L5",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        -11785012.209,
+        15091235.756,
+        -2796.441
+      ],
+      "radius": 0
+    },
+    {
+      "id": "arc-l1",
+      "name": "ARC-L1 Wide Forest Station",
+      "short": "ARC-L1",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        16729220.035,
+        -19942048.186,
+        2239.765
+      ],
+      "radius": 0
+    },
+    {
+      "id": "arc-l2",
+      "name": "ARC-L2 Lively Pathway Station",
+      "short": "ARC-L2",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        20451005.908,
+        -24368053.521,
+        -293.845
+      ],
+      "radius": 0
+    },
+    {
+      "id": "arc-l3",
+      "name": "ARC-L3 Modern Express Station",
+      "short": "ARC-L3",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        -25045525.487,
+        14463255.233,
+        -1892.763
+      ],
+      "radius": 0
+    },
+    {
+      "id": "arc-l4",
+      "name": "ARC-L4 Faint Glen Station",
+      "short": "ARC-L4",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        28476140.156,
+        5018904.179,
+        959.732
+      ],
+      "radius": 0
+    },
+    {
+      "id": "arc-l5",
+      "name": "ARC-L5 Yellow Core Station",
+      "short": "ARC-L5",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        -9895751.577,
+        -27175156.672,
+        882.465
+      ],
+      "radius": 0
+    },
+    {
+      "id": "mic-l1",
+      "name": "MIC-L1 Shallow Frontier Station",
+      "short": "MIC-L1",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        20215827.269,
+        33467069.518,
+        -0.943
+      ],
+      "radius": 0
+    },
+    {
+      "id": "mic-l2",
+      "name": "MIC-L2 Long Forest Station",
+      "short": "MIC-L2",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        24713774.898,
+        40912934.444,
+        -10634.827
+      ],
+      "radius": 0
+    },
+    {
+      "id": "mic-l3",
+      "name": "MIC-L3 Endless Odyssey Station",
+      "short": "MIC-L3",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        -22452218.252,
+        -37179923.023,
+        -10590.411
+      ],
+      "radius": 0
+    },
+    {
+      "id": "mic-l4",
+      "name": "MIC-L4 Red Crossroads Station",
+      "short": "MIC-L4",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        -20968720.663,
+        38056058.357,
+        -11799.275
+      ],
+      "radius": 0
+    },
+    {
+      "id": "mic-l5",
+      "name": "MIC-L5 Modern Icarus Station",
+      "short": "MIC-L5",
+      "kind": "lpoint",
+      "group": "Lagrange",
+      "qt": true,
+      "pos": [
+        43448559.857,
+        -857708.037,
+        -7824.371
+      ],
+      "radius": 0
+    },
+    {
+      "id": "seraphim",
+      "name": "Seraphim Station",
+      "short": "Seraphim",
+      "kind": "station",
+      "group": "Crusader",
+      "qt": true,
+      "pos": [
+        -18956299.902,
+        -2666344.207,
+        5565.883
+      ],
+      "radius": 0
+    },
+    {
+      "id": "grim-hex",
+      "name": "Grim HEX",
+      "short": "Grim HEX",
+      "kind": "station",
+      "group": "Crusader",
+      "qt": true,
+      "pos": [
+        -19023485.458,
+        -2613612.587,
+        -2.042
+      ],
+      "radius": 0
+    },
+    {
+      "id": "everus-harbor",
+      "name": "Everus Harbor",
+      "short": "Everus Harbor",
+      "kind": "station",
+      "group": "Hurston",
+      "qt": true,
+      "pos": [
+        12849949.351,
+        -903.464,
+        496.489
+      ],
+      "radius": 0
+    },
+    {
+      "id": "baijini-point",
+      "name": "Baijini Point",
+      "short": "Baijini Point",
+      "kind": "station",
+      "group": "ArcCorp",
+      "qt": true,
+      "pos": [
+        18586892.779,
+        -22152238.268,
+        -359.509
+      ],
+      "radius": 0
+    },
+    {
+      "id": "port-tressler",
+      "name": "Port Tressler",
+      "short": "Port Tressler",
+      "kind": "station",
+      "group": "microTech",
+      "qt": true,
+      "pos": [
+        22462646.724,
+        37186290.818,
+        808.832
+      ],
+      "radius": 0
+    },
+    {
+      "id": "wikelo-selo",
+      "name": "Wikelo Emporium Selo Station",
+      "short": "Wikelo Selo",
+      "kind": "station",
+      "group": "Sonstige",
+      "qt": true,
+      "pos": [
+        -20156591.641,
+        -1263139.664,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "pyro-gateway",
+      "name": "Pyro Gateway",
+      "short": "Pyro Gateway",
+      "kind": "gateway",
+      "group": "Sonstige",
+      "qt": true,
+      "pos": [
+        3310495.68,
+        -27979395.048,
+        -2676322.341
+      ],
+      "radius": 0
+    },
+    {
+      "id": "terra-gateway",
+      "name": "Terra Gateway",
+      "short": "Terra Gateway",
+      "kind": "gateway",
+      "group": "Sonstige",
+      "qt": true,
+      "pos": [
+        51118210.045,
+        -5270029.474,
+        -4339552.359
+      ],
+      "radius": 0
+    },
+    {
+      "id": "nyx-gateway",
+      "name": "Nyx Gateway",
+      "short": "Nyx Gateway",
+      "kind": "gateway",
+      "group": "Sonstige",
+      "qt": true,
+      "pos": [
+        -62284323.874,
+        23467575.726,
+        20198379.369
+      ],
+      "radius": 0
+    },
+    {
+      "id": "hur-l1-centre",
+      "name": "HUR L1",
+      "short": "HUR L1",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        11565411.328,
+        0,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "hur-l2-centre",
+      "name": "HUR L2",
+      "short": "HUR L2",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        14135502.848,
+        0,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "hur-l3-centre",
+      "name": "HUR L3",
+      "short": "HUR L3",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        -12850457.6,
+        -1.123,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "hur-l4-centre",
+      "name": "HUR L4",
+      "short": "HUR L4",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        6425228.288,
+        11128823.808,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "hur-l5-centre",
+      "name": "HUR L5",
+      "short": "HUR L5",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        6425227.776,
+        -11128823.808,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "cru-l1-centre",
+      "name": "CRU L1",
+      "short": "CRU L1",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        -17065957.376,
+        -2398464,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "cru-l2-centre",
+      "name": "CRU L2",
+      "short": "CRU L2",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        -20858376.485,
+        -2931474.402,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "cru-l3-centre",
+      "name": "CRU L3",
+      "short": "CRU L3",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        18962164.826,
+        2664965.041,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "cru-l4-centre",
+      "name": "CRU L4",
+      "short": "CRU L4",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        -7173168.64,
+        -17754204.16,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "cru-l5-centre",
+      "name": "CRU L5",
+      "short": "CRU L5",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        -11789008.988,
+        15089246.107,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "arc-l1-centre",
+      "name": "ARC L1",
+      "short": "ARC L1",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        16729134.637,
+        -19937006.925,
+        8.077
+      ],
+      "radius": 0
+    },
+    {
+      "id": "arc-l2-centre",
+      "name": "ARC L2",
+      "short": "ARC L2",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        20446718.503,
+        -24367450.991,
+        8.077
+      ],
+      "radius": 0
+    },
+    {
+      "id": "arc-l3-centre",
+      "name": "ARC L3",
+      "short": "ARC L3",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        -25043446.884,
+        14458841.788,
+        8.077
+      ],
+      "radius": 0
+    },
+    {
+      "id": "arc-l4-centre",
+      "name": "ARC L4",
+      "short": "ARC L4",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        28478354.916,
+        5021502.483,
+        8.077
+      ],
+      "radius": 0
+    },
+    {
+      "id": "arc-l5-centre",
+      "name": "ARC L5",
+      "short": "ARC L5",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        -9890422.516,
+        -27173732.225,
+        8.077
+      ],
+      "radius": 0
+    },
+    {
+      "id": "mic-l1-centre",
+      "name": "MIC L1",
+      "short": "MIC L1",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        20215824.238,
+        33467065.008,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "mic-l2-centre",
+      "name": "MIC L2",
+      "short": "MIC L2",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        24708827.153,
+        40905202.459,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "mic-l3-centre",
+      "name": "MIC L3",
+      "short": "MIC L3",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        -22457170.266,
+        -37187612.396,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "mic-l4-centre",
+      "name": "MIC L4",
+      "short": "MIC L4",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        -20971933.23,
+        38045504.032,
+        0
+      ],
+      "radius": 0
+    },
+    {
+      "id": "mic-l5-centre",
+      "name": "MIC L5",
+      "short": "MIC L5",
+      "kind": "marker",
+      "group": "Lagrange",
+      "qt": false,
+      "pos": [
+        43435204.288,
+        -851406.956,
+        0
+      ],
+      "radius": 0
+    }
+  ],
+  "star": {
+    "radius": 696000
+  },
+  "halo": {
+    "name": "Aaron Halo",
+    "source": "CaptSheppard / Cornerstone (cstone.space), Vermessung Alpha 3.16.1",
+    "bands": [
+      {
+        "n": 1,
+        "inner": 19673000,
+        "outer": 19715000,
+        "densest": 19702000,
+        "above": 615,
+        "below": 635,
+        "note": "fast leer"
+      },
+      {
+        "n": 2,
+        "inner": 19815000,
+        "outer": 19914000,
+        "densest": 19857000,
+        "above": 2063,
+        "below": 2078
+      },
+      {
+        "n": 3,
+        "inner": 19914000,
+        "outer": 20071000,
+        "densest": 19995000,
+        "above": 4035,
+        "below": 4058
+      },
+      {
+        "n": 4,
+        "inner": 20129000,
+        "outer": 20230000,
+        "densest": 20168000,
+        "above": 2897,
+        "below": 2926
+      },
+      {
+        "n": 5,
+        "inner": 20230000,
+        "outer": 20407000,
+        "densest": 20320000,
+        "above": 4990,
+        "below": 5006,
+        "note": "dichtestes Band"
+      },
+      {
+        "n": 6,
+        "inner": 20407000,
+        "outer": 20540000,
+        "densest": 20471000,
+        "above": 4991,
+        "below": 5008
+      },
+      {
+        "n": 7,
+        "inner": 20540000,
+        "outer": 20750000,
+        "densest": 20662000,
+        "above": 4989,
+        "below": 5007
+      },
+      {
+        "n": 8,
+        "inner": 20793000,
+        "outer": 20968000,
+        "densest": 20881000,
+        "above": 3475,
+        "below": 3498
+      },
+      {
+        "n": 9,
+        "inner": 21046000,
+        "outer": 21132000,
+        "densest": 21082000,
+        "above": 2389,
+        "below": 2411
+      },
+      {
+        "n": 10,
+        "inner": 21159000,
+        "outer": 21299000,
+        "densest": 21207000,
+        "above": 2006,
+        "below": 2010
+      }
+    ]
+  }
+}
