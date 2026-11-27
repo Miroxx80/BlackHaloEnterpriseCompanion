@@ -238,6 +238,8 @@ const mod: BhModule = {
     /** Änderung übernehmen, speichern und an alle Geräte verteilen. origin: wer geändert hat (Gerät/OCR). */
     /** Overlay neu verteilen (wird unten gesetzt, sobald alles da ist). */
     let notifyOverlay = () => {};
+    /** Versatz des Mining-HUD aus der letzten OCR (das HUD wandert; der Energie-Bogen wandert mit dem Scan-Panel). */
+    let hudOffset: { dx: number; dy: number; at: number } | null = null;
     function commitScan(next: ScanDraft, origin: string) {
       current = { revision: current.revision + 1, scan: next };
       saveScan();
@@ -319,6 +321,7 @@ const mod: BhModule = {
         const sample = keepSample(panelPng, result);
         let applied = false;
         if (apply && result.panelFound) {
+          hudOffset = result.offset ? { dx: result.offset[0], dy: result.offset[1], at: Date.now() } : null;
           commitScan(validator.validateDraft({ ...result.draft, marks: result.marks, ocrSample: sample }), 'ocr');
           applied = true;
         }
@@ -373,7 +376,7 @@ const mod: BhModule = {
     const liveInterval = Math.max(300, Number(ctx.config.signatureIntervalMs) || 800);
     const gameProcess = String(ctx.config.gameProcess ?? 'StarCitizen.exe').toLowerCase();
     const sigSamplesDir = join(ctx.dataDir, 'signature-samples');
-    const live = { on: false, status: 'aus', ms: 0, captureMs: 0, readMs: 0 };
+    const live = { on: false, status: 'aus', ms: 0, captureMs: 0, readMs: 0, frameAt: 0 };
     /** Mindestpause nach jedem Bild, damit das Lesen neben dem Spiel nicht dauernd CPU belegt. */
     const LIVE_MIN_PAUSE = 600;
     let liveTimer: NodeJS.Timeout | null = null;
@@ -435,7 +438,8 @@ const mod: BhModule = {
           const { data: px, info } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true });
           const before = new Set(tracker.contacts(Date.now()).map((c) => c.value));
           const reads = await readSignatures({ width: info.width, height: info.height, data: px }, reader, detector, isKnown, [0, 0, info.width, info.height], [x, y]);
-          tracker.add(reads, Date.now());
+          live.frameAt = Date.now();
+          tracker.add(reads, live.frameAt);
           const fresh = tracker.contacts(Date.now()).filter((c) => !before.has(c.value));
           if (fresh.length) keepSignatureSample(png, { reads, confirmed: fresh.map((c) => c.value) });
           live.ms = Date.now() - t0;
@@ -518,7 +522,8 @@ const mod: BhModule = {
           backoffM: r.baseline.backoffM ?? null,
           laser: r.setup.laser.name,
           throttleMin: r.setup.laser.throttleMin,
-          gadget: best && r.gadgets.kind !== 'none-helps' ? { kind: r.gadgets.kind, name: best.gadget.name } : null,
+          // Nur wenn ein Gadget nötig oder empfohlen ist ("optional" gibt es bei fast jedem Stein)
+          gadget: best && (r.gadgets.kind === 'required' || r.gadgets.kind === 'recommended') ? { kind: r.gadgets.kind, name: best.gadget.name } : null,
           unchecked: Object.keys(current.scan.marks ?? {}).length,
         };
       } catch {
@@ -527,14 +532,27 @@ const mod: BhModule = {
     };
     const overlayState = () => ({
       ...overlayPrefs,
-      arc: POWER_ARC_1080,
+      // Bogen um den Versatz verschoben, den die OCR beim letzten Einlesen am Scan-Panel gemessen hat
+      arc: {
+        ...POWER_ARC_1080,
+        center: [POWER_ARC_1080.center[0] + (hudOffset?.dx ?? 0), POWER_ARC_1080.center[1] + (hudOffset?.dy ?? 0)] as [number, number],
+      },
+      hudOffset: hudOffset ? [hudOffset.dx, hudOffset.dy] : null,
       result: overlayResult(),
-      // Nur frisch gelesene Signaturen: Der Marker bewegt sich, sobald man sich dreht
+      // Nur Signaturen aus dem zuletzt gelesenen Bild: Marker bewegen sich, alte Beschriftungen würden überlappen
       contacts: tracker
         .contacts(Date.now())
-        .filter((c) => Date.now() - c.lastSeen < 4000)
+        .filter((c) => live.on && c.lastSeen === live.frameAt && Date.now() - c.lastSeen < 3000)
         .map((c) => ({ value: c.value, x: c.x, y: c.y, lastSeen: c.lastSeen, ...summarize(c.value) })),
     });
+    // Signatur-Beschriftungen nach 3 s ausblenden, auch wenn kein neues Bild kommt (z. B. Spiel nicht vorne)
+    const overlayClock = setInterval(() => notifyOverlay(), 1000);
+    overlayClock.unref();
+    const stopLiveOnly = stopLive;
+    stopLive = () => {
+      stopLiveOnly?.();
+      clearInterval(overlayClock);
+    };
     let lastOverlay = '';
     notifyOverlay = () => {
       const state = overlayState();

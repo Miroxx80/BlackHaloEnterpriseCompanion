@@ -60,6 +60,8 @@ function render() {
       }
     }
     svg.append(node('text', { x: 960, y: 1040, fill: '#00e5ff', 'font-size': 22, 'text-anchor': 'middle' }, 'KALIBRIERUNG: Liegt der blaue Bogen auf der Leistungs-Spur (0 unten, 100 oben)?'));
+    svg.append(node('text', { x: 960, y: 1066, fill: '#00e5ff', 'font-size': 16, 'text-anchor': 'middle' },
+      state.hudOffset ? `Versatz aus dem letzten eingelesenen Scan: ${state.hudOffset[0]} / ${state.hudOffset[1]} px` : 'Noch kein Scan eingelesen: Bogen an der Standard-Stelle'));
   }
 
   // Band der Halteleistung neben dem Energie-Bogen
@@ -83,8 +85,12 @@ function render() {
   }
 
   // Radar-Signaturen: Deutung neben dem Marker (nur frisch gelesene)
+  // Nah beieinander: nur eine Beschriftung (sonst überlappen sie)
+  const placed = [];
   for (const c of state.contacts || []) {
-    if (Date.now() - c.lastSeen > 4000) continue;
+    if (Date.now() - c.lastSeen > 3000) continue;
+    if (placed.some(([x, y]) => Math.abs(x - c.x) < 160 && Math.abs(y - c.y) < 40)) continue;
+    placed.push([c.x, c.y]);
     const top = c.candidates?.[0];
     const label = top ? top.label + (c.candidates.length > 1 ? ' (?)' : '') : 'unbekannt';
     svg.append(node('text', { x: c.x + 40, y: c.y + 6, fill: '#ffd28c', 'font-size': 19 }, `${label}`));
@@ -109,7 +115,7 @@ function connect() {
 }
 connect();
 // Signatur-Beschriftungen nach 4 s ausblenden, auch ohne neue Nachricht
-setInterval(() => { if (state?.contacts?.length) render(); }, 1000);
+setInterval(() => { if (state?.contacts?.length) render(); }, 500);
 </script>
 </body>
 </html>
