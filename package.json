@@ -1,6 +1,7 @@
 {
   "name": "black-halo-tool",
   "version": "0.3.0",
+  "license": "UNLICENSED",
   "description": "Modulares Org-Tool für Star Citizen (Black Halo Enterprises)",
   "author": "Black Halo Enterprises",
   "private": true,

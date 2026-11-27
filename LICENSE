@@ -1,0 +1,24 @@
+Copyright (c) 2026 Miroxx80. All rights reserved.
+
+The source code in this repository is published for transparency only.
+
+Permitted:
+- Viewing and reading the source code.
+- Downloading the released installer (GitHub Releases) and using the
+  application free of charge for personal, non-commercial purposes.
+
+Not permitted without prior written permission of the copyright holder:
+- Copying, modifying, merging or publishing the source code or parts of it.
+- Distributing the source code or modified versions of the application.
+- Selling the application or the source code, or using them commercially.
+
+Third-party components keep their own licences, for example the PaddleOCR
+models (Apache-2.0, see src/modules/mining/data/ocr/), the fonts (SIL Open
+Font License, see web/fonts/), the test images from ocrx-plugins (MIT, see
+test/fixtures/hud/signature/) and the npm packages (see their package
+licences). Star Citizen game data and screenshots belong to Cloud Imperium
+Games.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.

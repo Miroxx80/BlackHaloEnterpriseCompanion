@@ -1,6 +1,6 @@
 # Entwicklung
 
-Für alle, die am Tool mitbauen. Bedienung für Nutzer: [README](../README.md) und [Anleitung](ANLEITUNG.md). Projektziele, Entscheidungen und Stand: [PROJEKT-BRIEFING.md](PROJEKT-BRIEFING.md).
+Für die Entwickler des Tools (Mitarbeit nur nach Absprache, siehe [LICENSE](../LICENSE)). Bedienung für Nutzer: [README](../README.md) und [Anleitung](ANLEITUNG.md). Projektziele, Entscheidungen und Stand: [PROJEKT-BRIEFING.md](PROJEKT-BRIEFING.md).
 
 ## Starten (Windows)
 

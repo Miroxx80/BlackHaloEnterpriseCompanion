@@ -42,6 +42,8 @@ Die Versionen 0.1.0 und 0.2.0 haben noch keinen Update-Knopf. Von dort einmal de
 
 Black Halo ist ein inoffizielles Fanprojekt und steht in keiner Verbindung zur Cloud-Imperium-Unternehmensgruppe. Star Citizen®, Roberts Space Industries® und Cloud Imperium® sind Marken der Cloud Imperium Rights LLC. Spieldaten und Screenshots aus dem Spiel gehören ihren jeweiligen Eigentümern. Das Tool ist kostenlos und nicht kommerziell.
 
+**Lizenz:** Alle Rechte vorbehalten. Der Code ist nur zum Ansehen veröffentlicht. Das Tool darf jeder kostenlos privat nutzen, Kopieren, Ändern und Weitergeben des Codes sind nicht erlaubt. Details in [LICENSE](LICENSE). Pull Requests von außen werden nicht angenommen.
+
 **Datenquellen und Dank:**
 - Spieldaten (Star Citizen 4.10.3) über [scunpacked-data](https://github.com/StarCitizenWiki/scunpacked-data) (StarCitizenWiki, ScDataDumper von octfx). Spieldaten © Cloud Imperium Games.
 - Das Bruchmodell folgt den veröffentlichten Messungen von [Bedrock](https://github.com/SC-Ravaxx/Bedrock) (SC-Ravaxx). Code aus Bedrock wird nicht verwendet.
