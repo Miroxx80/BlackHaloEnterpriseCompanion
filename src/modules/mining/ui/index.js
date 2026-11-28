@@ -337,7 +337,17 @@ export async function mount(root, api) {
     place.addEventListener('change', () => {
       storage.save(SIG_LOCATION_KEY, place.value);
       schedule();
+      // Gilt auch fürs Live-Lesen und das Overlay (für alle Geräte gleich)
+      api.post('/api/mining/signature/live', { location: place.value }).then((s) => { liveState = s; renderLive(); }).catch((err) => { liveStatus.textContent = err.message; });
     });
+    /** Ort vom PC übernehmen (anderes Gerät hat ihn geändert), solange hier nicht gerade gewählt wird. */
+    const syncPlace = (s) => {
+      if (!s || typeof s.location !== 'string' || s.location === place.value || document.activeElement === place) return;
+      if (s.location && !sig.locations.some((l) => l.id === s.location)) return;
+      place.value = s.location;
+      storage.save(SIG_LOCATION_KEY, place.value);
+      if (input.value.trim()) schedule();
+    };
     // Live: Zahlen vom Bildschirm (Desktop-App liest das Band um das Fadenkreuz); Tippen übernimmt den Wert oben
     const liveButton = button('Live lesen', { iconName: 'scan', onclick: () => toggleLive() });
     liveButton.hidden = true;
@@ -381,7 +391,13 @@ export async function mount(root, api) {
               },
             },
             el('span', { class: 'val' }, fmtInt(c.value)),
-            el('span', {}, top ? el('b', {}, top.label) : 'unbekannt', top && c.candidates.length > 1 ? el('span', { class: 'mn-sig-notes' }, `mehrdeutig: ${c.candidates.map((x) => x.label).join(' / ')}`) : null),
+            el(
+              'span',
+              {},
+              top ? el('b', {}, top.label) : 'unbekannt',
+              c.outOfPlace ? el('span', { class: 'mn-sig-notes' }, `kommt laut Spieldaten nicht bei ${placeName()} vor (Ort richtig? Lesefehler?)`) : null,
+              top && c.candidates.length > 1 ? el('span', { class: 'mn-sig-notes' }, `mehrdeutig: ${c.candidates.map((x) => x.label).join(' / ')}`) : null,
+            ),
             el('span', { class: 'age' }, age(c.lastSeen)),
           );
           return item;
@@ -396,8 +412,15 @@ export async function mount(root, api) {
         liveStatus.textContent = err.message;
       }
     };
-    api.get('/api/mining/signature/live').then((s) => { liveState = s; renderLive(); }).catch(() => {});
-    api.on('signatures', (s) => { liveState = s; renderLive(); });
+    const placeName = () => sig.locations.find((l) => l.id === liveState?.location)?.name ?? 'diesem Ort';
+    api.get('/api/mining/signature/live').then((s) => {
+      liveState = s;
+      // Erster Start mit Ort nur auf diesem Gerät (ältere Version): an den PC geben, sonst den des PCs übernehmen
+      if (s.location === null && place.value) api.post('/api/mining/signature/live', { location: place.value }).then((n) => { liveState = n; renderLive(); }).catch(() => {});
+      else syncPlace(s);
+      renderLive();
+    }).catch(() => {});
+    api.on('signatures', (s) => { liveState = s; syncPlace(s); renderLive(); });
     clearInterval(liveClock);
     liveClock = setInterval(() => { if (liveState?.contacts.length) renderLive(); }, 1000);
 

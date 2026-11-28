@@ -117,6 +117,8 @@ function terms(data: Dataset, location: SignatureLocation | undefined, upTo: num
     const ground = fam.id === 'roc' || fam.id === 'fps';
     const outOfPlace = !!location && ground && (!location.surface || !location.ground.includes(fam.id));
     const minerals = fam.minerals.length ? `Mineral je nach Ort: ${fam.minerals.join(', ')}` : '';
+    // 2000 im All: Pflanzen wachsen nur auf Planeten und Monden, dort ist es Bergung
+    const name = fam.id === 'small' && location && !location.surface ? 'Bergung (Wrackteile)' : fam.label;
     for (let n = 1; n * fam.base <= upTo; n++) {
       const notes: string[] = [];
       if (minerals) notes.push(minerals);
@@ -124,7 +126,7 @@ function terms(data: Dataset, location: SignatureLocation | undefined, upTo: num
       if (outOfPlace) notes.push(location!.surface ? `laut Spieldaten nicht bei ${location!.name}` : 'nur auf Planeten und Monden');
       out.push({
         kind: 'ground',
-        part: { id: fam.id, name: fam.label, count: n, base: fam.base },
+        part: { id: fam.id, name, count: n, base: fam.base },
         value: n * fam.base,
         weight: (outOfPlace ? 0.01 : location ? 0.6 : 0.4) * (n > fam.maxCount ? 0.1 : 1),
         notes,
@@ -226,6 +228,31 @@ export function matchSignature(value: number, data: Dataset, options: { location
   );
   result.notes.push(near.length ? 'Kein genauer Treffer. Ähnliche Werte (Tippfehler?):' : 'Keine bekannte Signatur in der Nähe.');
   return result;
+}
+
+/** Kurzfassung für Live-Liste und Overlay. */
+export interface SignatureSummary {
+  exact: boolean;
+  /** Höchstens 3 Deutungen; mit Ort nur die, die dort vorkommen können (falls es solche gibt). */
+  candidates: { label: string; weight: number; kind: SignatureCandidate['kind'] }[];
+  /** Mit Ort: Keine Deutung passt laut Spieldaten zum Ort (gezeigt werden dann die besten ohne Ort). */
+  outOfPlace?: boolean;
+}
+
+/**
+ * Deutung für die Live-Liste und das Overlay. Mit Ort fallen Deutungen weg, die dort laut Spieldaten nicht vorkommen
+ * (z. B. ROC-Vorkommen im Aaron Halo); Anteile werden unter den übrigen neu verteilt.
+ */
+export function summarizeSignature(value: number, data: Dataset, location?: string): SignatureSummary {
+  const m = matchSignature(value, data, { location });
+  const inPlace = m.candidates.filter((c) => !c.outOfPlace);
+  const list = inPlace.length ? inPlace : m.candidates;
+  const total = list.reduce((s, c) => s + c.weight, 0) || 1;
+  return {
+    exact: m.exact,
+    candidates: list.slice(0, 3).map((c) => ({ label: c.label, weight: +(c.weight / total).toFixed(4), kind: c.kind })),
+    ...(m.location && !inPlace.length && m.candidates.length ? { outOfPlace: true } : {}),
+  };
 }
 
 /** Übersicht für die Oberfläche: alle Schiffs-Erze mit ihren möglichen Werten. */

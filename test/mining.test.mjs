@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startApp } from '../dist/core/app.js';
 import { calculate, distanceTable } from '../dist/modules/mining/calc.js';
-import { matchSignature, parseSignature, signatureTable } from '../dist/modules/mining/signature.js';
+import { matchSignature, parseSignature, signatureTable, summarizeSignature } from '../dist/modules/mining/signature.js';
 
 const data = JSON.parse(readFileSync(new URL('../src/modules/mining/data/dataset.json', import.meta.url), 'utf8'));
 const L = (name) => data.lasers.find((l) => l.name === name).id;
@@ -496,4 +496,54 @@ test('Abstand -> Leistung: linearer Abfall zwischen optimaler und maximaler Reic
   // Sehr kleiner Stein: passt erst kurz vor der maximalen Reichweite -> Hinweis
   const tiny = calculate(data, scan({ mass: 150, resistance: 20, instability: 10 }), { laserId: helix.id, moduleIds: [] });
   assert.deepEqual(tiny.baseline.nearMaxRange, { fromM: tiny.baseline.distances[0].m, maxM: 45 });
+});
+
+test('Live-Deutung mit Ort: was dort nicht vorkommt, fällt weg (ROC im Aaron Halo)', () => {
+  const halo = 'HPP_AaronHalo';
+  // 4.000 ohne Ort: ROC oder Bergung/Pflanzen x2; im All nur Bergung (Pflanzen wachsen nur auf Planeten/Monden)
+  assert.deepEqual(summarizeSignature(4000, data).candidates.map((c) => c.label), ['ROC-Vorkommen (Bodenfahrzeug)', 'Bergung (Wrackteile) oder Pflanzen ×2']);
+  const inHalo = summarizeSignature(4000, data, halo);
+  assert.deepEqual(inHalo.candidates.map((c) => [c.label, c.weight]), [['Bergung (Wrackteile) ×2', 1]]);
+  assert.equal(inHalo.outOfPlace, undefined);
+  // Auf einem Mond mit ROC bleibt ROC
+  const moon = data.signatures.locations.find((l) => l.surface && l.ground.includes('roc')).id;
+  assert.ok(summarizeSignature(4000, data, moon).candidates.some((c) => c.label.startsWith('ROC')));
+  // Erz, das es im Halo nicht gibt: Deutung bleibt, aber als "passt nicht zum Ort" markiert
+  const stileron = summarizeSignature(3185, data, halo);
+  assert.deepEqual(stileron.candidates.map((c) => c.label), ['Stileron']);
+  assert.equal(stileron.outOfPlace, true);
+  // Anteile unter den übrigen neu verteilt
+  for (const v of [4000, 11565, 60000]) {
+    const s = summarizeSignature(v, data, halo);
+    assert.ok(Math.abs(s.candidates.reduce((a, c) => a + c.weight, 0) - 1) < 0.01 || s.candidates.length === 3, String(v));
+  }
+});
+
+test('API: Ort fürs Live-Lesen (für alle Geräte, bleibt nach Neustart, auch ohne Desktop-App)', async () => {
+  const dataRoot = mkdtempSync(join(tmpdir(), 'bh-sigloc-'));
+  const opts = { overrides: { server: { host: '127.0.0.1', port: 0 } }, dataRoot };
+  const post = (base, body) => fetch(`${base}/signature/live`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  let app = await startApp(opts);
+  let base = `http://127.0.0.1:${app.port}/api/mining`;
+  try {
+    assert.equal((await (await fetch(`${base}/signature/live`)).json()).location, null, 'noch nie gewählt');
+    assert.equal((await post(base, {})).status, 400);
+    assert.equal((await post(base, { location: 'Mars' })).status, 400);
+    assert.equal((await post(base, { location: 42 })).status, 400);
+    assert.equal((await post(base, { on: true })).status, 501, 'Live an braucht die Desktop-App, der Ort nicht');
+    const r = await post(base, { location: 'HPP_AaronHalo' });
+    assert.equal(r.status, 200);
+    assert.equal((await r.json()).location, 'HPP_AaronHalo');
+  } finally {
+    await app.stop();
+  }
+  app = await startApp(opts);
+  base = `http://127.0.0.1:${app.port}/api/mining`;
+  try {
+    assert.equal((await (await fetch(`${base}/signature/live`)).json()).location, 'HPP_AaronHalo');
+    // "Ort: egal" ist eine bewusste Wahl ('' statt null)
+    assert.equal((await (await post(base, { location: '' })).json()).location, '');
+  } finally {
+    await app.stop();
+  }
 });

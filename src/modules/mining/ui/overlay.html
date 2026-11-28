@@ -39,7 +39,7 @@ function render() {
     if (placed.some(([x, y]) => Math.abs(x - c.x) < 160 && Math.abs(y - c.y) < 40)) continue;
     placed.push([c.x, c.y]);
     const top = c.candidates?.[0];
-    const label = top ? top.label + (c.candidates.length > 1 ? ' (?)' : '') : 'unbekannt';
+    const label = top ? top.label + (c.outOfPlace ? ' (passt nicht zum Ort)' : c.candidates.length > 1 ? ' (?)' : '') : 'unbekannt';
     svg.append(node('text', { x: c.x + 40, y: c.y + 6, fill: '#ffd28c', 'font-size': 19 }, `${label}`));
     svg.append(node('text', { x: c.x + 40, y: c.y + 26, fill: '#ffffff', 'font-size': 13, opacity: 0.8 }, fmt(c.value)));
   }

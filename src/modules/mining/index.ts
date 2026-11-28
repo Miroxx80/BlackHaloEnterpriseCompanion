@@ -14,7 +14,7 @@ import {
   type ScreenCaptureService,
 } from '../../core/types.js';
 import { calculate, DEFAULT_OPTIONS, InputError, POWER_BONUS_RANGE } from './calc.js';
-import { matchSignature, parseSignature, signatureTable } from './signature.js';
+import { matchSignature, parseSignature, signatureTable, summarizeSignature } from './signature.js';
 import { createScanValidator, emptyDraft, type ScanDraft } from './scanState.js';
 import { noDetector, noReader, type LineReader, type TextDetector } from './ocr/engine.js';
 import { ScreenError } from './ocr/image.js';
@@ -408,10 +408,19 @@ const mod: BhModule = {
     /** Mindestpause nach jedem Bild, damit das Lesen neben dem Spiel nicht dauernd CPU belegt. */
     const LIVE_MIN_PAUSE = 600;
     let liveTimer: NodeJS.Timeout | null = null;
-    const summarize = (value: number) => {
-      const m = matchSignature(value, data);
-      return { exact: m.exact, candidates: m.candidates.slice(0, 3).map((c) => ({ label: c.label, weight: c.weight, kind: c.kind })) };
-    };
+    // Ort fürs Live-Lesen (für alle Geräte gleich, bleibt nach Neustart): Deutungen, die dort nicht vorkommen, fallen weg
+    const locationFile = join(ctx.dataDir, 'signature-location.json');
+    const validLocation = (v: unknown): v is string => typeof v === 'string' && data.signatures.locations.some((l) => l.id === v);
+    let liveLocation: string | undefined;
+    /** Wurde der Ort je gewählt? (Sonst übernimmt der PC beim ersten Mal den eines Geräts.) */
+    let locationChosen = existsSync(locationFile);
+    try {
+      const saved = locationChosen ? JSON.parse(readFileSync(locationFile, 'utf8')).location : undefined;
+      if (validLocation(saved)) liveLocation = saved;
+    } catch (err) {
+      ctx.log.warn(`Ort fürs Live-Lesen nicht lesbar: ${(err as Error).message}`);
+    }
+    const summarize = (value: number) => summarizeSignature(value, data, liveLocation);
     const liveState = () => ({
       on: live.on,
       status: live.status,
@@ -419,6 +428,8 @@ const mod: BhModule = {
       captureMs: live.captureMs,
       readMs: live.readMs,
       capture: Boolean(screen),
+      // null: noch nie gewählt; '': bewusst "Ort: egal"
+      location: locationChosen ? (liveLocation ?? '') : null,
       contacts: tracker.contacts(Date.now()).map((c) => ({ ...c, ...summarize(c.value) })),
     });
     let lastBroadcast = '';
@@ -553,12 +564,33 @@ const mod: BhModule = {
     /** GET /api/mining/signature/live: Stand des Live-Lesens (an, Status, bestätigte Kontakte). */
     ctx.http.get('/signature/live', async () => liveState());
 
-    /** POST /api/mining/signature/live { on: true|false }: Live-Lesen ein- oder ausschalten (für alle Geräte). */
+    /**
+     * POST /api/mining/signature/live { on?: true|false, location?: "<Ort-ID>"|"" }: Live-Lesen ein/aus und Ort für die
+     * Deutung (für alle Geräte; "" = Ort egal).
+     */
     ctx.http.post('/signature/live', async (req, reply) => {
-      const on = (req.body as { on?: unknown } | null)?.on;
-      if (typeof on !== 'boolean') return reply.code(400).send({ error: 'on: true oder false' });
-      if (on && !screen) return reply.code(501).send({ error: 'Live-Lesen geht nur, wenn Black Halo als Desktop-App läuft.' });
-      setLive(on);
+      const body = (req.body ?? {}) as { on?: unknown; location?: unknown };
+      const hasOn = 'on' in body;
+      const hasLocation = 'location' in body;
+      if (!hasOn && !hasLocation) return reply.code(400).send({ error: 'on: true oder false, oder location' });
+      if (hasOn && typeof body.on !== 'boolean') return reply.code(400).send({ error: 'on: true oder false' });
+      if (hasLocation && body.location !== '' && !validLocation(body.location)) return reply.code(400).send({ error: 'Unbekannter Ort' });
+      if (body.on === true && !screen) return reply.code(501).send({ error: 'Live-Lesen geht nur, wenn Black Halo als Desktop-App läuft.' });
+      if (hasLocation) {
+        const next = body.location === '' ? undefined : (body.location as string);
+        if (next !== liveLocation || !locationChosen) {
+          liveLocation = next;
+          locationChosen = true;
+          try {
+            writeFileSync(locationFile, JSON.stringify({ location: liveLocation ?? '' }));
+          } catch (err) {
+            ctx.log.warn(`Ort fürs Live-Lesen nicht gespeichert: ${(err as Error).message}`);
+          }
+          broadcastLive(true);
+          notifyOverlay();
+        }
+      }
+      if (hasOn) setLive(body.on as boolean);
       return liveState();
     });
 
