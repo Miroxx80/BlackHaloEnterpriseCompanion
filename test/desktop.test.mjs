@@ -56,7 +56,9 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
     // Verbindungsanzeige der Shell: Text der Kopf-/Seitenleiste ('Verbunden' / 'Getrennt')
     const isOnline = () => win.evaluate(() => document.querySelector('#conn .conn-state')?.textContent === 'Verbunden');
     await win.waitForSelector('nav a[data-id="pairing"]', { timeout: 15000 });
-    await win.waitForSelector('.keys .key'); // Controls hat seine Buttons per REST geladen (Token im Header ok)
+    // Controls ist gesperrt (ausgegraut, kein Link); erste Seite ist Mining, das seine Daten per REST lädt (Token im Header ok)
+    await win.waitForSelector('nav a.nav-item.is-locked[data-id="controls"]:not([href])');
+    await win.waitForSelector('button[aria-label="Am PC einlesen"]', { state: 'attached' });
 
     mark('Token');
     // Token wurde erzeugt, gespeichert und aus der Adresszeile entfernt
@@ -69,8 +71,8 @@ test('Desktop-App: Fenster, QR, Absturz-Neustart, Tray-Betrieb', { skip: !electr
 
     mark('Fokus');
     // Fenster ist in allen Ansichten ein normales, fokussierbares Fenster
-    await win.evaluate(() => (location.hash = 'controls'));
-    await win.waitForSelector('.keys .key');
+    await win.evaluate(() => (location.hash = 'navigation'));
+    await win.waitForSelector('.nv-pick select');
     assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFocusable()), true);
 
     mark('QR');

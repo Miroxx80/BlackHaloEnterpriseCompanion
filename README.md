@@ -4,7 +4,7 @@ Begleit-App für Star Citizen unter Windows. Läuft im Tray neben dem Spiel, ste
 
 ## Funktionen
 
-- **Controls:** Knöpfe auf Handy oder Tablet lösen Tasten im Spiel aus (Fahrwerk, Energie, ...). Frei belegbar.
+- **Controls** (zur Zeit gesperrt): Knöpfe auf Handy oder Tablet lösen Tasten im Spiel aus (Fahrwerk, Energie, ...). Frei belegbar. Das Menü ist ausgegraut, bis es fertig ist.
 - **Mining Companion:** Rechner für die Prospector. Zeigt, ob ein Stein brechbar ist, mit welcher Laserleistung und auf welche Entfernung (z. B. „45 % bei 39 m“), und welche Gadgets passen.
   - **Scan einlesen:** liest das Scan-Panel per Texterkennung vom Bildschirm (Knopf „Am PC einlesen“ am Handy). Unsichere Werte werden gelb markiert.
   - **Radar-Signatur:** deutet die Zahl vom Radar (z. B. 16.960 = Kupfer ×4), auch live vom Bildschirm.

@@ -215,33 +215,43 @@ async function show(id) {
 }
 
 function buildNav(modules) {
-  // Reihenfolge: nav.order (Standard 0), sonst wie vom Server (nach ID); z. B. "Dev" ganz unten
+  // Reihenfolge: nav.order (Standard 0), sonst wie vom Server (nach ID); z. B. "Dev" ganz unten.
+  // Ausgeschaltete Module (Config "enabled": false, z. B. Controls zur Zeit) stehen ausgegraut und gesperrt da.
   const items = modules
-    .filter((m) => m.state === 'running' && m.ui && m.nav)
+    .filter((m) => (m.state === 'running' || m.state === 'disabled') && m.ui && m.nav)
     .map((m, i) => ({ m, i }))
     .sort((a, b) => (a.m.nav.order ?? 0) - (b.m.nav.order ?? 0) || a.i - b.i)
     .map(({ m }) => m);
-  const key = items.map((m) => m.id).join(',');
+  const key = items.map((m) => `${m.id}:${m.state}`).join(',');
   if (key === navKey) return; // nichts geändert (z. B. nach Reconnect)
   navKey = key;
+  // Nummern nur für nutzbare Module
   metaById = new Map(
-    items.map((m, i) => [
-      m.id,
-      { index: String(i + 1).padStart(2, '0'), label: m.nav.label, description: m.nav.description ?? m.name, icon: m.nav.icon },
-    ]),
+    items
+      .filter((m) => m.state === 'running')
+      .map((m, i) => [
+        m.id,
+        { index: String(i + 1).padStart(2, '0'), label: m.nav.label, description: m.nav.description ?? m.name, icon: m.nav.icon },
+      ]),
   );
   for (const a of nav.querySelectorAll('a.nav-item')) a.remove();
   for (const m of items) {
     const meta = metaById.get(m.id);
     const a = document.createElement('a');
     a.className = 'nav-item';
-    a.href = `#${m.id}`;
     a.dataset.id = m.id;
+    if (m.state === 'running') a.href = `#${m.id}`;
+    else {
+      // Kein Link: nicht anklickbar, nicht per Tab erreichbar
+      a.classList.add('is-locked');
+      a.setAttribute('aria-disabled', 'true');
+      a.title = `${m.nav.label}: zur Zeit gesperrt`;
+    }
     const label = document.createElement('span');
     label.textContent = m.nav.label;
     const idx = document.createElement('span');
     idx.className = 'nav-idx';
-    idx.textContent = meta.index;
+    idx.textContent = meta?.index ?? 'aus';
     a.append(icon(m.nav.icon ?? 'module'), label, idx);
     nav.append(a);
   }
@@ -250,7 +260,7 @@ function buildNav(modules) {
 
 function route() {
   const wanted = location.hash.slice(1);
-  const ids = [...nav.querySelectorAll('a.nav-item')].map((a) => a.dataset.id);
+  const ids = [...nav.querySelectorAll('a.nav-item:not(.is-locked)')].map((a) => a.dataset.id);
   const id = ids.includes(wanted) ? wanted : ids[0] || null;
   if (!current || current.id !== id) show(id);
 }

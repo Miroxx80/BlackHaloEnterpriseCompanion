@@ -122,6 +122,8 @@ button, input, select { font: inherit; color: inherit; }
   transition: background .15s var(--ease), color .15s var(--ease);
 }
 .nav-item:hover { background: var(--s2); color: var(--text); }
+.nav-item.is-locked { opacity: .38; cursor: not-allowed; }
+.nav-item.is-locked:hover { background: transparent; color: var(--text-dim); }
 .nav-idx { margin-left: auto; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0; color: var(--text-faint); }
 .nav-item[aria-current="page"] {
   background: var(--amber); color: var(--on-amber);

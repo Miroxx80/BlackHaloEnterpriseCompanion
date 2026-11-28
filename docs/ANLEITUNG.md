@@ -10,6 +10,8 @@ Einstellungen, Zugangsschlüssel und Loadouts liegen unter `%APPDATA%\BlackHalo`
 
 ## Tasten anpassen
 
+Controls ist zur Zeit **gesperrt**: Das Menü ist ausgegraut, und das Tool sendet keine Tasten. Zum Testen einschalten: in der lokalen Config `"modules": { "controls": { "enabled": true } }`, dann das Tool neu starten.
+
 Die Buttons stehen unter `modules.controls` in der Config. Eigene Buttons gehören in die lokale Config (`%APPDATA%\BlackHalo\config\local.json`). Dort ersetzt die Liste `buttons` die Standardliste komplett.
 
 ```json

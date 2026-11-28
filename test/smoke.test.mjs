@@ -7,7 +7,8 @@ import { startApp } from '../dist/core/app.js';
 import { lanInterfaces } from '../dist/core/net.js';
 import { ensureToken } from '../dist/desktop/token.js';
 
-const LOCAL = { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' } } };
+// Controls ist im Standard gesperrt (enabled: false); hier eingeschaltet, um das Modul mitzuprüfen
+const LOCAL = { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock', enabled: true } } };
 
 /** Kleiner WS-Client: sammelt Nachrichten und wartet gezielt auf einen Typ. */
 function openWs(port, query = '') {
@@ -73,6 +74,23 @@ test('echte Module: REST, UI-Dateien und WebSocket', async () => {
     ws.send('controls:press', null);
     await ws.next('controls:error');
     ws.close();
+  } finally {
+    await app.stop();
+  }
+});
+
+test('Standard: Controls gesperrt (keine Tastendrücke, keine Oberfläche), Rest läuft', async () => {
+  const app = await startApp({ overrides: { server: { host: '127.0.0.1', port: 0 } } });
+  const base = `http://127.0.0.1:${app.port}`;
+  try {
+    const mods = await (await fetch(`${base}/api/modules`)).json();
+    const controls = mods.modules.find((m) => m.id === 'controls');
+    assert.equal(controls.state, 'disabled');
+    assert.equal(controls.nav.label, 'Controls', 'Shell zeigt es ausgegraut an');
+    assert.ok(mods.modules.filter((m) => m.id !== 'controls').every((m) => m.state === 'running'));
+    assert.equal((await fetch(`${base}/api/controls/buttons`)).status, 404);
+    assert.equal((await fetch(`${base}/api/controls/press/landing-gear`, { method: 'POST' })).status, 404);
+    assert.equal((await fetch(`${base}/modules/controls/index.js`)).status, 404);
   } finally {
     await app.stop();
   }

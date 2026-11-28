@@ -144,4 +144,4 @@ Module sollen sich nicht gegenseitig importieren. Für Zusammenarbeit gibt es `c
 
 ## Controls: Buttons-Konfiguration für Entwickler
 
-Siehe [Anleitung, Tasten anpassen](ANLEITUNG.md#tasten-anpassen). Treiber und Tastennamen: `src/modules/controls/input/`.
+Im Standard gesperrt (`config/default.json`: `"enabled": false`). Ausgeschaltete Module mit Oberfläche zeigt die Shell ausgegraut und ohne Link. Siehe [Anleitung, Tasten anpassen](ANLEITUNG.md#tasten-anpassen). Treiber und Tastennamen: `src/modules/controls/input/`.

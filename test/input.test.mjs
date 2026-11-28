@@ -117,6 +117,7 @@ test('controls: Warteschlange, Halten, Überlastschutz', async () => {
       ...LOCAL,
       modules: {
         controls: {
+          enabled: true,
           driver: 'mock',
           buttons: [
             { id: 'kurz', label: 'Kurz', key: 'alt+n' },
@@ -150,7 +151,7 @@ test('controls: Warteschlange, Halten, Überlastschutz', async () => {
 
 test('controls: Tippfehler in der Config -> Modul fällt aus, Meldung nennt den Button', async () => {
   const app = await startApp({
-    overrides: { ...LOCAL, modules: { controls: { driver: 'mock', buttons: [{ id: 'x', label: 'X', key: 'alt+gibtsnicht' }] } } },
+    overrides: { ...LOCAL, modules: { controls: { enabled: true, driver: 'mock', buttons: [{ id: 'x', label: 'X', key: 'alt+gibtsnicht' }] } } },
   });
   try {
     const mods = await (await fetch(`http://127.0.0.1:${app.port}/api/modules`)).json();
@@ -164,7 +165,7 @@ test('controls: Tippfehler in der Config -> Modul fällt aus, Meldung nennt den 
 });
 
 test('controls: Treiber "windows" außerhalb von Windows -> klare Meldung', { skip: process.platform === 'win32' }, async () => {
-  const app = await startApp({ overrides: { ...LOCAL, modules: { controls: { driver: 'windows' } } } });
+  const app = await startApp({ overrides: { ...LOCAL, modules: { controls: { enabled: true, driver: 'windows' } } } });
   try {
     const mods = await (await fetch(`http://127.0.0.1:${app.port}/api/modules`)).json();
     assert.match(mods.modules.find((m) => m.id === 'controls').error, /nur unter Windows/);
