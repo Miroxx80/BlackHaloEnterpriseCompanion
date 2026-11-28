@@ -21,7 +21,7 @@ Es öffnen sich ein Fenster und ein Icon im Tray. Fenster schließen beendet die
 Tests:
 - `npm test`: Kern und Module
 - `npm run test:desktop`: Desktop-App Ende-zu-Ende (braucht Playwright, wird sonst übersprungen)
-- OCR messen: `npm run build`, dann `node scripts/ocr-eval.mjs <Ordner ocr-samples\confirmed>` (Trefferquote, unnötiges Gelb, falsche Werte ohne Markierung). Die Beispiele entstehen über „Alles geprüft“ im Mining-Rechner.
+- OCR messen: `npm run build`, dann `node scripts/ocr-eval.mjs <Ordner ocr-samples\confirmed>` (Trefferquote, unnötiges Gelb, falsche Werte ohne Markierung). Die Beispiele entstehen über „Alles geprüft“ im Mining-Rechner, aber nur, wenn im Menü Dev „OCR-Scans als Bild speichern“ an ist (Standard aus). Startwert ändern: `modules.dev.saveOcrSamples` in `config\local.json`.
 
 ## Release bauen und veröffentlichen
 
@@ -121,7 +121,7 @@ const mod: BhModule = {
     name: 'Mein Modul',
     version: '0.1.0',
     roles: ['companion'],            // oder ['hub'] oder beides
-    nav: { label: 'Mein Modul', icon: 'module', description: 'Kurzbeschreibung' },  // Navigation (Icon-Namen: web/icons.js)
+    nav: { label: 'Mein Modul', icon: 'module', description: 'Kurzbeschreibung' },  // Navigation (Icon-Namen: web/icons.js; optional order: Position, Standard 0)
     ui: true,                        // hat einen Ordner ui/
   },
   setup(ctx) {

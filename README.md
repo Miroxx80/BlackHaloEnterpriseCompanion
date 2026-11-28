@@ -11,6 +11,7 @@ Begleit-App für Star Citizen unter Windows. Läuft im Tray neben dem Spiel, ste
   - **Overlay:** zeigt die Deutung der Signaturen direkt neben den Markern über dem Spiel.
 - **Sprunghilfen (Aaron Halo):** Start und Ziel in Stanton wählen, das Tool sagt, bei welcher Restentfernung im HUD du den Quantum-Sprung abbrichst, um mitten im Asteroidengürtel zu landen (z. B. MIC-L1 -> Hurston: „Bei 13,2 Gm abbrechen“, Band 5). Mit Vorschlägen für Ziele, deren Route durch ein bestimmtes Band führt.
 - **Sync:** PC, Handy und zweiter Bildschirm zeigen denselben Stand.
+- **Dev:** Schalter für die Entwicklung, z. B. ob Scans als Bild gespeichert werden (Standard aus).
 
 Voraussetzungen: Windows und Star Citizen im Modus „Randloses Fenster“. Texterkennung und Overlay brauchen 1920×1080 und das englische HUD.
 

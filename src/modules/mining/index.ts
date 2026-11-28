@@ -1,8 +1,18 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import type { FastifyReply } from 'fastify';
-import { SCREEN_CAPTURE_SERVICE, type BhModule, type ScreenCaptureService } from '../../core/types.js';
+import {
+  DEV_DEFAULTS,
+  DEV_SETTINGS_SERVICE,
+  SAMPLE_STORES_SERVICE,
+  SCREEN_CAPTURE_SERVICE,
+  type BhModule,
+  type DevSettings,
+  type DevSettingsService,
+  type SampleStore,
+  type ScreenCaptureService,
+} from '../../core/types.js';
 import { calculate, DEFAULT_OPTIONS, InputError, POWER_BONUS_RANGE } from './calc.js';
 import { matchSignature, parseSignature, signatureTable } from './signature.js';
 import { createScanValidator, emptyDraft, type ScanDraft } from './scanState.js';
@@ -259,6 +269,8 @@ const mod: BhModule = {
     const detector: TextDetector = ctx.config.ocr === false ? noDetector : createPaddleDetector(ocrDir);
     // Eigene Ziffernerkennung (bestätigt nur zweifelhafte Ziffern); fehlt das Modell, bleibt alles markiert wie bisher
     const glyphs = ctx.config.ocr === false ? null : loadGlyphModel(ocrDir);
+    /** Schalter aus dem Menü "Dev" (zur Zeit des Aufrufs gelesen); ohne Dev-Modul gilt der Standard (aus). */
+    const devSetting = (key: keyof DevSettings) => ctx.services.get<DevSettingsService>(DEV_SETTINGS_SERVICE)?.get()[key] ?? DEV_DEFAULTS[key];
     const samplesDir = join(ctx.dataDir, 'ocr-samples');
     const confirmedDir = join(samplesDir, 'confirmed');
     const MAX_SAMPLES = 60;
@@ -317,7 +329,8 @@ const mod: BhModule = {
     async function ocrImage(image: Buffer, apply: boolean, reply: FastifyReply) {
       try {
         const { result, panelPng } = await readScan(image, reader, data.ores, { detector, glyphs });
-        const sample = keepSample(panelPng, result);
+        // Beispielbild nur, wenn im Menü "Dev" eingeschaltet (sonst wächst der Ordner bei jedem Scan)
+        const sample = devSetting('saveOcrSamples') ? keepSample(panelPng, result) : undefined;
         let applied = false;
         if (apply && result.panelFound) {
           commitScan(validator.validateDraft({ ...result.draft, marks: result.marks, ocrSample: sample }), 'ocr');
@@ -421,6 +434,41 @@ const mod: BhModule = {
         ctx.log.warn(`Signatur-Beispiel nicht gespeichert: ${(err as Error).message}`);
       }
     };
+
+    // Beispiel-Ordner fürs Menü "Dev": Größe anzeigen und leeren (nur Dateien direkt im Ordner, confirmed/ ist ein eigener)
+    const sampleStore = (id: string, label: string, dir: string, image: string): SampleStore => {
+      const files = () => (existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).filter((e) => e.isFile()) : []);
+      return {
+        id,
+        label,
+        path: dir,
+        stats() {
+          const list = files();
+          let bytes = 0;
+          for (const f of list) {
+            try {
+              bytes += statSync(join(dir, f.name)).size;
+            } catch {
+              // inzwischen gelöscht (Rotation)
+            }
+          }
+          return { files: list.length, bytes, samples: list.filter((f) => f.name.endsWith(image)).length };
+        },
+        clear() {
+          let n = 0;
+          for (const f of files()) {
+            rmSync(join(dir, f.name), { force: true });
+            n++;
+          }
+          return n;
+        },
+      };
+    };
+    ctx.services.provide<SampleStore[]>(SAMPLE_STORES_SERVICE, [
+      sampleStore('ocr', 'OCR-Scans (letzte Lesungen)', samplesDir, '-panel.png'),
+      sampleStore('ocr-confirmed', 'OCR-Scans bestätigt (Trainingsdaten)', confirmedDir, '-panel.png'),
+      sampleStore('signature', 'Radar-Signaturen', sigSamplesDir, '-band.png'),
+    ]);
     const liveTick = async () => {
       liveTimer = null;
       if (!live.on || !screen) return;
@@ -439,7 +487,7 @@ const mod: BhModule = {
           live.frameAt = Date.now();
           tracker.add(reads, live.frameAt);
           const fresh = tracker.contacts(Date.now()).filter((c) => !before.has(c.value));
-          if (fresh.length) keepSignatureSample(png, { reads, confirmed: fresh.map((c) => c.value) });
+          if (fresh.length && devSetting('saveSignatureSamples')) keepSignatureSample(png, { reads, confirmed: fresh.map((c) => c.value) });
           live.ms = Date.now() - t0;
           live.readMs = live.ms - live.captureMs;
           live.status = 'läuft';

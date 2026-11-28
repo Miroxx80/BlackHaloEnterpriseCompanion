@@ -52,7 +52,7 @@ Das Tool liest das Scan-Panel aus einem Bild des Bildschirms (1920×1080, englis
 - Der Hotkey Alt+Shift+S kommt nicht an, solange das Spiel den Fokus hat. Im Spiel deshalb den Knopf am Handy nutzen.
 - Alternativ im Rechner: „Screenshot einlesen“ (Bilddatei) oder ein Bild mit **Strg+V** einfügen.
 - Unsichere Werte (v. a. 0/6/8/9) sind **gelb markiert**. Prüfen, ggf. korrigieren, dann „Alles geprüft“. Vor hellem Planetenboden ist mehr gelb. Bei einem anderen FOV als 86 ist ebenfalls mehr gelb: Die eigene Ziffernerkennung, die viele Zweifel bei FOV 86 ausräumt, ist nur dafür gelernt. Erkennt das Tool die Größe des Panels nicht sicher, ist alles gelb. Ein JPEG oder ein Bild in anderer Auflösung ergibt ebenfalls deutlich mehr gelb (die Kompression verändert die Ziffern); am besten „Am PC einlesen“ oder ein PNG in 1920×1080.
-- „Alles geprüft“ speichert den Scan zusammen mit dem Bildausschnitt in `data\mining\ocr-samples\confirmed` (lokal, bis 200 Stück). Damit wird die Erkennung verbessert. Die letzten 60 Lesungen liegen in `data\mining\ocr-samples`.
+- Bilder werden standardmäßig **nicht** gespeichert. Wer beim Verbessern der Texterkennung hilft, schaltet im Menü **Dev** „OCR-Scans als Bild speichern“ ein. Dann liegen die letzten 60 Lesungen in `data\mining\ocr-samples`, und „Alles geprüft“ legt den Scan mit Bildausschnitt in `data\mining\ocr-samples\confirmed` ab (bis 200 Stück, ca. 0,5 MB pro Scan). Im Menü Dev steht auch, wie viel Platz die Ordner belegen, und man kann sie dort leeren.
 - Die Texterkennung (PaddleOCR) läuft lokal auf der CPU, ca. 0,5–0,7 s pro Bild (bei anderem FOV etwas länger, ohne Scan-Panel im Bild bis ~1 s).
 - Ausschalten: in `config\local.json` unter `modules.mining` `"ocr": false`.
 
@@ -83,3 +83,13 @@ Der Aaron Halo ist der Asteroidengürtel in Stanton (rund 19,7 bis 21,3 Gm vom S
 - Unter 1 Gm vor dem Ziel zeigt das HUD keine Gm mehr. Bänder, die erst so kurz vor dem Ziel kommen (z. B. auf dem Weg zur Wikelo Emporium Selo Station, die selbst in Band 4 liegt), stehen in der Tabelle mit „–“ und den Bereich in Mm (1 Mm = 1.000 km).
 - Im Spiel bestätigt (4.10): MIC-L1 Shallow Frontier Station -> Hurston, Abbruch bei 13,2 Gm, sehr dichter Bereich.
 - Daten: Positionen aus den Spieldaten 4.10.3, Bänder aus der Vermessung von CaptSheppard / Cornerstone (Alpha 3.16.1).
+
+## Menü „Dev“
+
+Schalter für die Entwicklung des Tools. Für normales Spielen alles auf „Aus“ lassen.
+
+- **OCR-Scans als Bild speichern:** Trainingsdaten für die Texterkennung (siehe Mining).
+- **Radar-Bilder speichern:** Bilder vom Live-Lesen der Radar-Signaturen (die letzten 60).
+- **Gespeicherte Bilder:** Größe der Ordner und Knopf zum Leeren. Die bestätigten Scans (Trainingsdaten) sind ein eigener Ordner und bleiben beim Leeren der übrigen erhalten.
+
+Die Schalter gelten für alle Geräte und bleiben nach einem Neustart oder Update erhalten (`data\dev\settings.json`).

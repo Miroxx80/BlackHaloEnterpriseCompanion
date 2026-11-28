@@ -215,7 +215,12 @@ async function show(id) {
 }
 
 function buildNav(modules) {
-  const items = modules.filter((m) => m.state === 'running' && m.ui && m.nav);
+  // Reihenfolge: nav.order (Standard 0), sonst wie vom Server (nach ID); z. B. "Dev" ganz unten
+  const items = modules
+    .filter((m) => m.state === 'running' && m.ui && m.nav)
+    .map((m, i) => ({ m, i }))
+    .sort((a, b) => (a.m.nav.order ?? 0) - (b.m.nav.order ?? 0) || a.i - b.i)
+    .map(({ m }) => m);
   const key = items.map((m) => m.id).join(',');
   if (key === navKey) return; // nichts geändert (z. B. nach Reconnect)
   navKey = key;

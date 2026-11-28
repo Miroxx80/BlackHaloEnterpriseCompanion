@@ -22,8 +22,9 @@ export interface ModuleManifest {
   /**
    * Eintrag in der Navigation. Ohne nav taucht das Modul dort nicht auf.
    * icon: Name aus web/icons.js (z. B. "mining"), description: Unterzeile im Seitenkopf.
+   * order: Position in der Navigation (kleiner = weiter oben, Standard 0; gleiche Werte nach ID).
    */
-  nav?: { label: string; icon?: string; description?: string };
+  nav?: { label: string; icon?: string; description?: string; order?: number };
   /** true, wenn das Modul einen Ordner ui/ mit index.js mitbringt. */
   ui?: boolean;
 }
@@ -82,6 +83,33 @@ export interface UpdateService {
 }
 export const UPDATE_SERVICE = 'desktop.update';
 
+/** Schalter im Menü "Dev" (Entwickler-Einstellungen). Für normale Nutzung ist alles aus. */
+export interface DevSettings {
+  /** Jeden OCR-Scan als Bild + Ergebnis speichern (ocr-samples), "Alles geprüft" legt die Wahrheit dazu (Trainingsdaten). */
+  saveOcrSamples: boolean;
+  /** Bilder vom Live-Lesen der Radar-Signaturen speichern (signature-samples). */
+  saveSignatureSamples: boolean;
+}
+export const DEV_DEFAULTS: DevSettings = { saveOcrSamples: false, saveSignatureSamples: false };
+/** Service "dev.settings": aktueller Stand der Dev-Schalter (Modul "dev"). Fehlt das Modul, gilt DEV_DEFAULTS. */
+export interface DevSettingsService {
+  get(): DevSettings;
+  onChange(fn: (s: DevSettings) => void): () => void;
+}
+export const DEV_SETTINGS_SERVICE = 'dev.settings';
+/** Ein Ordner mit gespeicherten Beispielbildern, den das Dev-Menü anzeigt und leeren kann. */
+export interface SampleStore {
+  id: string;
+  label: string;
+  /** Absoluter Pfad (zur Anzeige). */
+  path: string;
+  stats(): { files: number; bytes: number; samples: number };
+  /** Alle Beispiele löschen; gibt die Zahl gelöschter Dateien zurück. */
+  clear(): number;
+}
+/** Service "mining.samples": die Beispiel-Ordner des Mining-Moduls. */
+export const SAMPLE_STORES_SERVICE = 'mining.samples';
+
 export interface CaptureRegion {
   x: number;
   y: number;
@@ -119,7 +147,7 @@ export interface ModuleStatus {
   name: string;
   version: string;
   state: ModuleState;
-  nav?: { label: string; icon?: string; description?: string };
+  nav?: { label: string; icon?: string; description?: string; order?: number };
   ui: boolean;
   error?: string;
 }

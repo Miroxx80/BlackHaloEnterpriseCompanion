@@ -80,7 +80,7 @@ test('Ablauf: Panel erkennen, Farben übernehmen; ohne Panel nichts übernehmen'
 
 test('API: Screenshot einlesen, in den gemeinsamen Scan übernehmen, Beispiel speichern, Markierungen', async () => {
   const dataRoot = mkdtempSync(join(tmpdir(), 'bh-ocr-api-'));
-  const app = await startApp({ overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' } } }, dataRoot });
+  const app = await startApp({ overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' }, dev: { saveOcrSamples: true } } }, dataRoot });
   const base = `http://127.0.0.1:${app.port}/api/mining`;
   try {
     // Vorher: Resistenz rot gesetzt
@@ -327,7 +327,7 @@ test('API: "Am PC einlesen" nimmt über die Desktop-App auf, ohne Desktop-App 50
 
 test('API: "Alles geprüft" nach einer OCR speichert den korrigierten Scan als Wahrheit (Trainingsdaten)', async () => {
   const dataRoot = mkdtempSync(join(tmpdir(), 'bh-truth-'));
-  const app = await startApp({ overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' } } }, dataRoot });
+  const app = await startApp({ overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' }, dev: { saveOcrSamples: true } } }, dataRoot });
   const base = `http://127.0.0.1:${app.port}/api/mining`;
   const post = (ops) => fetch(`${base}/scan`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ origin: 't', ops }) });
   try {

@@ -15,7 +15,7 @@
     "desktop": "npm run build && electron .",
     "start": "node dist/main.js",
     "dev": "npm run build && npm run start",
-    "test": "npm run build && node --test test/smoke.test.mjs test/input.test.mjs test/mining.test.mjs test/ocr.test.mjs test/navigation.test.mjs",
+    "test": "npm run build && node --test test/smoke.test.mjs test/input.test.mjs test/mining.test.mjs test/ocr.test.mjs test/navigation.test.mjs test/dev.test.mjs",
     "test:desktop": "npm run build && node --test test/desktop.test.mjs",
     "dist": "node scripts/check-win.mjs && npm run build && electron-builder --win --x64 --publish never",
     "dist:dir": "npm run build && electron-builder --dir"
