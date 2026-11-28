@@ -14,7 +14,7 @@ import {
   type ScreenCaptureService,
 } from '../../core/types.js';
 import { calculate, DEFAULT_OPTIONS, InputError, POWER_BONUS_RANGE } from './calc.js';
-import { matchSignature, parseSignature, signatureTable, summarizeSignature } from './signature.js';
+import { knownSignatures, matchSignature, parseSignature, signatureTable, summarizeSignature } from './signature.js';
 import { createScanValidator, emptyDraft, type ScanDraft } from './scanState.js';
 import { noDetector, noReader, type LineReader, type TextDetector } from './ocr/engine.js';
 import { ScreenError } from './ocr/image.js';
@@ -22,6 +22,7 @@ import { readScan } from './ocr/pipeline.js';
 import { createPaddleDetector, createPaddleReader } from './ocr/paddle.js';
 import { loadGlyphModel } from './ocr/glyphs.js';
 import { readSignatures, SIGNATURE_BAND, SignatureTracker, type SignatureTrace } from './ocr/signatures.js';
+import { loadTagFont } from './ocr/tagfont.js';
 import { loadWin32 } from '../controls/input/win32.js';
 import sharp from 'sharp';
 import type { CalcOptions, Dataset, LoadoutInput, ScanInput } from './types.js';
@@ -269,6 +270,8 @@ const mod: BhModule = {
     const detector: TextDetector = ctx.config.ocr === false ? noDetector : createPaddleDetector(ocrDir);
     // Eigene Ziffernerkennung (bestätigt nur zweifelhafte Ziffern); fehlt das Modell, bleibt alles markiert wie bisher
     const glyphs = ctx.config.ocr === false ? null : loadGlyphModel(ocrDir);
+    // Schrift der Radar-Schilder (zweite Meinung beim Live-Lesen); fehlt das Modell, liest das Lexikon allein
+    const tagFont = ctx.config.ocr === false ? null : loadTagFont(ocrDir);
     /** Schalter aus dem Menü "Dev" (zur Zeit des Aufrufs gelesen); ohne Dev-Modul gilt der Standard (aus). */
     const devSetting = (key: keyof DevSettings) => ctx.services.get<DevSettingsService>(DEV_SETTINGS_SERVICE)?.get()[key] ?? DEV_DEFAULTS[key];
     const samplesDir = join(ctx.dataDir, 'ocr-samples');
@@ -395,6 +398,8 @@ const mod: BhModule = {
     // Desktop-App nimmt etwa jede Sekunde das Band um das Fadenkreuz auf (nur wenn Star Citizen vorne ist), die
     // gelesenen Zahlen werden über mehrere Bilder bestätigt und an alle Geräte verteilt. Nur anzeigen, nie steuern.
     const isKnown = (v: number) => matchSignature(v, data).exact;
+    // Lexikon der Live-Lesung (sonst einmalig aus isKnown bestimmt, ~3 s beim ersten Bild)
+    const known = knownSignatures(data);
     const tracker = new SignatureTracker(isKnown);
     const liveInterval = Math.max(300, Number(ctx.config.signatureIntervalMs) || 800);
     const gameProcess = String(ctx.config.gameProcess ?? 'StarCitizen.exe').toLowerCase();
@@ -526,7 +531,7 @@ const mod: BhModule = {
           const before = new Set(tracker.contacts(Date.now()).map((c) => c.value));
           const frames = devSetting('saveSignatureFrames') && Date.now() - lastFrameSaved >= FRAME_EVERY_MS;
           const trace: SignatureTrace[] | undefined = frames ? [] : undefined;
-          const reads = await readSignatures({ width: info.width, height: info.height, data: px }, reader, detector, isKnown, [0, 0, info.width, info.height], [x, y], trace);
+          const reads = await readSignatures({ width: info.width, height: info.height, data: px }, reader, detector, isKnown, [0, 0, info.width, info.height], [x, y], trace, { known, tagFont });
           live.frameAt = Date.now();
           tracker.add(reads, live.frameAt);
           const contacts = tracker.contacts(Date.now());

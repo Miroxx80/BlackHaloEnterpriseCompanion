@@ -15,8 +15,11 @@ import { noReader } from '../dist/modules/mining/ocr/engine.js';
 import { createPaddleDetector, createPaddleReader } from '../dist/modules/mining/ocr/paddle.js';
 import { loadGlyphModel, validModel, glyphFeatures, classify, trainClassifier, PIXEL_DIMS, SHAPE_DIMS } from '../dist/modules/mining/ocr/glyphs.js';
 import { matchParts, compareScan } from '../scripts/ocr-compare.mjs';
-import { parseSignatureText, readSignatures, SignatureTracker } from '../dist/modules/mining/ocr/signatures.js';
-import { matchSignature } from '../dist/modules/mining/signature.js';
+import { DEFAULT_LEXICON, lexiconPasses, readSignatures, SignatureTracker } from '../dist/modules/mining/ocr/signatures.js';
+import { buildLexicon, ctcLogLik, differByOne1, digitNeighbours, freeCovers, LEXICON_CHARS, plausibleDigits, readLexicon, signatureFormats } from '../dist/modules/mining/ocr/lexicon.js';
+import { findPin } from '../dist/modules/mining/ocr/pin.js';
+import { layoutValue, loadTagFont, locateTag, readTag, trainTagFont } from '../dist/modules/mining/ocr/tagfont.js';
+import { knownSignatures, matchSignature } from '../dist/modules/mining/signature.js';
 
 const fixture = (p) => readFileSync(new URL(`./fixtures/${p}`, import.meta.url));
 const data = JSON.parse(readFileSync(new URL('../src/modules/mining/data/dataset.json', import.meta.url), 'utf8'));
@@ -428,23 +431,303 @@ test('Farbe: leicht grün/rot getöntes Weiß ist unsicher (Review-Fund)', () =>
   assert.ok(textColor(solid(230, 232, 228)).share >= 0.7, 'echtes Weiß bleibt sicher');
 });
 
-test('Radar-Signatur: Zahl lesen, Pin abschneiden, Text ablehnen', () => {
-  assert.deepEqual(parseSignatureText('16,960'), { value: 16960, separator: true });
-  assert.deepEqual(parseSignatureText('7.200'), { value: 7200, separator: true });
-  assert.deepEqual(parseSignatureText('3400'), { value: 3400, separator: false });
-  assert.equal(parseSignatureText('UNKNOWN'), null);
-  assert.equal(parseSignatureText('11.4K'), null);
-  assert.equal(parseSignatureText('90'), null);
-  assert.equal(parseSignatureText('999,999'), null);
+const signatureBand = async (file) => {
+  const { data: px, info } = await sharp(fixture(`hud/signature/${file}`)).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  return { width: info.width, height: info.height, data: px };
+};
+
+test('Radar-Signatur live: Marker im Band gefunden (orange, grün, blau), kein Fehlgriff auf UNKNOWN/Entfernung/Kurs', async () => {
+  const isKnown = (v) => matchSignature(v, data).exact;
+  const known = knownSignatures(data);
+  // Grün und PC-Test: Pin und Lexikon finden den richtigen Wert, die Schild-Schrift findet das Schild aber nicht
+  // (gelernt fast nur an orangen 1080p-Schildern) -> keine Lesung (das Lexikon allein reicht nicht mehr, no-tag)
+  for (const [file, want, reads0] of [['band-3400-orange.png', 3400, [3400]], ['band-7200-green.png', 7200, []], ['band-4180-prospector-pc-test.png', 4180, []]]) {
+    const img = await signatureBand(file);
+    const trace = [];
+    const reads = await readSignatures(img, paddle.reader, paddle.detector, isKnown, undefined, undefined, trace, { known });
+    assert.deepEqual(reads.map((r) => r.value), reads0, file);
+    const lex = trace.find((b) => b.best !== undefined);
+    assert.equal(lex.best, want, file);
+    if (!reads0.length) assert.equal(lex.dropped, 'no-tag', file);
+    // Nur der Kasten am Schild hat einen Pin; Kurs "267°", "5.0km", "UNKNOWN" usw. werden gar nicht erst gelesen
+    const withPin = trace.filter((b) => b.pin);
+    assert.equal(withPin.length, 1, `${file}: ${JSON.stringify(withPin)}`);
+    assert.ok(trace.filter((b) => b.dropped === 'no-pin').length >= 3, file);
+  }
 });
 
-test('Radar-Signatur live: Marker im Band gefunden (orange und grün), kein Fehlgriff auf UNKNOWN/Entfernung', async () => {
+test('Radar-Signatur: Bilder aus dem Aaron Halo (9 px Ziffern, Farbsäume) - lieber nichts als ein falscher Wert', async () => {
+  // Früher (freie Lesung): "1.520" -> 1520, "10,275" -> 10275, "1,565" -> 1565 (falsch bestätigt). Jetzt: Lexikon
+  // bekannter Signaturen mit Abständen, und nur, wenn die Schild-Schrift denselben Wert liest (ohne sie: nichts).
+  // 17,080: Die Erkennung zieht 17080 nur knapp 7080 vor (margin 0,9 < 1), die Schild-Schrift entscheidet so etwas
+  // nicht allein. Das unscharfe 11,565: Erkennung "55" (die 6 nicht gesehen) -> nichts, auch mit Schild-Schrift.
   const isKnown = (v) => matchSignature(v, data).exact;
-  for (const [file, want] of [['band-3400-orange.png', 3400], ['band-7200-green.png', 7200], ['band-4180-prospector-pc-test.png', 4180]]) {
-    const { data: px, info } = await sharp(fixture(`hud/signature/${file}`)).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-    const reads = await readSignatures({ width: info.width, height: info.height, data: px }, paddle.reader, paddle.detector, isKnown);
-    assert.deepEqual(reads.map((r) => r.value), [want], file);
+  const known = knownSignatures(data);
+  for (const [file, truth, lexOnly, both] of [
+    ['band-11520-aaron-halo.webp', 11520, [], ['11520/both']],
+    ['band-19275-aaron-halo.webp', 19275, [], []],
+    ['band-17080-aaron-halo.webp', 17080, [], []],
+    ['band-11565-aaron-halo-blur.webp', 11565, [], []],
+  ]) {
+    for (const [tagFont, want] of [[null, lexOnly], [undefined, both]]) {
+      const trace = [];
+      const reads = await readSignatures(await signatureBand(file), paddle.reader, paddle.detector, isKnown, undefined, undefined, trace, { known, tagFont });
+      assert.ok(reads.every((r) => r.value === truth), `${file}: ${JSON.stringify(reads)}`);
+      assert.deepEqual(reads.map((r) => `${r.value}/${r.source}`), want, `${file} ${tagFont === null ? 'ohne' : 'mit'} Schild-Schrift`);
+      // Gelesen wird nur das Schild (eine Erkennung statt ~15 pro Bild)
+      assert.equal(trace.filter((b) => b.best !== undefined).length, 1, file);
+    }
   }
+});
+
+// ---------- Schild-Schrift (tagfont.ts): markierte Schilder aus dem Aaron Halo (test/fixtures/hud/signature/tags)
+
+const tagLabels = JSON.parse(fixture('hud/signature/tags/labels.json'));
+let tagSamples;
+const loadTags = async () =>
+  (tagSamples ??= await Promise.all(tagLabels.map(async (l) => ({ ...l, img: await signatureBand(`tags/${l.file}`) }))));
+const bundledFont = loadTagFont(OCR_DIR);
+const tally = (list, read) => {
+  const c = { right: 0, wrong: [], none: 0 };
+  for (const s of list) {
+    const v = read(s);
+    if (v == null) c.none++;
+    else if (v === s.value) c.right++;
+    else c.wrong.push(`${s.file}: ${v}`);
+  }
+  return c;
+};
+/** Zwei Stellen gleicher Breite vertauschen (Spalten im Bild). Gibt Bild und neuen Wert zurück. */
+const swapSlots = (s, a, b) => {
+  const g = locateTag(s.img, s.box).find((x) => layoutValue(x, s.value, bundledFont.adv1).ratio <= 0.35);
+  if (!g) return null;
+  const { slots } = layoutValue(g, s.value, bundledFont.adv1);
+  const A = slots[a];
+  const B = slots[b];
+  if (!A || !B || A.c === B.c || A.c === '1' || B.c === '1' || Math.abs(A.w - B.w) > 0.6) return null;
+  const img = { ...s.img, data: Buffer.from(s.img.data) };
+  const w = Math.round((A.w + B.w) / 2);
+  const [ax, bx] = [Math.round(A.cx - w / 2), Math.round(B.cx - w / 2)];
+  for (let y = 0; y < img.height; y++)
+    for (let k = 0; k < w * 3; k++) {
+      const pa = (y * img.width + ax) * 3 + k;
+      const pb = (y * img.width + bx) * 3 + k;
+      img.data[pa] = s.img.data[pb];
+      img.data[pb] = s.img.data[pa];
+    }
+  const chars = slots.map((q) => q.c);
+  [chars[a], chars[b]] = [chars[b], chars[a]];
+  return { img, value: Number(chars.join('')) };
+};
+/** Fläche links der Zahl (Pin) mit der Farbe der Platte übermalen. */
+const erasePin = (s) => {
+  const g = locateTag(s.img, s.box)[0];
+  const img = { ...s.img, data: Buffer.from(s.img.data) };
+  const ref = ((g.bottom + 2) * img.width + g.left - 2) * 3;
+  for (let y = Math.max(0, g.top - g.h); y < Math.min(img.height, g.bottom + g.h); y++)
+    for (let x = Math.max(0, g.left - Math.round(2.6 * g.h)); x < g.left - 1; x++) for (let c = 0; c < 3; c++) img.data[(y * img.width + x) * 3 + c] = s.img.data[ref + c];
+  return img;
+};
+/** Künstliche Ausgabe der Erkennung (CTC): je Zeichen ein Schritt mit p, dazwischen blank. */
+const fakeLogProbs = (text, p = 0.9) => {
+  const K = LEXICON_CHARS.length + 1;
+  const cols = [];
+  for (const c of text) cols.push(0, LEXICON_CHARS.indexOf(c) + 1);
+  cols.push(0);
+  const lp = new Float64Array(cols.length * K);
+  cols.forEach((c, t) => {
+    for (let j = 0; j < K; j++) lp[t * K + j] = Math.log(j === c ? p : (1 - p) / (K - 1));
+  });
+  return { chars: LEXICON_CHARS, steps: cols.length, lp, other: 0.01 };
+};
+
+test('Radar-Schild: mitgeliefertes Modell liest die markierten Schilder, nie falsch', async () => {
+  assert.ok(bundledFont, 'data/ocr/tagfont.json fehlt oder passt nicht');
+  const known = knownSignatures(data);
+  const c = tally(await loadTags(), (s) => readTag(s.img, s.box, bundledFont, known)?.value);
+  assert.deepEqual(c.wrong, []);
+  // gelernt an genau diesen Schildern (2026-11-28: 29 von 31), ehrliche Zahlen im nächsten Test
+  assert.ok(c.right >= 27, JSON.stringify(c));
+});
+
+test('Radar-Schild: je Wert ohne ihn gelernt (leave-one-value-out) nie falsch', async () => {
+  const all = await loadTags();
+  const known = knownSignatures(data);
+  let right = 0;
+  for (const v of new Set(all.map((s) => s.value))) {
+    const model = trainTagFont(all.filter((s) => s.value !== v), bundledFont.thresholds);
+    const c = tally(all.filter((s) => s.value === v), (s) => readTag(s.img, s.box, model, known)?.value);
+    assert.deepEqual(c.wrong, [], `ohne ${v} gelernt`);
+    right += c.right;
+  }
+  // 2026-11-28: 24 von 31 (19275 und 17080 nicht: ihre 9 bzw. 8 kommt sonst kaum vor)
+  assert.ok(right >= 20, String(right));
+});
+
+test('Radar-Schild: vertauschte Ziffern ergeben nie den alten Wert, unbekannte Werte nie eine Lesung', async () => {
+  const known = knownSignatures(data);
+  let n = 0;
+  for (const s of (await loadTags()).filter((x) => x.kind === 'full')) {
+    for (let a = 0; a < 6; a++)
+      for (let b = a + 1; b < 6; b++) {
+        const sw = swapSlots(s, a, b);
+        if (!sw) continue;
+        n++;
+        const r = readTag(sw.img, s.box, bundledFont, known);
+        assert.ok(r?.value == null || (known.includes(sw.value) && r.value === sw.value), `${s.file} ${a}<->${b} = ${sw.value}: gelesen ${r?.value}`);
+      }
+  }
+  assert.ok(n >= 40, String(n));
+  // Pin übermalt: kein Schild
+  const s = (await loadTags()).find((x) => x.file.includes('08-57-30'));
+  assert.equal(readTag(erasePin(s), s.box, bundledFont, known), null);
+});
+
+test('Radar-Signatur: Schild-Schrift als zweite Meinung (bestätigt, entscheidet knappe Fälle, Widerspruch = nichts)', async () => {
+  const isKnown = (v) => matchSignature(v, data).exact;
+  const known = knownSignatures(data);
+  const all = await loadTags();
+  const s = all.find((x) => x.file.includes('08-57-30'));
+  // Modell ohne 11565 (ehrlich: der Wert ist ihm so neu wie eine nie gesehene Signatur)
+  const model = trainTagFont(all.filter((x) => x.value !== 11565), bundledFont.thresholds);
+  assert.equal(readTag(s.img, s.box, model, known)?.value, 11565);
+  const box = { name: 'fest', detect: async () => [s.box] };
+  const run = async (reader, tagFont, img = s.img) => {
+    const trace = [];
+    const reads = await readSignatures(img, reader, box, isKnown, undefined, undefined, trace, { known, tagFont });
+    return { reads: reads.map((r) => `${r.value}/${r.source}${r.sure ? '!' : ''}`), dropped: trace[0].dropped };
+  };
+  // Echte Erkennung: "55", Lexikon allein zu knapp; die Schild-Schrift liest 11565, aber die Erkennung hat die 6 nicht
+  // gesehen -> nichts (die Schild-Schrift ergänzt keine Ziffer, die die Erkennung nicht sah)
+  assert.deepEqual(await run(paddle.reader, null), { reads: [], dropped: 'not-sure' });
+  assert.deepEqual(await run(paddle.reader, model), { reads: [], dropped: 'not-sure' });
+  // Knapper Fall, den die Schild-Schrift entscheidet (nur die schmale 1): 17,200 gegen 7,200 (margin 2,2), Modell ohne
+  // 17200 -> 'tag'
+  const s172 = all.find((x) => x.value === 17200);
+  const model172 = trainTagFont(all.filter((x) => x.value !== 17200), bundledFont.thresholds);
+  const r172 = await readSignatures(s172.img, paddle.reader, { name: 'fest', detect: async () => [s172.box] }, isKnown, undefined, undefined, [], { known, tagFont: model172 });
+  assert.deepEqual(r172.map((r) => `${r.value}/${r.source}${r.sure ? '!' : ''}`), ['17200/tag']);
+  // Ohne Pin keine Lesung, auch nicht über die Schild-Schrift
+  assert.deepEqual((await run(paddle.reader, model, erasePin(s))).reads, []);
+  // Künstliche Erkennung: klar 11,565 -> Lexikon und Schild-Schrift gleich, eine Lesung genügt
+  const says = (text) => ({ name: 'Attrappe', read: async () => null, logProbs: async () => fakeLogProbs(text) });
+  assert.deepEqual((await run(says('11,565'), model)).reads, ['11565/both!']);
+  // Klar 11,520 (Lexikon sicher), Schild-Schrift liest 11565: Widerspruch -> nichts
+  assert.deepEqual(await run(says('11,520'), model), { reads: [], dropped: 'tag-conflict' });
+  // Ohne Schild-Schrift genügt auch eine sehr sichere Lexikon-Lesung nicht (Fehler der Erkennung wiederholen sich)
+  assert.deepEqual(await run(says('11,520'), null), { reads: [], dropped: 'no-tag' });
+  // Erkennung sieht die führende Ziffer gar nicht ("0,000"): alle X,000 fast gleich, die Schild-Schrift entscheidet
+  // das nicht allein (TAG_LEXICON.minMargin, freeCovers)
+  const t2000 = all.find((x) => x.value === 2000);
+  const run2000 = async (reader, tagFont) => {
+    const trace = [];
+    const reads = await readSignatures(t2000.img, reader, { name: 'fest', detect: async () => [t2000.box] }, isKnown, undefined, undefined, trace, { known, tagFont });
+    return { reads: reads.map((r) => `${r.value}/${r.source}`), trace: trace[0] };
+  };
+  const blind = await run2000(says('0,000'), bundledFont);
+  assert.equal(blind.trace.tag, 2000, 'Schild-Schrift liest 2000');
+  assert.ok(blind.trace.margin < 1, JSON.stringify(blind.trace));
+  assert.deepEqual(blind.reads, []);
+  assert.deepEqual((await run2000(says('2,000'), bundledFont)).reads, ['2000/both']);
+  // Die Schild-Schrift macht aus einer unbekannten Zahl nie eine bekannte: "16,620" bleibt ungelesen
+  assert.deepEqual((await run(says('16,620'), model)).reads, []);
+});
+
+test('Radar-Signatur: Pin farbunabhängig, nicht an Cockpit-Texten', async () => {
+  // Pins (Lage aus den Testbildern): orange, grün, blau, orange (Aaron Halo, abgetrennte "11" daneben)
+  for (const [file, box, pin] of [
+    ['band-3400-orange.png', [319, 116, 34, 19], [305, 116]],
+    ['band-7200-green.png', [309, 186, 34, 10], [307, 186]],
+    ['band-4180-prospector-pc-test.png', [315, 116, 42, 18], [301, 117]],
+    ['band-11520-aaron-halo.webp', [393, 128, 55, 22], [394, 130]],
+  ]) {
+    const p = findPin(await signatureBand(file), box);
+    assert.ok(p, file);
+    assert.ok(Math.abs(p.box[0] - pin[0]) <= 2 && Math.abs(p.box[1] - pin[1]) <= 2, `${file}: ${JSON.stringify(p)}`);
+    assert.ok(p.digitRight >= box[0] + box[2] - 8, `${file}: Ziffernspur bis zum Ende der Zahl`);
+  }
+  // Ohne Pin: graue Fläche, und ein Kasten weit weg vom Schild (Kurs "267°" im Testbild)
+  assert.equal(findPin({ width: 80, height: 40, data: Buffer.alloc(80 * 40 * 3, 90) }, [30, 10, 40, 18]), null);
+  assert.equal(findPin(await signatureBand('band-4180-prospector-pc-test.png'), [283, 29, 47, 25]), null);
+});
+
+test('Radar-Signatur: zwei Schilder dicht beieinander bleiben getrennt (Pin gehört zur Zeile des Kastens)', async () => {
+  const isKnown = (v) => matchSignature(v, data).exact;
+  const known = knownSignatures(data);
+  // Schild 17,200 (Ausschnitt) 40 px links und 28 px unter das Schild 11,520 setzen. Früher bekam der 11520-Kasten den
+  // Pin des 17200 (breitere Ziffernspur), beide landeten in einer Gruppe und gingen verloren (tag-conflict, same-pin).
+  const img = await signatureBand('band-11520-aaron-halo.webp');
+  const tag = await signatureBand('tags/2026-11-28-08-56-53-17200.png');
+  const [ox, oy] = [393 - 40 - 45, 128 + 28 - 15];
+  for (let y = 4; y < Math.min(tag.height, 46); y++)
+    for (let x = 18; x < Math.min(tag.width, 100); x++)
+      for (let c = 0; c < 3; c++) img.data[((oy + y) * img.width + ox + x) * 3 + c] = tag.data[(y * tag.width + x) * 3 + c];
+  const p = findPin(img, [393, 128, 55, 22]);
+  assert.ok(p && Math.abs(p.box[1] - 130) <= 2, `eigener Pin des 11520-Kastens: ${JSON.stringify(p)}`);
+  const trace = [];
+  const reads = await readSignatures(img, paddle.reader, paddle.detector, isKnown, undefined, undefined, trace, { known });
+  assert.ok(reads.every((r) => r.value === 11520 || r.value === 17200), JSON.stringify(reads));
+  assert.ok(reads.some((r) => r.value === 17200), JSON.stringify(reads));
+  assert.ok(!trace.some((b) => b.dropped === 'same-pin' || b.dropped === 'tag-conflict'), JSON.stringify(trace.filter((b) => b.pin)));
+  assert.equal(trace.filter((b) => b.best !== undefined).length, 2, 'zwei Gruppen, zwei Erkennungen');
+});
+
+test('Radar-Signatur: herangezoomt (F) bis 2,5x wird weiter gelesen', async () => {
+  const isKnown = (v) => matchSignature(v, data).exact;
+  const known = knownSignatures(data);
+  for (const s of [1.5, 2, 2.5]) {
+    // ganze Szene vergrößern, dann wieder das feste Band 648x352 um die Mitte (wie live)
+    const file = fixture('hud/signature/band-11520-aaron-halo.webp');
+    const m = await sharp(file).metadata();
+    const [W, H] = [Math.round(m.width * s), Math.round(m.height * s)];
+    const { data: px, info } = await sharp(file).removeAlpha().resize(W, H, { kernel: 'lanczos3' }).extract({ left: Math.round((W - 648) / 2), top: Math.round((H - 352) / 2), width: 648, height: 352 }).raw().toBuffer({ resolveWithObject: true });
+    const trace = [];
+    const reads = await readSignatures({ width: info.width, height: info.height, data: px }, paddle.reader, paddle.detector, isKnown, undefined, undefined, trace, { known });
+    assert.deepEqual(reads.map((r) => r.value), [11520], `${s}x: ${JSON.stringify(trace.filter((b) => b.pin || b.dropped === 'size'))}`);
+  }
+});
+
+test('Radar-Signatur: Lexikon-Lesung (CTC) mit Abständen, unbekannte Zahlen werden nicht zur bekannten', () => {
+  assert.deepEqual(signatureFormats(11565), ['11,565', '11.565', '11565']);
+  assert.ok(digitNeighbours('10620').includes('16620') && digitNeighbours('10620').includes('1620') && digitNeighbours('10620').includes('110620'));
+  assert.ok(plausibleDigits('16620', 1700) && !plausibleDigits('16621', 1700) && !plausibleDigits('1520', 1700) && !plausibleDigits('01520', 1700));
+  // Hat die Erkennung jede Ziffer außer schmalen 1en gesehen, ohne fremde Ziffer? (letzte 6 zählt als 5, 8/9 als 0)
+  for (const [free, v, want] of [
+    ['1.520', 11520, true], ['11.566', 11565, true], ['17,200', 17200, true], ['', 11111, true],
+    ['55', 11565, false], ['1360', 15360, false], ['0,390', 8390, false], ['11,506', 11565, false], ['0000', 8000, false], ['300', 4300, false],
+  ])
+    assert.equal(freeCovers(free, v), want, `${free} / ${v}`);
+  // Stufe 'tag' nur gegen einen Wert mit einer 1 mehr/weniger
+  assert.ok(differByOne1(17200, 7200) && differByOne1(1520, 11520) && differByOne1(12000, 2000) && !differByOne1(8000, 9000) && !differByOne1(3185, 3385) && !differByOne1(11520, 11565));
+  // Künstliche Modellausgabe: je Zeichen ein Schritt mit p=0.9 (Rest verteilt), dazwischen Leerzeichen (blank)
+  const K = LEXICON_CHARS.length + 1;
+  const fake = (text, sure = 0.9) => {
+    const cols = [];
+    for (const c of text) cols.push(0, LEXICON_CHARS.indexOf(c) + 1);
+    cols.push(0);
+    const lp = new Float64Array(cols.length * K);
+    cols.forEach((c, t) => {
+      for (let j = 0; j < K; j++) lp[t * K + j] = Math.log(j === c ? sure : (1 - sure) / (K - 1));
+    });
+    return { chars: LEXICON_CHARS, steps: cols.length, lp, other: 0.01 };
+  };
+  const p = fake('11,565');
+  assert.ok(ctcLogLik(p, [...'11,565'].map((c) => LEXICON_CHARS.indexOf(c) + 1)) > ctcLogLik(p, [...'1,565'].map((c) => LEXICON_CHARS.indexOf(c) + 1)));
+  const lexicon = buildLexicon(knownSignatures(data));
+  const ok = readLexicon(fake('11,565'), lexicon);
+  assert.equal(ok.value, 11565);
+  assert.ok(lexiconPasses(ok, DEFAULT_LEXICON), JSON.stringify(ok));
+  // Das Bild zeigt "16,620" (kein bekannter Wert, z. B. zwei Kontakte): Bestes Lexikon-Wort wäre 10,620 -> abgelehnt
+  const other = readLexicon(fake('16,620'), lexicon);
+  assert.equal(other.rival, '16620');
+  assert.ok(!lexiconPasses(other, DEFAULT_LEXICON), JSON.stringify(other));
+  // Gelesen "1,520" (eine 1 fehlt, 1520 kann nicht auf einem Schild stehen): 11,520 nur, wenn das Modell die 1 sieht
+  assert.ok(!lexiconPasses(readLexicon(fake('1,520'), lexicon), DEFAULT_LEXICON));
+  // Text statt Zahl ("UNKNOWN"): hoher Anteil anderer Zeichen
+  assert.ok(!lexiconPasses({ ...ok, other: 0.5 }, DEFAULT_LEXICON));
+  // Lexikon = genaue Treffer von matchSignature (Stichprobe, alle Werte dauert ~3 s)
+  const known = new Set(knownSignatures(data));
+  for (let v = 1000; v <= 30000; v += 5) assert.equal(known.has(v), matchSignature(v, data).exact, String(v));
 });
 
 test('Radar-Signatur: Bestätigung über mehrere Bilder, Halten, feste Anzeigen ignorieren', () => {
@@ -467,6 +750,23 @@ test('Radar-Signatur: Bestätigung über mehrere Bilder, Halten, feste Anzeigen 
   assert.ok(!t.contacts(1400).some((c) => c.value === 12345));
   t.add([r(12345, { x: 500 })], 1500);
   assert.ok(t.contacts(1500).some((c) => c.value === 12345));
+  // Lexikon-Lesung (mit margin): sicher -> sofort, sonst 2 Lesungen; die Sicherheit der freien Lesung zählt nicht
+  t.add([r(3400, { margin: 9, gap: -1, open: 4, sure: true, x: 400 })], 1600);
+  assert.ok(t.contacts(1600).some((c) => c.value === 3400));
+  t.add([r(4180, { margin: 4.5, gap: 0, open: 2.5, sure: false, confidence: 1, x: 300 })], 1700);
+  assert.ok(!t.contacts(1700).some((c) => c.value === 4180));
+  t.add([r(4180, { margin: 4.5, gap: 0, open: 2.5, sure: false, confidence: 1, x: 300 })], 1800);
+  assert.ok(t.contacts(1800).some((c) => c.value === 4180));
+  // Knapper Fall, den die Schild-Schrift entschied (source 'tag', nie sure): 2 Lesungen
+  t.add([r(17200, { margin: 2, gap: -0.8, open: 2, sure: false, source: 'tag', x: 200 })], 1850);
+  assert.ok(!t.contacts(1850).some((c) => c.value === 17200));
+  t.add([r(17200, { margin: 2, gap: -0.8, open: 2, sure: false, source: 'tag', x: 200 })], 1900);
+  assert.ok(t.contacts(1900).some((c) => c.value === 17200));
+  // Zwei Lesungen desselben Werts aus einem Bild (ein Schild in zwei Pin-Gruppen) sind dieselben Pixel: zählt einmal
+  t.add([r(10620, { margin: 2, sure: false, source: 'tag', x: 100 }), r(10620, { margin: 2, sure: false, source: 'tag', x: 104 })], 1950);
+  assert.ok(!t.contacts(1950).some((c) => c.value === 10620));
+  t.add([r(10620, { margin: 2, sure: false, source: 'tag', x: 100 })], 2000);
+  assert.ok(t.contacts(2000).some((c) => c.value === 10620));
   // Halten und verfallen
   assert.ok(t.contacts(40000).some((c) => c.value === 16960));
   assert.ok(!t.contacts(50000).some((c) => c.value === 16960));
@@ -509,7 +809,8 @@ test('API: Live-Lesen über die Desktop-App (Attrappe), an/aus, Kontakte an alle
     const tr = JSON.parse(readFileSync(join(framesDir, traces[0]), 'utf8'));
     assert.ok(tr.boxes.length >= 1);
     assert.ok(tr.boxes.some((b) => !b.dropped && /^3[,.]?400$/.test(b.text)), JSON.stringify(tr.boxes));
-    assert.ok(tr.boxes.some((b) => b.dropped === 'not-a-number'), 'verworfene Kästen stehen mit Grund drin');
+    assert.ok(tr.boxes.some((b) => b.dropped === 'no-pin'), 'verworfene Kästen stehen mit Grund drin');
+    assert.ok(tr.boxes.some((b) => !b.dropped && b.best === 3400 && b.margin > 0 && b.pin), 'Lexikon-Lesung mit Pin und Abständen');
     assert.ok(tr.boxes.every((b) => b.box[0] >= 636 && b.box[1] >= 230), 'Kästen in Bildschirm-Koordinaten');
     assert.ok(!existsSync(join(opts.dataRoot, 'mining', 'signature-samples')), 'Treffer-Bilder nur mit eigenem Schalter');
     assert.equal((await (await post(false)).json()).on, false);

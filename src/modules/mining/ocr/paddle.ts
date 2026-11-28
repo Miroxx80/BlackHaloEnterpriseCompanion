@@ -130,19 +130,39 @@ export function createPaddleReader(modelDir: string, { debug = false }: { debug?
       return { ort, session, chars, lookalike, allow };
     })());
 
+  const run = async (img: Rgb, variant?: ReadOptions['variant']) => {
+    const m = await init();
+    const { data, width } = toTensorData(img, variant);
+    const tensor = new m.ort.Tensor('float32', data, [1, 3, HEIGHT, width]);
+    const result = await m.session.run({ [m.session.inputNames[0]]: tensor });
+    const out = result[m.session.outputNames[0]];
+    const [, steps, classes] = out.dims as number[];
+    return { m, probs: out.data as Float32Array, steps, classes, width };
+  };
+
   return {
     name: 'PaddleOCR v4',
     async read(img, kind, options) {
-      const m = await init();
-      const { data, width } = toTensorData(img, options?.variant);
-      const tensor = new m.ort.Tensor('float32', data, [1, 3, HEIGHT, width]);
-      const result = await m.session.run({ [m.session.inputNames[0]]: tensor });
-      const out = result[m.session.outputNames[0]];
-      const [, steps, classes] = out.dims as number[];
+      const { m, probs, steps, classes, width } = await run(img, options?.variant);
       // Die Breite des Tensors kann größer sein als das Bild (Mindestbreite): Lage auf das Bild umrechnen
-      const r = decode(out.data as Float32Array, steps, classes, m.chars, m.allow[kind], kind === 'text' || kind === 'label' ? [] : m.lookalike, debug);
+      const r = decode(probs, steps, classes, m.chars, m.allow[kind], kind === 'text' || kind === 'label' ? [] : m.lookalike, debug);
       const used = (img.width * HEIGHT) / img.height / width;
       return { ...r, chars: r.chars.map((p) => ({ ...p, at: Math.min(1, p.at / used) })) };
+    },
+    async logProbs(img, chars) {
+      const { m, probs, steps, classes } = await run(img);
+      const ids = [0, ...[...chars].map((c) => m.chars.indexOf(c))];
+      if (ids.some((i) => i < 0)) return null;
+      const k = ids.length;
+      const lp = new Float64Array(steps * k);
+      let other = 0;
+      for (let t = 0; t < steps; t++) {
+        let s = 0;
+        for (const i of ids) s += probs[t * classes + i];
+        other += 1 - s;
+        for (let j = 0; j < k; j++) lp[t * k + j] = Math.log(Math.max(1e-12, probs[t * classes + ids[j]] / Math.max(s, 1e-12)));
+      }
+      return { chars, steps, lp, other: steps ? other / steps : 0 };
     },
   };
 }

@@ -973,3 +973,172 @@ der ersten Zeile der Tabelle vergleichen. Zweiter Punkt: dieselbe Messung bei z.
 **Erster Messpunkt im Spiel (2026-11-27, Org-Leitung):** Prospector mit Helix I, Rechner "Laser zu stark, ab ca. 30 m
 Abstand (20 %)". Im Spiel bei Mindestleistung 20 % und ~30 m Abstand: Ladung nahe am stabilen Punkt. Linearer Abfall
 damit an einem Punkt bestätigt (zusammen mit Bedrocks zwei Messungen). Offen: zweiter Punkt bei höherer Leistung (~50 %).
+
+## Radar-Signaturen live lesen (2026-11-28, Aaron Halo)
+
+**Problem.** Im Asteroidenfeld las das Live-Lesen die Signatur oft nicht, obwohl sie gut zu sehen war; mit Zoom (F,
+größere Schrift) ging es. Wenn es las, stimmte es meist, aber bis das Overlay etwas zeigte, dauerte es. Ursache: Die
+Text-Detektion findet die Schilder, die Erkennung (PaddleOCR, freie Lesung) scheitert an ~9 px hohen Ziffern mit
+rot/blauen Farbsäumen. Typische Fehler: führende 1 von "11,xxx" fehlt ("1.520", "1,565"), 5 -> 6 ("11,566", dann als
+kein Vielfaches von 5 verworfen), 9 -> 0 ("10,275"), Pin als 2 ("211.520"), Detektor trennt die schmale "11" ab
+(nur ",566"). Ein falscher Kontakt (1565, keine bekannte Signatur) wurde nach 3 Lesungen sogar bestätigt. Dazu
+15–25 Kästen pro Bild, fast alle feste Cockpit-Texte (COOL, 89°, 5.0km, "0M/S", Leistungs-Chevrons als "3333"), jeder
+einzeln erkannt: beim Besitzer 0,9–1,5 s pro Bild.
+
+**Daten.** 32 Bänder (648x352) des Besitzers (Prospector, 1920x1080, Aaron Halo), aufgenommen mit dem Dev-Schalter
+„Radar: alle Bilder speichern“, mit Trace je Kasten. Von Hand markiert: 31 detektierte Schilder (28 ganze Zahl, 3
+Teilstücke), dazu 3,540 in 08-56-12, das der Detektor gar nicht findet (Kasten von Hand). Werte: 11520, 19275, 2000,
+10620, 21425, 17080, 11565, 3540, 15360, 21275, 17200 (alle genau bekannte Signaturen). Negative: alle anderen Kästen
+(526, davon 467 groß genug zum Lesen). Dazu die 3 Testbänder (orange 3400, blau 4180, grün 7200). Messstand außerhalb
+des Repos (sigbench): Ebene 1 je Kasten, Ebene 2 ganze Bilder mit neuer Detektion und Tracker auf drei Zeitachsen
+(`real` echte Zeitstempel ~4,5 s, `seq` 0,9 s, `x4` jedes Bild 4x im 0,9-s-Takt = schlechtester Fall: ein Lesefehler
+kommt 4x). Falsch bestätigt = neu bestätigter Wert, der in den letzten 20 s in keinem Bild zu sehen war.
+
+**Verfahren** (`ocr/signatures.ts`, `ocr/pin.ts`, `ocr/lexicon.ts`, `ocr/tagfont.ts`):
+1. **Pin-Filter**: gelesen werden nur Kästen mit dem Pin links davon (farbunabhängig über die Sättigung, Form: breiter
+   Fuß, schmaler Hals; Ziffern rechts davon heller und 1,2–2,6x kleiner; die Ziffernspur muss in der Zeile des Kastens
+   liegen und ihn waagrecht überlappen, sonst bekam bei zwei nahen Schildern ein Kasten den Pin des Nachbarn). Gefunden
+   an 34 von 35 Schildern (nicht: der Kasten nur um die abgetrennte "11", das Schild kommt über den Nachbarkasten), an
+   1 von 467 anderen Kästen. Kästen bis 64 px hoch (vorher 30): Heranzoomen (F) hilft bis etwa 2,5x.
+   Gelesen wird der Bereich vom Pin bis zum Ende der Ziffern, einmal je Pin: 1 Erkennung statt ~15 pro Bild.
+2. **Lexikon-Lesung**: Statt frei zu lesen, wird jede der 322 bekannten Signaturen (genaue Treffer von
+   `matchSignature`, `knownSignatures`) per CTC gegen die Ausgabe der Erkennung bewertet ("11,565", "11.565",
+   "11565"). Angenommen nur mit Abständen (natürlicher Log.): gap <= 2 zum freien Pfad, margin >= 4 zum zweitbesten
+   bekannten Wert, open >= 2 zu jeder möglichen Zahl mit einer Ziffer Unterschied (auch unbekannte, Vielfaches von 5,
+   ab 1700, ohne führende Null: verhindert, dass "16,620" zu 10,620 wird), other <= 0,1 (Buchstaben). Schwellen per
+   Gitter gewählt mit "null Fehler, jeder falsche Kandidat mindestens 1,0 entfernt", geprüft im Leave-one-out je Bild,
+   je Wert und je Störung (0 Fehler, kleinste Reserve 0,4).
+3. **Schild-Schrift als zweiter Leser**: eigene Ziffernerkennung für genau diese Schrift (Vorlagen je Ziffer aus
+   31 markierten Schildern, Farbraster je Kanal normiert, Ziffern nach Breite verteilt, die 1 schmal). Sie liefert
+   einen Wert nur, wenn jede Ziffer an ihrer Stelle auch frei die beste ist und genau eine bekannte Signatur passt.
+   Angezeigt wird nur, was beide lesen (Stand nach der Nachprüfung unten):
+   - liest sie einen anderen Wert als das Lexikon: nichts (`tag-conflict`);
+   - liest sie keinen Wert: nichts (`no-tag`), auch wenn das Lexikon sehr sicher ist;
+   - Lexikon sicher und gleicher Wert: `both`, eine Lesung genügt;
+   - Lexikon nur gegen einen Wert mit einer 1 mehr/weniger zu knapp (17,200 gegen 7,200; alle anderen Schwellen
+     erfüllt, margin >= 1), sein bester Wert ist genau der der Schild-Schrift, und die Erkennung hat jede Ziffer außer
+     1en selbst gesehen (`freeCovers`): `tag`, 2 Bilder nötig. Die Schild-Schrift entscheidet also nur die bekannte
+     Schwäche "schmale 1", sie ergänzt keine Ziffer.
+4. **Nur bekannte Signaturen**: Werte außerhalb der Spieldaten (z. B. zwei Kontakte auf einer Zahl) werden live nicht
+   mehr gelesen (bitte eintippen). Allein diese Regel entfernt alle 4 falschen Bestätigungen der alten Lesung im
+   schlechtesten Fall.
+
+**Warum open >= 0 und nicht gefittet (erster Stand, durch die Nachprüfung unten überholt):** Ohne diese Grenze lasen Schild-Schrift und Lexikon im Belastungstest 6x
+gemeinsam falsch (künstliche Schilder, z. B. "29,275" -> beide 21,275, "55,360" -> beide 15,360: der Schild-Schrift
+fehlt Breiteninformation, eine schmale 1 und eine andere Ziffer verwechselt sie). Eine per Gitter gefittete lockere
+Stufe hielt im Leave-one-out nicht (2 Fehler: ohne die beiden "29,275"-Fälle wählt das Gitter open >= -3). Deshalb fest
+der Gleichstand als Grenze; der nächste falsche Kandidat liegt damit 1,4 entfernt.
+
+**Ehrlich messen:** Die Schild-Schrift ist an denselben 31 Schildern gelernt. Zahlen "LOO" unten benutzen je
+geprüftem Wert ein Modell ohne alle Schilder dieses Werts (je Bild: ohne die Werte des Bilds); "ausgeliefert" ist das
+Modell im Repo (kennt die Bilder, optimistisch).
+
+| Stand | Ebene 1: richtig / falsch / nichts (31) | Negative falsch (526) | Lesungen pro Bild richtig / falsch | real: angezeigt während sichtbar | x4: falsch bestätigt / angezeigt | bis Bestätigung (real, Median) | ms pro Bild (Median), Erkennungen |
+|---|---|---|---|---|---|---|---|
+| vorher (2bfc1ec, freie Lesung) | 19 / **5** / 7 | 0 | 19 / **5** | 12/31 (39 %), 7 Werte nie | **4** / 104 von 124 | 6,8 s / 2,5 Lesungen | 163–185, 15 |
+| nur Pin + Lexikon | 15 / 0 / 16 | 0 | 15 / 0 | 24/31 (77 %), 3 nie | 0 / 103 | 0 s / 1 | 74–77, 1 |
+| nur Schild-Schrift + PaddleOCR (Alternative, LOO je Wert) | 23 / 0 / 8 | 0 | 23 / 0 | 26/31, 2 nie | 0 / 107 | 0 s / 1 | 165–178, 15 |
+| **neu: Pin + Lexikon + Schild-Schrift, LOO je Wert** | **22 / 0 / 9** | 0 | **22 / 0** | **26/31 (84 %)**, 3 nie | **0** / 107 | 0 s / 1 | 85–103, 1 |
+| neu, LOO je Bild | 22 / 0 / 9 | 0 | 22 / 0 | 26/31, 3 nie | 0 / 107 | 0 s / 1 | |
+| neu, ausgeliefertes Modell | 24 / 0 / 7 | 0 | 24 / 0 | 26/31, 3 nie | 0 / 117 | 0 s / 1 | 85–103, 1 |
+| **nach Nachprüfung, LOO je Wert** | **15 / 0 / 16** | 0 | **15 / 0** | **25/31 (81 %)**, 3 nie | **0** / 107 | 0 s / 1 | |
+| nach Nachprüfung, LOO je Bild | 16 / 0 / 15 | 0 | 16 / 0 | 25/31, 3 nie | 0 / 107 | 0 s / 1 | |
+| nach Nachprüfung, ausgeliefertes Modell | 16 / 0 / 15 | 0 | 16 / 0 | 25/31, 3 nie | 0 / 107 | 0 s / 1 | 80–97, 1 |
+
+Nie bestätigt (neu, real): 19275 (das Modell sieht wirklich eher "10,275"), 17080 (führende 1 kaum besser als
+7,080), 17200 (nur in einem gespeicherten Bild zu sehen; im echten 0,9-s-Takt wären es mehrere). Von Hand gerahmtes
+3,540: neu richtig. Testbänder: 3/3 in allen Ständen. Zeiten auf dem Rechner der Messung (4 CPUs, ohne Spiel), nur
+relativ vergleichen; der Detektor (~60–80 ms) bleibt, die Erkennung fällt von ~100 auf ~18 ms.
+
+**Belastungstest** (Ebene 1, 11.274 Fälle: die 35 Schilder und 467 Negative um 1–2 px verschoben, Kasten
+größer/kleiner, unscharf 0,5/0,8/1,2, Gamma, heller/dunkler, JPEG 85/60, Unschärfe+JPEG, Maßstab 0,8/1,25, dazu 230
+künstliche Schilder mit kopierten oder entfernten Ziffern; Schild-Schrift je Fall ohne den geprüften Wert gelernt),
+direkt mit `readSignatures` des neuen Stands: 496 richtige Lesungen (`both` 245, `tag` 140, Lexikon allein 111),
+**0 falsche**, 0 von 10.274 gestörten Negativen gelesen. Ungestört 26 von 35 Schildern (Lexikon allein 19).
+Unrealistische künstliche Schilder (158, z. B. "15,366", "00,620", die so nicht auf einem Schild stehen können):
+7 falsch (3 übers Lexikon "15,366"/"15,36" -> 15360, 4 über die Schild-Schrift "00,620" -> 10620).
+
+**Grenzen.**
+- Eine Sitzung (ein Schiff, orange HUD, 1080p) plus 3 Testbänder, künstliche Störungen und künstliche Schilder. Neue
+  Aufnahmen erst als unberührten Prüfsatz durch den Messstand laufen lassen, dann ggf. in `tags/` aufnehmen und
+  `scripts/ocr-train-tagfont.mjs` neu lernen.
+- Schild-Schrift: wenige Beispiele für 8 (1), 9 (2), 4 (3), 3 (4); Werte mit diesen Ziffern liest sie oft nicht (dann
+  nichts). Blaues (4180) und kleines grünes (7200) Schild findet sie nicht; seit der Nachprüfung wird dort nichts
+  gelesen (vorher Lexikon allein). Für andere HUDs erst Bilder sammeln und die Schild-Schrift damit lernen.
+- Die Gegenprobe "mögliche Zahl mit einer Ziffer Unterschied" nimmt an: Signaturen sind Vielfache von 5 und mindestens
+  1700. Ändert ein Patch das, muss `plausibleDigits` (lexicon.ts) angepasst werden.
+- Eine verdeckte letzte Ziffer ("15,36") kann als 15360 gelesen werden, wenn 15365 gemeint ist (beides möglich).
+- `both` bestätigt nach einer Lesung; das setzt voraus, dass Erkennung und Schild-Schrift unabhängig irren. Im
+  Belastungstest nie falsch (245 Fälle), geprüft aber nur an dieser Sitzung.
+- Summen zweier Kontakte und andere unbekannte Werte erscheinen live nie.
+
+### Nachprüfung (2026-11-28, Review mit Angriffen aus echten Ziffern)
+
+Ein Review hat den Stand oben mit künstlichen, aber aus echten Pixeln gebauten Schildern angegriffen (Asteroid hinter
+einer Ziffer, Ziffer aus einem anderen echten Schild eingesetzt, ganze Zahl mit fremden Glyphen neu gesetzt, in ein
+echtes leeres Band geklebt, 1 px Drift pro Bild, echter Detektor und Tracker) und falsch **bestätigte** Kontakte
+gefunden. Gemeinsamer Kern: Die Abstände der Lexikon-Lesung messen, wie sicher die Erkennung ist, nicht ob sie recht
+hat, und ihre Fehler wiederholen sich in jedem Bild, also helfen zwei Lesungen nicht.
+
+| Angriff | vorher bestätigt | Ursache | jetzt |
+|---|---|---|---|
+| Asteroid hinter der führenden 1 von 17,080 / 17,200 | 7080 / 7200 (Lexikon allein, margin 4–5) | Erkennung sieht "7.080", Schild-Schrift findet das Schild nicht | nichts (no-tag) |
+| 11,555 (unbekannt; 5 aus anderem Schild) | 11655 nach **einem** Bild (Lexikon "sehr sicher") | Erkennung liest 5 als 6 mit voller Sicherheit | nichts |
+| 10,020 (unbekannt) | 10000 nach 2 Bildern | dto. | nichts |
+| 8,000 mit Asteroid hinter der 8 | 4000 nach einem Bild | Erkennung "4000" | nichts |
+| 9,000 (9 aus anderem Schild) | 8000 nach 2 Bildern (Stufe `tag`, margin 0,2) | Erkennung "0000", Schild-Schrift liest 9 als 8 | nichts (margin < 1) |
+| zwei Schilder dicht beieinander | nichts (beide in einer Pin-Gruppe) | Pin des Nachbarn gewählt | beide getrennt |
+| Heranzoomen 2–2,5x | nichts (Kasten > 30 px) | feste Größengrenze | gelesen |
+
+Änderungen: (1) Das Lexikon allein liest nie mehr (`no-tag`), auch nicht "sehr sicher" (`SURE_LEXICON` entfällt);
+eine Lesung genügt nur bei `both`. (2) Stufe `tag` nur noch für die schmale 1 (Zweitbester = Wert mit einer 1
+mehr/weniger, sonst alle Schwellen von `both`, margin >= 1, Erkennung hat alle Ziffern außer 1en gesehen). Zwischenstände
+mit lockereren Grenzen (margin/open >= 1, gap <= 8) wurden von weiteren Angriffen (ganze Zahlen neu gesetzt, Modelle
+ohne die beteiligten Bilder) jeweils wieder geknackt, weil beide Leser auf denselben unscharfen Pixeln dieselbe
+Verwechslung machen und die 8/9 der Schild-Schrift kaum gelernt sind: 4,390 -> 4300, 6,360 -> 8360, 11,505 -> 11565,
+9,390 -> 8390, 16,360 -> 15360 (JPEG), 3,135 -> 3185 und 12,535 -> 12585 (JPEG, margin 2,3/3,1; die Bilder sind auch
+fürs Auge kaum lesbar). (3) Pin nur mit Ziffernspur in der Zeile des Kastens. (4) Kästen bis 64 px hoch (Zoom).
+(5) Tracker zählt Bilder statt Lesungen.
+
+Messung der Regeln an Merkmalen (Lexikon ohne Schwellen, Schild-Schrift mit drei Modellen: ohne die beteiligten
+Werte, ohne die beteiligten Bilder, ausgeliefert): echte Kästen x 21 Störungen (11.044), Zoom 1,5–2,5x ± Unschärfe
+(2.208 inkl. Negative), Asteroid an jeder Ziffer (7.896), eingesetzte Ziffern (5.862), erste Ziffer ersetzt (5.720),
+859 unbekannte Nachbarn bekannter Werte neu gesetzt (3.436): **0 falsche Lesungen** mit allen drei Modellen. Mit den
+Skripten des Reviews gegen den gebauten Stand (mitgeliefertes Modell, wo nicht anders angegeben): Asteroid 6.156
+Fälle, eingesetzte Ziffern 2.931 je ungestört / unscharf 0,4 / 0,6 / JPEG 85 / 70 und 764 mit zwei Ziffern, X,000
+760, führende 1 durch breite Ziffer ersetzt (ganze Zahl neu gesetzt, 7.464), alle 6.214 unbekannten Nachbarn neu
+gesetzt (Modell ohne die Bilder; dasselbe unscharf 0,6, und mit JPEG 85 und ausgeliefertem Modell), 644 bekannte
+Werte neu gesetzt: **0 falsch** (ein Zwischenstand las noch "313,000" -> 33000; der Wert liegt über der größten
+möglichen Signatur 300.000). Die Repros des Reviews bestätigen nichts mehr, auch nicht in einem Raster aus
+Asteroidgröße, Deckkraft und Drift.
+
+Wie ehrlich die Grenzen sind: Keine neue Zahl ist gefittet; die Stufe `tag` benutzt die Schwellen von `both` und
+erlaubt nur beim Abstand zu einem "1 mehr/weniger"-Wert weniger (margin >= 1, gerundet). Gewählt wurde die Regel aber
+nach diesen Angriffen; ein Leave-one-out über die Angriffe würde frühere, lockerere Fassungen nicht schützen, weil jeder
+Fall eine andere Verwechslung ist. Deshalb strukturell statt mit Schwellen: nur zwei Lesewege, beide eng. Die echten Bilder (LOO je Wert und je Bild, Tabelle oben) bleiben ohne Fehler. Neue Aufnahmen
+zuerst unberührt durch den Messstand.
+
+Preis: Je Kasten 16 statt 24 von 31 Schildern; über die Zeit fast gleich (25 statt 26 von 31 Bildern mit sichtbarem
+Schild zeigen den Wert an), weil dieselben Kontakte in anderen Bildern sicher gelesen werden. Verloren: grünes (7200)
+und PC-Test-Schild (4180), weil die Schild-Schrift sie nicht findet, und die meisten unscharfen 11,565-Bilder am Ende
+der Aufnahme, in denen die Erkennung die 6 nicht sieht.
+
+
+**Unberührter Prüfsatz (2. Flug im Aaron Halo, 68 Bilder, 52 Schilder, nach allen Änderungen gemessen).** Enthält eine
+Summe zweier Kontakte (25,980, kein Einzelwert; 25,530 eine Ziffer daneben ist bekannt), rotes HUD durch G-Kräfte
+(12,765), ein teilweise verdecktes Schild (21,350) und einen herangezoomten Ausschnitt.
+
+| Stand | je Kasten richtig / falsch / nichts | FALSCH bestätigt real / seq / x4 | angezeigt während sichtbar real / x4 | ms pro Bild (Median) |
+|---|---|---|---|---|
+| vorher (2bfc1ec) | 39 / 5 / 8 | 0 / 0 / **4** (1850, 12705, 25880, 1520) | 16/51 / 144/204 | 148 (12,5 Erkennungen) |
+| nur Lexikon | 21 / 1 / 30 | **1 / 1 / 1** (25080 aus der Summe 25,980) | 19/51 / 96/204 | 82 |
+| Lexikon + Schild-Schrift vor Review | 26 / 1 / 25 | **1 / 1 / 1** (25080) | 23/51 / 124/204 | 73 |
+| jetzt | 13 / 0 / 39 | 0 / 0 / 0 | 16/51 / 66/204 | 92 (0,7 Erkennungen) |
+
+Bestätigt die Review-Regel: die Erkennung allein las die Summe 25,980 als "25,080" mit Sicherheit 1,00, und 25080 ist
+eine bekannte Signatur. Ohne Zustimmung der Schild-Schrift kommt so etwas durch. Der jetzige Stand zeigt nie einen
+falschen Wert, liest aber deutlich weniger als vorher: 16960 (7 Bilder), 7080, 4000, 21350, 12765 (rot), 17200 und
+die Summe 25980 nie. Meist liest die Erkennung richtig ("16,960", 1,00), die Schild-Schrift findet das Schild aber
+nicht oder liest anders. Sie kennt nur die 31 Schilder des ersten Flugs (die Ziffern 9, 8, 4, 3 kaum). Nächster
+Schritt: Schilder des zweiten Flugs in `tags/` aufnehmen, neu lernen und an einem dritten, wieder unberührten Flug
+messen. Rotes HUD: Pin in 2 von 3 Bildern gefunden, Wert in keinem sicher gelesen (vorher fälschlich 12705).

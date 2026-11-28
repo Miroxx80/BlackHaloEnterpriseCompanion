@@ -12,6 +12,21 @@ export interface LineReader {
    * 'text': Erznamen in Großbuchstaben. confidence: 0..1.
    */
   read(img: Rgb, kind: ReadKind, options?: ReadOptions): Promise<ReadResult | null>;
+  /**
+   * Optional: rohe Ausgabe der Erkennung für eine Lexikon-Lesung (Radar-Signaturen). Pro Zeitschritt die
+   * Log-Wahrscheinlichkeiten von Leerzeichen (blank, Spalte 0) und den Zeichen `chars`, über diese renormalisiert.
+   */
+  logProbs?(img: Rgb, chars: string): Promise<CharLogProbs | null>;
+}
+
+export interface CharLogProbs {
+  /** Spalten 1..n entsprechen diesen Zeichen, Spalte 0 ist das CTC-Leerzeichen (blank). */
+  chars: string;
+  steps: number;
+  /** steps x (chars.length + 1), natürlicher Logarithmus. */
+  lp: Float64Array;
+  /** Mittlerer Anteil aller anderen Zeichen vor dem Renormalisieren (hoch = da steht eher Text als eine Zahl). */
+  other: number;
 }
 
 /**

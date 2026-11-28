@@ -157,6 +157,11 @@ function normalize(list: SignatureCandidate[]): SignatureCandidate[] {
     .sort((a, b) => Number(!!a.outOfPlace) - Number(!!b.outOfPlace) || b.weight - a.weight);
 }
 
+/** Alle Werte mit genauem Treffer (wie matchSignature(...).exact), aufsteigend. Für die Lexikon-Lesung live. */
+export function knownSignatures(data: Dataset, upTo = MAX_SIGNATURE): number[] {
+  return [...new Set(terms(data, undefined, upTo).map((t) => t.value))].sort((a, b) => a - b);
+}
+
 export function matchSignature(value: number, data: Dataset, options: { location?: string } = {}): SignatureResult {
   const location = options.location ? data.signatures.locations.find((l) => l.id === options.location) : undefined;
   const result: SignatureResult = {

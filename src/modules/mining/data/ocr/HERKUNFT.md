@@ -13,3 +13,8 @@ Spike vom 2026-11-26 (86 % auf verlustbehafteten Screenshots, Erznamen 10/10).
 
 `glyphs.json`: eigene Ziffernerkennung (kein PaddleOCR), selbst gelernt aus bestätigten Scans der Org-Leitung
 (FOV 86, 1920x1080) mit `scripts/ocr-train-glyphs.mjs`. Bestätigt nur zweifelhafte Ziffern, siehe `ocr/glyphs.ts`.
+
+`tagfont.json`: Schrift der Radar-Schilder (Pin + Zahl, kein PaddleOCR), selbst gelernt aus 31 markierten Schildern
+(Aaron Halo, 2026-11-28, 1920x1080) und den Testbändern mit `scripts/ocr-train-tagfont.mjs`. Zweite Meinung beim
+Live-Lesen der Signaturen (ein Wert gilt nur, wenn Lexikon-Lesung und Schild-Schrift ihn beide lesen; liest nie
+allein), siehe `ocr/tagfont.ts`.
