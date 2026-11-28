@@ -10,11 +10,19 @@ export interface Rgb {
 
 export class ScreenError extends Error {}
 
+/** Geladener Screenshot mit Herkunft: Nur ein verlustfreies Bild in Layout-Größe sieht aus wie die Lerndaten. */
+export interface Screen extends Rgb {
+  /** Dateiformat laut sharp (png, jpeg, webp, ...). */
+  format: string;
+  /** Auf die Layout-Größe skaliert (andere Auflösung): Die Ziffern sind dann neu abgetastet. */
+  resized: boolean;
+}
+
 /**
  * Screenshot laden (PNG, JPG, WebP). Andere 16:9-Auflösungen werden auf die Layout-Größe skaliert;
  * andere Seitenverhältnisse (z. B. Ultrawide) werden abgelehnt, weil das HUD dort anders liegt.
  */
-export async function loadScreen(input: Buffer, layout: HudLayout): Promise<Rgb> {
+export async function loadScreen(input: Buffer, layout: HudLayout): Promise<Screen> {
   let img = sharp(input, { failOn: 'error' });
   const meta = await img.metadata();
   if (!meta.width || !meta.height) throw new ScreenError('Bild konnte nicht gelesen werden');
@@ -22,11 +30,42 @@ export async function loadScreen(input: Buffer, layout: HudLayout): Promise<Rgb>
   if (Math.abs(ratio - layout.width / layout.height) > 0.01) {
     throw new ScreenError(`Nur 16:9-Bilder werden unterstützt (dieses: ${meta.width}x${meta.height})`);
   }
-  if (meta.width !== layout.width || meta.height !== layout.height) {
+  const resized = meta.width !== layout.width || meta.height !== layout.height;
+  if (resized) {
     img = img.resize(layout.width, layout.height, { fit: 'fill', kernel: 'lanczos3' });
   }
   const { data, info } = await img.removeAlpha().raw().toBuffer({ resolveWithObject: true });
-  return { width: info.width, height: info.height, data };
+  return { width: info.width, height: info.height, data, format: meta.format ?? 'unbekannt', resized };
+}
+
+/**
+ * Spuren einer JPEG-Kompression (auch wenn das Bild danach als PNG gespeichert wurde): Kanten im 8-px-Raster der
+ * Blöcke. Gemessen wird nur in glatter Umgebung (Nachbarstufen höchstens 2), wie viel stärker die Stufe genau an der
+ * Blockgrenze ist als an den anderen sieben Stellen (Median). Gemessen an 99 echten Aufnahmen (PNG): -0,09 bis 0,07;
+ * dieselben Bilder als JPEG Qualität 95: ab 0,27, Qualität 60–85: ab 0,5. Bildbereich `box` (z. B. Suchbereich).
+ */
+export function blockArtifacts(img: Rgb, [x0, y0, w, h]: Box): number {
+  const L = (x: number, y: number) => {
+    const o = (y * img.width + x) * 3;
+    return (img.data[o] + img.data[o + 1] + img.data[o + 2]) / 3;
+  };
+  const sum = new Array<number>(8).fill(0);
+  const n = new Array<number>(8).fill(0);
+  const x1 = Math.min(img.width, x0 + w);
+  const y1 = Math.min(img.height, y0 + h);
+  const add = (pos: number, a: number, b: number, c: number) => {
+    if (Math.max(a, c) > 2) return; // nur glatte Umgebung
+    sum[pos % 8] += b - (a + c) / 2;
+    n[pos % 8]++;
+  };
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0 + 2; x < x1 - 1; x++) add(x, Math.abs(L(x - 1, y) - L(x - 2, y)), Math.abs(L(x, y) - L(x - 1, y)), Math.abs(L(x + 1, y) - L(x, y)));
+  }
+  for (let y = y0 + 2; y < y1 - 1; y++) {
+    for (let x = x0; x < x1; x++) add(y, Math.abs(L(x, y - 1) - L(x, y - 2)), Math.abs(L(x, y) - L(x, y - 1)), Math.abs(L(x, y + 1) - L(x, y)));
+  }
+  const mean = sum.map((v, i) => v / Math.max(1, n[i]));
+  return mean[0] - mean.slice(1).sort((a, b) => a - b)[3];
 }
 
 /** Ausschnitt als neues RGB-Bild. */
@@ -137,4 +176,39 @@ export function cropPadded(img: Rgb, [x, y, w, h]: Box, pad = 3): Rgb {
 /** Als PNG (z. B. für gespeicherte Beispielbilder). */
 export function toPng(img: Rgb): Promise<Buffer> {
   return sharp(img.data, { raw: { width: img.width, height: img.height, channels: 3 } }).png().toBuffer();
+}
+
+/**
+ * HUD in anderem Maßstab (FOV): Bereich `region` (Standard-Lage, Maßstab 1) aus dem Bild neu abtasten, wobei
+ * Bildschirm = scale x Standard + [tx, ty]. Ergebnis ist eine Kopie des Bilds, in der dieser Bereich so aussieht wie
+ * bei Maßstab 1 an der Standard-Lage; der Rest bleibt unverändert. Außerhalb des Bilds: schwarz. Lanczos, wie beim
+ * Skalieren anderer Auflösungen in loadScreen.
+ */
+export async function rescaleRegion(img: Rgb, [rx, ry, rw, rh]: Box, scale: number, tx: number, ty: number): Promise<Rgb> {
+  const x0 = Math.round(scale * rx + tx);
+  const y0 = Math.round(scale * ry + ty);
+  const w = Math.max(1, Math.round(scale * rw));
+  const h = Math.max(1, Math.round(scale * rh));
+  const cx0 = Math.max(0, x0);
+  const cy0 = Math.max(0, y0);
+  const cx1 = Math.min(img.width, x0 + w);
+  const cy1 = Math.min(img.height, y0 + h);
+  const out: Rgb = { width: img.width, height: img.height, data: Buffer.from(img.data) };
+  let part: Buffer;
+  if (cx1 - cx0 < 2 || cy1 - cy0 < 2) {
+    part = Buffer.alloc(rw * rh * 3);
+  } else {
+    // Zwei Schritte: sharp würde extend sonst erst nach dem Skalieren anwenden
+    const cut = await sharp(img.data, { raw: { width: img.width, height: img.height, channels: 3 } })
+      .extract({ left: cx0, top: cy0, width: cx1 - cx0, height: cy1 - cy0 })
+      .extend({ left: cx0 - x0, top: cy0 - y0, right: x0 + w - cx1, bottom: y0 + h - cy1, background: '#000000' })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    part = await sharp(cut.data, { raw: { width: cut.info.width, height: cut.info.height, channels: 3 } })
+      .resize(rw, rh, { fit: 'fill', kernel: 'lanczos3' })
+      .raw()
+      .toBuffer();
+  }
+  for (let y = 0; y < rh; y++) part.copy(out.data, ((ry + y) * img.width + rx) * 3, y * rw * 3, (y + 1) * rw * 3);
+  return out;
 }

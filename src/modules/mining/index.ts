@@ -10,6 +10,7 @@ import { noDetector, noReader, type LineReader, type TextDetector } from './ocr/
 import { ScreenError } from './ocr/image.js';
 import { readScan } from './ocr/pipeline.js';
 import { createPaddleDetector, createPaddleReader } from './ocr/paddle.js';
+import { loadGlyphModel } from './ocr/glyphs.js';
 import { readSignatures, SIGNATURE_BAND, SignatureTracker } from './ocr/signatures.js';
 import { loadWin32 } from '../controls/input/win32.js';
 import sharp from 'sharp';
@@ -256,6 +257,8 @@ const mod: BhModule = {
     const ocrDir = join(ctx.dir, 'data', 'ocr');
     const reader: LineReader = ctx.config.ocr === false ? noReader : createPaddleReader(ocrDir);
     const detector: TextDetector = ctx.config.ocr === false ? noDetector : createPaddleDetector(ocrDir);
+    // Eigene Ziffernerkennung (bestätigt nur zweifelhafte Ziffern); fehlt das Modell, bleibt alles markiert wie bisher
+    const glyphs = ctx.config.ocr === false ? null : loadGlyphModel(ocrDir);
     const samplesDir = join(ctx.dataDir, 'ocr-samples');
     const confirmedDir = join(samplesDir, 'confirmed');
     const MAX_SAMPLES = 60;
@@ -313,14 +316,14 @@ const mod: BhModule = {
     /** Screenshot lesen; apply: Ergebnis in den gemeinsamen Scan übernehmen (nur wenn das Panel gefunden wurde). */
     async function ocrImage(image: Buffer, apply: boolean, reply: FastifyReply) {
       try {
-        const { result, panelPng } = await readScan(image, reader, data.ores, { detector });
+        const { result, panelPng } = await readScan(image, reader, data.ores, { detector, glyphs });
         const sample = keepSample(panelPng, result);
         let applied = false;
         if (apply && result.panelFound) {
           commitScan(validator.validateDraft({ ...result.draft, marks: result.marks, ocrSample: sample }), 'ocr');
           applied = true;
         }
-        ctx.log.info(`OCR (${result.engine}, ${result.ms} ms): Panel ${result.panelFound ? 'gefunden' : 'nicht gefunden'}, ${Object.keys(result.marks).length} Feld(er) zu prüfen`);
+        ctx.log.info(`OCR (${result.engine}, ${result.ms} ms): Panel ${result.panelFound ? 'gefunden' : 'nicht gefunden'}${result.scale !== 1 ? ` (HUD-Maßstab ${result.scale.toFixed(2)})` : ''}, ${Object.keys(result.marks).length} Feld(er) zu prüfen`);
         return { ...result, applied };
       } catch (err) {
         if (err instanceof ScreenError) return reply.code(400).send({ error: err.message });

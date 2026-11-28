@@ -1,0 +1,29 @@
+{
+  "confirmedAt": "2026-11-27T18:37:00.652Z",
+  "scan": {
+    "mass": "17573",
+    "resistance": "51",
+    "resColor": "white",
+    "instability": "233.81",
+    "instColor": "white",
+    "scu": "12.91",
+    "gadget": "",
+    "parts": [
+      {
+        "pct": "7.03",
+        "ore": "Raw_Taranite",
+        "quality": "646"
+      },
+      {
+        "pct": "85.59",
+        "ore": "Raw_Taranite",
+        "quality": "310"
+      },
+      {
+        "pct": "7.37",
+        "ore": "inert",
+        "quality": ""
+      }
+    ]
+  }
+}

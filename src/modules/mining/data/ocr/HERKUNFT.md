@@ -10,3 +10,6 @@
 Zwei Modelle: Die Detektion findet Textzeilen im Suchbereich (damit das Scan-Panel auch gefunden wird, wenn es
 verschoben ist; im PC-Test vom 2026-11-26 bis ~100 px), die Zeilenerkennung liest sie. Auswahl und Messung:
 Spike vom 2026-11-26 (86 % auf verlustbehafteten Screenshots, Erznamen 10/10).
+
+`glyphs.json`: eigene Ziffernerkennung (kein PaddleOCR), selbst gelernt aus bestätigten Scans der Org-Leitung
+(FOV 86, 1920x1080) mit `scripts/ocr-train-glyphs.mjs`. Bestätigt nur zweifelhafte Ziffern, siehe `ocr/glyphs.ts`.

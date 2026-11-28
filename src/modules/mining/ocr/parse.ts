@@ -46,6 +46,13 @@ export function matchOre(raw: string | null | undefined, ores: Ore[]): { id: str
   const word = (formMatch ? t.slice(0, formMatch.index) : t).replace(/[^A-Z]/g, '');
   if (word.length < 2) return null;
   const pool = ores.filter((o) => !form || o.form === form);
+  // 0. Ganzer Name mit sauber gelesener Form (z. B. "TIN (ORE)"): sicher, wenn kein anderes Erz dieser Form im ganzen
+  // Namen bis zu zwei Buchstaben entfernt ist. Die Prüfung gegen Abkürzungen unten ("TIN" ist einen Buchstaben von
+  // "TIT..." entfernt) betrifft nur abgekürzte Namen; ausgeschrieben zeigt das HUD alle Erze außer HEPH.
+  const full = pool.filter((o) => o.name.toUpperCase() === word);
+  if (full.length === 1 && form && clean && !pool.some((o) => o !== full[0] && levenshtein(word, o.name.toUpperCase()) <= 2)) {
+    return { id: full[0].id, exact: true };
+  }
   // 1. Name beginnt mit dem gelesenen Wort (Abkürzungen der Prospector, z. B. HEPH -> Hephaestanite)
   const prefix = word.length >= 3 ? pool.filter((o) => o.name.toUpperCase().startsWith(word)) : [];
   // Eindeutige Abkürzung mit sauber gelesener Form (z. B. "HEPH (RAW)") gilt als sicher erkannt, aber nur, wenn

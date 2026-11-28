@@ -804,6 +804,163 @@ unnötig gelb 273. Eigene Ziffernerkennung mit 1.329 Ziffern (ehrlich getestet, 
 0/6/8/9 75 % (PaddleOCR 88 %); sicher bestätigt würden 68–70 von 344 zweifelhaften Ziffern (vorher 19–39 von 232).
 Besser, aber noch nicht einbauwürdig; weiter sammeln.
 
+**HUD-Maßstab / FOV (2026-11-27, 17 Scans eines Freundes mit FOV 100):** Das HUD skaliert mit dem Sichtfeld. Gemessen
+an den Beschriftungen RESULTS -> MASS -> RES -> INST -> COMP.: FOV 86 0,975–1,026 (Streuung), FOV 100 0,856–0,879 –
+passt zu Maßstab ~ 86 / FOV (nicht zu tan(FOV/2), das gäbe 0,78). Lage: skaliert um die Bildmitte (waagerecht genau,
+senkrecht wandert das Panel ohnehin um -30..+120 px). Die alte Version fand das Panel, verlor aber oft die erste Zeile
+unter dem Balken und las bei INST die Farbe des Balkens (3 falsche Farben ohne Markierung).
+- Lösung: Maßstab und Versatz aus den Beschriftungen schätzen (kleinste Quadrate über die Höhen; sicher erst ab 3
+  Beschriftungen mit >= 40 px Abstand, sonst alles gelb). Weicht der Maßstab mehr als 4 % von 1 ab, wird der
+  Panel-Bereich auf Maßstab 1 umgerechnet (Lanczos) und dort neu gesucht; danach gelten alle Maße und Prüfungen
+  unverändert. Gegenprobe: Das Panel muss dann in Standard-Größe an der Standard-Lage stehen, sonst alles gelb. Gelesen
+  werden die Pixel aber aus dem Screenshot (Kasten zurückgerechnet): 83 % statt 80 % richtig gegenüber dem Lesen im
+  umgerechneten Bild.
+- Bei kleinerem HUD trennt die Sicherheit 0/6/8/9 schlechter (künstlich auf 0,78 verkleinert: 8 statt 0 mit 0,9963
+  ohne Markierung). Dort gilt eine 0/6/8/9 erst ab 0,9995 als eindeutig. Außerdem: Resistenz ohne "%" gelesen -> gelb.
+- Suchbereich: zuerst wie bisher 576x608 ab 1184,392 (FOV 86 unverändert), sonst 640x640 ab 1152,392 (Maßstab
+  0,55–1,35). Beispielbilder sind jetzt 640x640; `ocr-eval.mjs` erkennt alte und neue Größe, ordnet Zeilen unabhängig
+  von der Reihenfolge zu, zählt leer gelassene Felder nicht und kann mit `--scale=0.78` ein anderes FOV nachstellen.
+- Ergebnis: FOV 86 unverändert (91,3 %, 0 still falsch). FOV 100 (Wahrheit dort, wo das Bild eindeutig anderes zeigt,
+  korrigiert): 77,1 % mit 3 still falschen -> 85,9 %, 0 still falsch; keine Zeile mehr verloren. FOV-86-Scans künstlich
+  skaliert: 0,7 -> 83,0 %, 0,78 -> 84,2 % (vorher 49,8 %, 1 still falsch), 1,15 -> 90,4 % (vorher 71,6 %), 1,25 -> 90,6 %;
+  überall 0 still falsch. Zeit: FOV 86 wie bisher (~0,6 s), anderes FOV ~+0,15–0,2 s.
+
+**Unnötiges Gelb verringern (2026-11-27, 82 Scans FOV 86 + 17 Scans eines Freundes mit FOV 100):**
+Ausgangslage (Auswertung jetzt mit Zeilen ohne Reihenfolge zugeordnet, leere Wahrheit = ungeprüft): 1.452 Felder,
+91,3 % richtig, 692 richtige Felder unnötig gelb (amb 424, conf 241, box 121, ore 82, sum 65, color 25), 0 still.
+Befunde:
+- PaddleOCR allein trennt nicht: Falsch gelesene 0/6/8/9 hatten Sicherheiten bis 0,998 (eine 8 als 0 in "85.56",
+  nicht einmal als zweifelhaft erkannt). Bessere Schwellen auf PaddleOCR (Methode c) gibt es also nicht; dieselbe
+  Ziffer verschoben, gestreckt oder einzeln neu gelesen bestätigt nur 46–60 von 621 richtigen zweifelhaften Ziffern.
+- Summe als Beweis (Methode b): Die alte Regel "Die Summe hebt keine Markierung auf" hat zwei Gründe: zwei Fehler
+  können sich ausgleichen, und Fehler in der zweiten Nachkommastelle bleiben im Fenster 99,9–100,1. Ein echter Beweis
+  (jede andere Lesart aller zweifelhaften Ziffern liegt außerhalb des Fensters) gelingt nur für 17 Felder; dazu
+  bliebe das Restrisiko einer unbemerkt fehlenden Zeile, deren Anteil ein Tausch genau ausgleicht. Nicht eingebaut.
+- Viele Markierungen kamen nicht von Ziffern: "%" und "SCU" mit geringer Sicherheit (conf), lange Erznamen bis an
+  die Qualitätsspalte (box, 87 von 91 nur deshalb), "TIN (ORE)" (einen Buchstaben von "TIT..." entfernt).
+- Gefährlich: Eine Markierung schützt manchmal zufällig einen anderen Fehler im selben Feld ("05.56" war nur wegen
+  einer zweifelhaften 6 gelb, "62" statt 602 nur wegen einer zweifelhaften 6). Deshalb vorher Formprüfungen ergänzt.
+
+Eingebaut:
+1. Formprüfungen (nur zusätzliche Markierungen): keine führende Null, SCU mit zwei Nachkommastellen, Resistenz
+   ganzzahlig, Qualität dreistellig bis 1000 (Inert 0).
+2. Geringe Sicherheit nur über die Zeichen des Werts (ohne "%" beim Anteil, ohne "SCU").
+3. Qualitätskasten nur unsicher, wenn Anteil/Name bis auf 3 px an ihn heranreicht (statt fester Grenze 130 px);
+   eine verschluckte Ziffer fängt die dreistellige Formprüfung.
+4. Ganzer Erzname mit sauberer Form ("TIN (ORE)") ist sicher, wenn kein anderes Erz dieser Form im ganzen Namen
+   bis zu zwei Buchstaben entfernt ist (TARANITE/LARANITE bleiben gelb).
+5. Eigene Ziffernerkennung (Methode a, `ocr/glyphs.ts`, Modell `data/ocr/glyphs.json`, neu erzeugen mit
+   `node scripts/ocr-train-glyphs.mjs <confirmed> [--loo] [--check <Ordner>]`): Ziffer an der Lage aus PaddleOCR auf
+   die Schrift einrasten, Raster 10x14, zwei Softmax-Regressionen über alle 10 Ziffern: "pixel" (nur Raster) und
+   "shape" (Raster + Kantenrichtungen je 2x2 Zellen). Auf 0/6/8/9 ehrlich gemessen (je Scan ohne ihn gelernt):
+   pixel 83 %, shape 89 % (PaddleOCR 89 %). Allein hat jedes Modell sichere Fehlurteile (pixel bis 0,76, shape bis
+   0,97), aber nie bei derselben Ziffer: Bestätigt wird nur, wenn beide zustimmen (Anteil unter 0/6/8/9 >= 0,8 und
+   >= 0,95), und nur, wenn beide bei jeder Ziffer des Felds mit PaddleOCR einig sind. Ändert nie einen Wert.
+   Bei [0,6; 0,9] wäre eine 0 in "7004" (sieht wie eine 8 aus) still falsch geworden; deshalb die strengeren Schwellen.
+   Nur bei der gelernten HUD-Größe: Zeilenabstand MASS/RES/INST 18–21 px (FOV 86: 18,5–20,5; FOV 100: 16–17,5).
+   Beim Freund (FOV 100) erkennt das Modell nur ~50 % der 0/6/8/9, die Sperre ist also nötig.
+   Scans, deren Bild in test/fixtures liegt, lernt das Skript nicht (die Tests prüfen das Modell an ihnen).
+
+| Methode | unnötig gelb FOV 86 (je Scan ohne ihn gelernt) | unnötig gelb FOV 100 (nie gelernt) | still falsch | falsch entmarkiert |
+|---|---|---|---|---|
+| vorher | 692 | 128 | 0 / 0 | – |
+| nur conf über Wertzeichen | 670 | 128 | 0 / 0 | 0 |
+| Summe als Beweis (nicht eingebaut) | 675 | 128 | 0 / 0 | 0 |
+| 1.–4. (Regeln) | 575 | 128 | 0 / 0 | 0 |
+| + pixel allein, Schwelle 0,9 | 519 | 128 | 0 / 0 | 0 |
+| + pixel und shape [0,6; 0,9] (verworfen) | 416 | 128 | **1** / 0 | 1 |
+| + pixel und shape [0,8; 0,95] (eingebaut) | 475 | 128 (ohne FOV-Sperre 124) | 0 / 0 | 0 |
+
+Mit dem ausgelieferten Modell (77 Scans gelernt, also geschönt) zeigt `ocr-eval.mjs` am FOV-86-Ordner 457 unnötig gelb,
+0 still. Offen: amb bleibt größter Rest (318), vor allem zweite Nachkommastellen und "8 oder 0"-Ziffern, die auch für
+Menschen kaum unterscheidbar sind; FOV 100 braucht eigene Lerndaten (oder Lesen in normierter HUD-Größe).
+
+**FOV-Maßstab und weniger Gelb zusammen (2026-11-27):** Beide Änderungen oben sind jetzt gemeinsam eingebaut.
+- Zusammenspiel: Die eigene Ziffernerkennung läuft nur, wenn das Panel NICHT umgerechnet wurde (Maßstab innerhalb 4 %
+  von 1) und der Zeilenabstand im Screenshot im gelernten Bereich liegt. Die Pixel kommen immer aus dem Screenshot;
+  bei FOV 100 wären die Ziffern dort kleiner als beim Lernen (~50 % richtig bei 0/6/8/9). `rowPitch` wird deshalb in
+  Screenshot-Pixeln gemeldet (gemessen x Maßstab), nicht im umgerechneten Bild. Die strengere 0/6/8/9-Schwelle bei
+  kleinerem HUD (0,9995) bleibt, die Ziffernerkennung kann sie dort nie aufheben.
+- Lernskript lernt nur aus Scans mit Maßstab 1 und erkennt alte und neue Beispielbild-Größen. Neu gelernt mit dem
+  gemeinsamen Code: gleiche 2.780 Ziffern aus 77 Scans, `glyphs.json` Byte für Byte gleich.
+- `ocr-eval.mjs` nutzt `scripts/ocr-compare.mjs` (auch für das Lernskript): Zeilen ohne Reihenfolge, an anderer
+  Stelle nur mit mindestens einem gleichen Feld, leere Wahrheit (auch in Zeilen) = nicht geprüft; dazu `--scale=k`
+  und `--no-glyphs`. Das Lernskript misst mit `--loo --scale=k` an skalierten Bildern (gelernt wird unverändert).
+
+Alle Zahlen mit derselben Auswertung (unnötig gelb = richtig gelesen, trotzdem markiert):
+
+| Stand | FOV 86 (82 Scans) | FOV 100 wie gespeichert (17) | FOV 100 Wahrheit korrigiert (17) |
+|---|---|---|---|
+| vorher | 91,2 %, 688 gelb, 0 still | 79,9 %, 126 gelb, 0 still* | 77,1 %, 123 gelb, **3 still** |
+| nur Maßstab | 91,2 %, 688, 0 | 82,2 %, 141, 7** | 85,5 %, 142, 0 |
+| nur weniger Gelb (Modell, geschönt) | 91,2 %, 453, 0 | 79,9 %, 126, 0* | 77,1 %, 123, **3** |
+| beides (Modell, geschönt) | 91,2 %, 453, 0 | 82,2 %, 127, 7** | 85,5 %, 128, 0 |
+| beides, je Scan ohne ihn gelernt | 91,2 %, **471**, 0 | – (nie gelernt) | – |
+| beides, ohne Ziffernerkennung | 91,2 %, 571, 0 | 82,2 %, 127, 7** | 85,5 %, 128, 0 |
+
+\* Die alte Version las bei 3 Scans die INST-Farbe vom grünen Balken darunter; der Freund hat das ungeprüft bestätigt.
+\*\* Alle 7 sind Fehler in der gespeicherten Wahrheit (am Bild geprüft): 4x INST-Farbe grün/rot statt weiß (alte
+Lesung übernommen), 2x erste Zeile 7,54 % TIN 537 fehlt (19-08-05), 1x Qualität "5.37" statt 537 (19-08-33).
+
+FOV-86-Scans künstlich skaliert (beides, ausgeliefertes Modell): 0,78 -> 84,0 %, 0,96 -> 87,9 %, 1,04 -> 90,7 %,
+1,15 -> 90,4 %; überall 0 still. Bei 0,96 und 1,04 wird nicht umgerechnet, die Ziffernerkennung läuft also auf leicht
+anders großen Ziffern. Ehrlich gemessen (je Scan ohne ihn gelernt, `--loo --scale`): 0,96 -> unnötig gelb 608 ohne
+/ 593 mit Ziffernerkennung (die meisten Scans werden dort schon umgerechnet, Maßstab ~0,95), 1,04 -> 542 / 460;
+beide 0 still.
+Die im Auftrag genannte Ausgangslage (92,8 %, 484 unnötig gelb) ließ sich mit diesem Stand nicht nachstellen.
+
+**Review "still falsch" (2026-11-28):** Prüfer haben die Scans verschoben, skaliert, als JPEG gespeichert,
+geschärft/unscharf gemacht, aufgehellt und in 1600x900/1280x720 nachgestellt und so falsche Werte ohne Markierung
+gefunden. Behoben (alle gemeldeten Fälle jetzt gelb):
+- JPEG/andere Auflösung: Auf JPEG lagen beide Ziffernmodelle sicher daneben (8 als 6) und hoben PaddleOCRs richtigen
+  Zweifel auf. Jetzt erkennt `blockArtifacts` (image.ts) JPEG-Spuren auch in PNGs (8-px-Blockgrenzen in glatter
+  Umgebung: echte Aufnahmen -0,09 bis 0,07, JPEG ab 0,27; Schwelle 0,15). `loadScreen` meldet Format und Skalierung.
+  Bestätigen darf die Ziffernerkennung nur bei verlustfreiem PNG in 1920x1080; sonst gilt die strenge 0/6/8/9-Schwelle
+  (0,9995) und Mindestsicherheit 0,9 statt 0,8 (eine 6 mit 0,87 als 5 gelesen, ein zweiter Fehler glich die Summe aus).
+  Hinweis in der App: "Bild verlustbehaftet / in anderer Auflösung".
+- Strenge 0/6/8/9-Schwelle nicht mehr nur bei Maßstab < 1, sondern auch bei umgerechnetem HUD (auch > 1), gemessenem
+  Maßstab < 0,99 (auf 1 eingerastet), skaliertem oder verlustbehaftetem Bild.
+- Widerspruch der Ziffernerkennung (Grund `glyph`): Bei passender HUD-Größe wird jede Ziffer geprüft, nicht nur
+  zweifelhafte. Liegt sie in einem Modell unter `agree`, wird markiert (eine durchgestrichene 0 mit 0,995 als 8, eine
+  verlorene 0 in "50%"). Kostet ehrlich gemessen ~29 unnötig gelbe Felder.
+- Verschmolzene Ziffern ("88" -> "8", gieriges CTC): Die Ziffernerkennung hebt Zweifel nur noch dort auf, wo die
+  Ziffernzahl anders geprüft ist: Qualität und Anteile ja, Nachkommastellen von SCU/Instabilität ja, Masse und SCU vor
+  dem Punkt nur, wenn die Dichte-Prüfung passt, Resistenz und Instabilität vor dem Punkt nie.
+- Ohne Dichte-Prüfung (Anteile ergeben nicht 100 %, Zeile fehlt) gilt für Masse und SCU die strenge 0/6/8/9-Schwelle.
+- Kasten deutlich breiter als der gelesene Text (über 11 px je Zeichen, "." 0,5, "%" 1,5): `format` (Zeichen verloren).
+- Anteil fehlt/Formfehler oder Erz unbekannt: Qualität der Zeile mit gelb (vor hellem Boden nahm eine Zeile die
+  Qualität der Nachbarzeile). Fehlt eine Zeile: alle Qualitäten gelb.
+- Summenfenster 99,94–100,08 statt 99,9–100,1 (bestätigte Summen 99,96–100,00, eine Wahrheit 100,07).
+- Schwellen der Ziffernerkennung waren an denselben Scans gewählt, an denen "0 still" gemessen wurde, mit nur 0,05
+  Abstand zum knappsten Fehlurteil. Jetzt [0,9; 0,98] (Bestätigen und unsichere Ziffern): knappster Fehler 0,10
+  darunter. `ocr-train-glyphs.mjs --loo` misst diesen Abstand und schreibt ihn in `glyphs.json` (trainedOn); Modell
+  sonst unverändert (gleiche Gewichte).
+- Laufzeit (nicht geändert): ohne Panel im Bild ~1 s statt ~0,5 s (zweite Suche im erweiterten Bereich). Für einen
+  Knopfdruck in Ordnung; bei einem Lesen in Schleife den zweiten Durchgang überspringen, wenn die erste Detektion
+  keinen beschriftungsartigen Kasten fand.
+
+Weitere Fehler in der Wahrheit des Freundes (am Bild bzw. über Summe und Dichte geprüft, Review): 19-30-49 INST
+16.97 (nicht 16.79); 18-34-15 Qualitäten der beiden TARANITE-Zeilen vertauscht (6,99 % -> 646, 83,10 % -> 310), Masse
+"5"; 18-57-01 Anteile 7.50 und 50.55 (nicht 7.56/58.55, Summe 108 %); 18-35-43 Anteil 10.88 (nicht 10.06), SCU "14.8";
+18-43-07 Summe 100,34 (vermutlich ebenfalls ein Tippfehler). FOV-100-Zahlen deshalb mit korrigierter Wahrheit messen.
+
+| Stand (82 Scans FOV 86 / 17 FOV 100) | FOV 86, je Scan ohne ihn gelernt | FOV 86, ohne Ziffernerkennung | FOV 86, ausgeliefertes Modell | FOV 100 wie gespeichert | FOV 100 korrigiert |
+|---|---|---|---|---|---|
+| vor dem Review | 91,2 %, 471 gelb, 0 still | 571, 0 | 453, 0 | 82,2 %, 127, 7** | 86,6 %, 131, 0 |
+| nach dem Review | 91,2 %, **637** gelb, 0 still | 664, 0 | 616, 0 | 82,2 %, 142, 5** | 86,6 %, 148, 0 |
+
+\*\* nur Fehler der gespeicherten Wahrheit (siehe oben); die 2 Fälle "Qualität 537 der fehlenden TIN-Zeile" sind jetzt gelb.
+Mehr Gelb an FOV 86: Widerspruch (+29), strengere Schwellen (+38), Maßstab < 0,99 (+37: FOV 86 streut bis 0,975;
+auch dort muss die Ziffernerkennung jede 0/6/8/9 unter 0,9995 sicher bestätigen), Breitenprüfung und Qualität (Rest).
+Gegenprobe mit allen Verfälschungen des Reviews (Verschiebungen, Zoom 0,78/0,98/1,05/1,25, Gamma, Unschärfe,
+1600x900, 1280x720, JPEG 60/70/85, heller Boden, Rauschen; je ohne Modell, ausgeliefert, je Scan ohne ihn gelernt;
+FOV 100 dazu Zoom 1,08–1,21, JPEG, 1600x900 und Kombinationen): überall 0 still falsch.
+
+Unberührter Prüfsatz: 9 Scans der Org-Leitung vom 27.11. abends (FOV 86), erst nach allen Änderungen und Schwellen
+ausgewertet, nie fürs Lernen benutzt. Alter Stand (HEAD) / neu / neu ohne Ziffernerkennung: je 143 von 170 richtig
+(84,1 %), unnötig gelb 79 / 76 / 79, falsch ohne Markierung 0 / 0 / 0. Die Ziffernerkennung spart auf neuen Daten
+also nur wenig Gelb; der Gewinn dieser Runde liegt bei FOV 100 und in der Absicherung gegen stille Fehler.
+
 ## Abstand -> Leistung (2026-11-27)
 
 Der Rechner zeigt jetzt eine Tabelle "Abstand -> nötige Leistung": durchkommende Leistung P x f(d), f = 1 bis

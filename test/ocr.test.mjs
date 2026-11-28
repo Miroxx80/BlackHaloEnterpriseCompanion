@@ -7,12 +7,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { startApp } from '../dist/core/app.js';
-import { loadScreen, crop, textColor } from '../dist/modules/mining/ocr/image.js';
+import { loadScreen, crop, textColor, blockArtifacts } from '../dist/modules/mining/ocr/image.js';
 import { PROSPECTOR_1080 } from '../dist/modules/mining/ocr/layout.js';
 import { cleanNumber, matchOre, resolvePercents, zeroEightVariants, massScuPlausible } from '../dist/modules/mining/ocr/parse.js';
 import { readScan } from '../dist/modules/mining/ocr/pipeline.js';
 import { noReader } from '../dist/modules/mining/ocr/engine.js';
 import { createPaddleDetector, createPaddleReader } from '../dist/modules/mining/ocr/paddle.js';
+import { loadGlyphModel, validModel, glyphFeatures, classify, trainClassifier, PIXEL_DIMS, SHAPE_DIMS } from '../dist/modules/mining/ocr/glyphs.js';
+import { matchParts, compareScan } from '../scripts/ocr-compare.mjs';
 import { parseSignatureText, readSignatures, SignatureTracker } from '../dist/modules/mining/ocr/signatures.js';
 import { matchSignature } from '../dist/modules/mining/signature.js';
 
@@ -112,7 +114,9 @@ test('API: Screenshot einlesen, in den gemeinsamen Scan übernehmen, Beispiel sp
 });
 
 const OCR_DIR = new URL('../src/modules/mining/data/ocr', import.meta.url).pathname;
-const paddle = { reader: createPaddleReader(OCR_DIR), detector: createPaddleDetector(OCR_DIR) };
+// Mit der eigenen Ziffernerkennung wie in der App. Sie hat die Testbilder nie gelernt (ocr-train-glyphs.mjs nimmt
+// Scans aus, deren Bild in test/fixtures liegt): Die Tests prüfen sie also an fremden Bildern.
+const paddle = { reader: createPaddleReader(OCR_DIR), detector: createPaddleDetector(OCR_DIR), glyphs: loadGlyphModel(OCR_DIR) };
 
 /** Ganzen Screenshot um dx/dy verschieben (so wie das Panel im Spiel wandert). */
 async function shiftScreen(buf, dx, dy) {
@@ -142,7 +146,7 @@ for (const [name, dx, dy] of [['Standard-Lage', 0, 0], ['Panel verschoben wie im
   test(`PaddleOCR am echten Screenshot (${name}): Panel gefunden, Werte gelesen, kein falscher Wert unmarkiert`, async () => {
     const truth = JSON.parse(readFileSync(new URL('./fixtures/hud/prospector-helix1-20pct.json', import.meta.url), 'utf8')).scan;
     const screen = await shiftScreen(await sharp(fixture(HUD[0])).resize(1920, 1080, { fit: 'fill' }).png().toBuffer(), dx, dy);
-    const { result, panelPng } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector });
+    const { result, panelPng } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector, glyphs: paddle.glyphs });
     assert.ok(result.panelFound);
     assert.ok(Math.abs(result.offset[0] - dx) <= 4 && Math.abs(result.offset[1] - dy) <= 4, `Versatz ${result.offset}`);
     const d = result.draft;
@@ -150,9 +154,10 @@ for (const [name, dx, dy] of [['Standard-Lage', 0, 0], ['Panel verschoben wie im
     assert.deepEqual(d.parts.map((p) => p.ore), ['Raw_Silicon', 'Raw_Hephaestanite', 'Raw_Hephaestanite', 'Raw_Quartz', 'inert']);
     assert.deepEqual(silentErrors(result, truth), []);
     assert.ok(!result.marks['parts.0.ore'] && !result.marks['parts.4.ore'], `eindeutige Erznamen nicht markiert: ${result.raw['parts.0.ore']} / ${result.raw['parts.4.ore']}`);
-    // Beispielbild enthält den ganzen Suchbereich
+    assert.equal(result.scale, 1);
+    // Beispielbild enthält den ganzen (erweiterten) Suchbereich
     const meta = await sharp(panelPng).metadata();
-    assert.equal(`${meta.width}x${meta.height}`, '576x608');
+    assert.equal(`${meta.width}x${meta.height}`, `${PROSPECTOR_1080.wide[2]}x${PROSPECTOR_1080.wide[3]}`);
   });
 }
 
@@ -162,7 +167,7 @@ test('PC-Test-Bilder mit bekannten Werten: kein falscher Wert und kein falsches 
     // Suchbereich (576x608 ab 1184,392) zurück an seine Stelle im Bild
     const screen = await sharp({ create: { width: 1920, height: 1080, channels: 3, background: '#787878' } })
       .composite([{ input: await sharp(fixture(`hud/panel-2026-11-26/${file}`)).png().toBuffer(), left: 1184, top: 392 }]).png().toBuffer();
-    const { result } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector });
+    const { result } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector, glyphs: paddle.glyphs });
     assert.ok(result.panelFound, file);
     assert.deepEqual(silentErrors(result, truth), [], file);
     // Farbe wie im Spiel (meist weiß; der Farbsaum darf nicht als grün/rot gelten)
@@ -179,14 +184,110 @@ test('Panel finden in den Scans vom PC-Test (heller Planet, Panel bis 96 px vers
   for (const [i, [ex, ey]] of expected.entries()) {
     const screen = await sharp({ create: { width: 1920, height: 1080, channels: 3, background: '#787878' } })
       .composite([{ input: fixture(`hud/panel-2026-11-26/scan-${i + 1}.png`), left: 1355, top: 475 }]).png().toBuffer();
-    const { result } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector });
+    const { result } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector, glyphs: paddle.glyphs });
     assert.ok(result.panelFound, `Scan ${i + 1}`);
     assert.ok(Math.abs(result.offset[0] - ex) <= 4 && Math.abs(result.offset[1] - ey) <= 4, `Scan ${i + 1}: Versatz ${result.offset}`);
     assert.ok(result.anchors.length >= 3, `Scan ${i + 1}: ${result.anchors}`);
   }
   // Ohne Panel: nichts gefunden
   const empty = await sharp({ create: { width: 1920, height: 1080, channels: 3, background: '#787878' } }).png().toBuffer();
-  assert.equal((await readScan(empty, paddle.reader, data.ores, { detector: paddle.detector })).result.panelFound, false);
+  assert.equal((await readScan(empty, paddle.reader, data.ores, { detector: paddle.detector, glyphs: paddle.glyphs })).result.panelFound, false);
+});
+
+/** Screenshot um die Bildmitte skalieren, wie sich das HUD mit dem FOV ändert (k < 1: höheres FOV), wieder 1920x1080. */
+async function zoomScreen(buf, k) {
+  const [w, h] = [Math.round(1920 * k), Math.round(1080 * k)];
+  const big = await sharp(buf).removeAlpha().resize(w, h, { kernel: 'lanczos3' }).png().toBuffer();
+  if (k >= 1) return sharp(big).extract({ left: Math.round((w - 1920) / 2), top: Math.round((h - 1080) / 2), width: 1920, height: 1080 }).png().toBuffer();
+  return sharp({ create: { width: 1920, height: 1080, channels: 3, background: '#787878' } })
+    .composite([{ input: big, left: Math.round((1920 - w) / 2), top: Math.round((1080 - h) / 2) }]).png().toBuffer();
+}
+
+/** Gespeicherten Suchbereich (576x608 ab 1184,392) zurück an seine Stelle in einem 1920x1080-Bild. */
+const regionScreen = async (input) =>
+  sharp({ create: { width: 1920, height: 1080, channels: 3, background: '#787878' } })
+    .composite([{ input: await sharp(input).png().toBuffer(), left: 1184, top: 392 }]).png().toBuffer();
+
+/** Erze und Zeilen: alle Zeilen da (keine verloren), jedes Erz richtig oder markiert. */
+function checkRows(result, truth, what) {
+  assert.equal(result.draft.parts.length, truth.parts.length, `${what}: Zeilen ${result.draft.parts.map((p) => p.pct)}`);
+  const wrongOre = truth.parts.map((p, i) => i).filter((i) => result.draft.parts[i].ore !== truth.parts[i].ore && !result.marks[`parts.${i}.ore`]);
+  assert.deepEqual(wrongOre, [], `${what}: falsches Erz unmarkiert`);
+}
+
+for (const k of [0.78, 1.15]) {
+  test(`Anderes FOV (HUD-Maßstab ${k}): Maßstab erkannt, gleiche Werte gelesen oder markiert, keine Zeile verloren`, async () => {
+    const helix = JSON.parse(readFileSync(new URL('./fixtures/hud/prospector-helix1-20pct.json', import.meta.url), 'utf8')).scan;
+    const ids = ['Raw_Silicon', 'Raw_Hephaestanite', 'Raw_Hephaestanite', 'Raw_Quartz', 'inert']; // Namen wie im HUD -> Kennungen
+    helix.parts = helix.parts.map((p, i) => ({ ...p, ore: ids[i] }));
+    const regions = JSON.parse(readFileSync(new URL('./fixtures/hud/panel-2026-11-26/regions.json', import.meta.url), 'utf8'));
+    const cases = [
+      ['Vollbild Helix', await sharp(fixture(HUD[0])).resize(1920, 1080, { fit: 'fill' }).png().toBuffer(), helix],
+      ['region-rock-3698kg', await regionScreen(fixture('hud/panel-2026-11-26/region-rock-3698kg.webp')), regions['region-rock-3698kg.webp']],
+    ];
+    for (const [what, screen, truth] of cases) {
+      // Mit Ziffernerkennung wie in der App, Zeilenabstand-Sperre absichtlich weit: Sie darf trotzdem nicht greifen
+      const wide = { ...paddle.glyphs, rowPitch: [5, 40] };
+      const { result } = await readScan(await zoomScreen(screen, k), paddle.reader, data.ores, { detector: paddle.detector, glyphs: wide });
+      assert.ok(result.panelFound, what);
+      assert.ok(Math.abs(result.scale - k) <= 0.03, `${what}: Maßstab ${result.scale}`);
+      assert.deepEqual(silentErrors(result, truth), [], what);
+      assert.deepEqual([result.draft.resColor, result.draft.instColor], [truth.resistance.color ?? 'white', truth.instability.color ?? 'white'], what);
+      checkRows(result, truth, what);
+    }
+  });
+}
+
+test('FOV 100 (echte Scans eines Freundes): Panel ~0,86x erkannt, erste Zeile unter dem Balken gelesen, nichts still falsch', async () => {
+  const dir = new URL('./fixtures/hud/panel-fov100/', import.meta.url);
+  const ids = readdirSync(dir).filter((f) => f.endsWith('-truth.json')).map((f) => f.slice(0, -'-truth.json'.length));
+  assert.equal(ids.length, 2);
+  for (const id of ids) {
+    // Format wie bei "Alles geprüft" (Texte) -> wie regions.json (Zahlen, Werte mit Farbe)
+    const scan = JSON.parse(readFileSync(new URL(`${id}-truth.json`, dir), 'utf8')).scan;
+    const truth = {
+      mass: Number(scan.mass), scu: Number(scan.scu),
+      resistance: { value: Number(scan.resistance), color: scan.resColor }, instability: { value: Number(scan.instability), color: scan.instColor },
+      parts: scan.parts.map((p) => ({ pct: Number(p.pct), ore: p.ore, quality: Number(p.quality || 0) })),
+    };
+    const { result } = await readScan(await regionScreen(fixture(`hud/panel-fov100/${id}-panel.png`)), paddle.reader, data.ores, { detector: paddle.detector });
+    assert.ok(result.panelFound, id);
+    assert.ok(result.scale > 0.83 && result.scale < 0.9, `${id}: Maßstab ${result.scale}`);
+    assert.ok(result.offset[0] < -40, `${id}: Panel weiter links (${result.offset})`);
+    assert.deepEqual(silentErrors(result, truth), [], id);
+    assert.deepEqual([result.draft.resColor, result.draft.instColor], ['white', 'white'], id);
+    checkRows(result, truth, id);
+    // Diese beiden Scans liest die OCR vollständig richtig (markiert ist trotzdem einiges)
+    assert.deepEqual(result.draft.parts.map((p) => Number(p.pct)), truth.parts.map((p) => p.pct), id);
+    assert.equal(Number(result.draft.mass), truth.mass, id);
+    // Zeilenabstand im Screenshot (nicht im umgerechneten Bild): kleiner als bei FOV 86
+    assert.ok(result.rowPitch > 15 && result.rowPitch < 18, `${id}: Zeilenabstand ${result.rowPitch}`);
+    // Eigene Ziffernerkennung hat nur FOV 86 gelernt: bei umgerechnetem Panel nie benutzt (gleiche Markierungen)
+    const withGlyphs = (await readScan(await regionScreen(fixture(`hud/panel-fov100/${id}-panel.png`)), paddle.reader, data.ores, { detector: paddle.detector, glyphs: paddle.glyphs })).result;
+    assert.deepEqual(withGlyphs.marks, result.marks, `${id}: Ziffernerkennung bei anderem Maßstab benutzt`);
+    assert.deepEqual(withGlyphs.draft, result.draft, id);
+  }
+});
+
+test('Maßstab nicht sicher bestimmbar (nur zwei Beschriftungen): alle Werte markiert', async () => {
+  // RES:, INST: und COMP. übermalen: Es bleiben RESULTS und MASS, daraus lässt sich der Maßstab nicht prüfen
+  const base = await sharp(fixture(HUD[0])).resize(1920, 1080, { fit: 'fill' }).png().toBuffer();
+  const patch = (w, h) => sharp({ create: { width: w, height: h, channels: 3, background: '#000000' } }).png().toBuffer();
+  const screen = await sharp(base)
+    .composite([
+      { input: await patch(46, 22), left: 1360, top: 545 },
+      { input: await patch(46, 22), left: 1360, top: 565 },
+      { input: await patch(62, 24), left: 1360, top: 616 },
+    ])
+    .png()
+    .toBuffer();
+  const { result } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector });
+  assert.ok(result.panelFound);
+  assert.deepEqual(result.anchors.sort(), ['mass', 'results']);
+  for (const k of ['mass', 'resistance', 'instability', 'scu', 'resColor', 'instColor', 'parts.0.pct', 'parts.0.ore', 'parts.0.quality']) {
+    assert.equal(result.marks[k], 'check', k);
+  }
+  assert.ok(result.notes.some((n) => /nicht sicher erkannt/.test(n)), result.notes.join(' | '));
 });
 
 test('API: "Am PC einlesen" nimmt über die Desktop-App auf, ohne Desktop-App 501', async () => {
@@ -290,9 +391,17 @@ test('Fremder Text direkt neben dem Panel wird nicht in Werte oder Qualität gel
   const digits = await sharp(base).extract({ left: 1455, top: 523, width: 38, height: 21 }).png().toBuffer();
   for (const [x, y] of [[1560, 562], [1556, 668], [1555, 653]]) {
     const screen = await sharp(base).composite([{ input: digits, left: x, top: y }]).png().toBuffer();
-    const { result } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector });
+    const { result } = await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector, glyphs: paddle.glyphs });
     assert.deepEqual(silentErrors(result, truth), [], `Einfügung bei ${x},${y}`);
   }
+});
+
+test('Erznamen: ganzer kurzer Name mit sauberer Form ist sicher, ähnliche Namen nicht', () => {
+  assert.deepEqual(matchOre('TIN (ORE)', data.ores), { id: 'Ore_Tin', exact: true }); // "TIT..." betrifft nur Abkürzungen
+  assert.deepEqual(matchOre('TIN(ORE)', data.ores), { id: 'Ore_Tin', exact: true });
+  assert.equal(matchOre('TINCORE)', data.ores).exact, false, 'Form verstümmelt');
+  assert.equal(matchOre('TIN', data.ores).exact, false, 'ohne Form');
+  assert.equal(matchOre('TARANITE (RAW)', data.ores).exact, false, 'LARANITE ist einen Buchstaben entfernt');
 });
 
 test('Erznamen: eindeutige Abkürzung nur sicher, wenn kein anderes Erz einen Buchstaben entfernt ist', () => {
@@ -407,4 +516,165 @@ test('API: Live-Lesen über die Desktop-App (Attrappe), an/aus, Kontakte an alle
   } finally {
     await plain.stop();
   }
+});
+
+/** Suchbereich eines Testbilds aus panel-2026-11-26 zurück an seine Stelle in einem 1920x1080-Bild. */
+const pcTestScreen = (file) => regionScreen(fixture(`hud/panel-2026-11-26/${file}`));
+
+test('Eigene Ziffernerkennung: Modell gültig, ändert nie einen Wert, neue Markierungen nur als Widerspruch, kein Fehler still', async () => {
+  assert.ok(paddle.glyphs, 'data/ocr/glyphs.json fehlt oder passt nicht (scripts/ocr-train-glyphs.mjs)');
+  assert.ok(paddle.glyphs.models.some((m) => m.dims === PIXEL_DIMS) && paddle.glyphs.models.some((m) => m.dims === SHAPE_DIMS));
+  assert.equal(validModel({ ...paddle.glyphs, version: 1 }), false, 'alte Version wird nicht benutzt');
+  assert.equal(validModel({ ...paddle.glyphs, thresholds: { ...paddle.glyphs.thresholds, lookalike: [0.1, 0.1] } }), false, 'zu lockere Schwelle');
+  assert.equal(loadGlyphModel(tmpdir()), null, 'ohne Datei: keine Ziffernerkennung');
+  const truths = JSON.parse(readFileSync(new URL('./fixtures/hud/panel-2026-11-26/regions.json', import.meta.url), 'utf8'));
+  let removed = 0;
+  for (const [file, truth] of Object.entries(truths)) {
+    const screen = await pcTestScreen(file);
+    const plain = (await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector })).result;
+    const withGlyphs = (await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector, glyphs: paddle.glyphs })).result;
+    assert.deepEqual(withGlyphs.draft, plain.draft, `${file}: Werte dürfen sich nie ändern`);
+    // Zusätzlich markieren darf sie nur, wenn ein Modell einer Ziffer widerspricht (glyph)
+    for (const k of Object.keys(withGlyphs.marks)) assert.ok(plain.marks[k] || withGlyphs.reasons[k]?.includes('glyph'), `${file}: neue Markierung ${k}`);
+    removed += Object.keys(plain.marks).filter((k) => !withGlyphs.marks[k]).length;
+    assert.deepEqual(silentErrors(withGlyphs, truth), [], file);
+    // Andere HUD-Größe (FOV): Zeilenabstand außerhalb des gelernten Bereichs -> nichts bestätigen
+    const otherFov = { ...paddle.glyphs, rowPitch: [10, 12] };
+    const gated = (await readScan(screen, paddle.reader, data.ores, { detector: paddle.detector, glyphs: otherFov })).result;
+    assert.deepEqual(gated.marks, plain.marks, `${file}: bei anderem FOV keine Bestätigung`);
+  }
+  assert.ok(removed > 0, 'an den (nie gelernten) Testbildern wird mindestens ein Zweifel bestätigt');
+});
+
+test('Eigene Ziffernerkennung: Merkmale und Lernen (kleines Beispiel)', () => {
+  // Zwei künstliche Ziffern: senkrechter Strich ("1") und Ring ("0"), je leicht verschoben
+  const glyph = (kind, shift) => {
+    const w = 30;
+    const h = 20;
+    const px = Buffer.alloc(w * h * 3, 20);
+    const cx = 15 + shift;
+    for (let y = 5; y < 15; y++) {
+      for (let x = 0; x < w; x++) {
+        const ring = Math.abs(x - (cx - 3)) <= 1 || Math.abs(x - (cx + 3)) <= 1 || ((y <= 6 || y >= 13) && Math.abs(x - cx) <= 3);
+        if (kind === '1' ? Math.abs(x - cx) <= 1 : ring) px.fill(240, (y * w + x) * 3, (y * w + x) * 3 + 3);
+      }
+    }
+    return glyphFeatures({ width: w, height: h, data: px }, [(cx - 2) / w])[0];
+  };
+  const X = [];
+  const y = [];
+  for (const shift of [-1, 0, 1]) {
+    for (const d of ['0', '1']) {
+      X.push(glyph(d, shift));
+      y.push(d);
+    }
+  }
+  assert.ok(X.every((f) => f && f.length === SHAPE_DIMS));
+  const m = trainClassifier('shape', SHAPE_DIMS, X, y, { epochs: 200 });
+  const p = classify(m, glyph('0', 0.5));
+  assert.ok(Math.abs(p.reduce((a, b) => a + b, 0) - 1) < 1e-9);
+  assert.ok(p[0] > p[1], 'Ring als 0 erkannt');
+});
+
+/**
+ * Liest wie PaddleOCR, verändert aber jede Zahl mit `change` (Zeichenliste -> neue Zeichenliste oder null), z. B. um
+ * Lesefehler nachzustellen. Zweite Lesung (helle Pixel) unverändert.
+ */
+function forgingReader(change) {
+  const counts = { changed: 0 };
+  return {
+    counts,
+    name: paddle.reader.name,
+    async read(image, kind, opts) {
+      const r = await paddle.reader.read(image, kind, opts);
+      if (!r?.chars?.length || opts?.variant || !['integer', 'number', 'scu'].includes(kind)) return r;
+      const chars = change(r.chars);
+      if (!chars) return r;
+      counts.changed++;
+      return { ...r, text: chars.map((c) => c.c).join(''), chars, ambiguous: chars.some((c) => c.amb), confidence: Math.min(...chars.map((c) => c.p)) };
+    },
+  };
+}
+
+test('Ziffernerkennung hebt keinen Zweifel auf, wenn zwei gleiche Ziffern zu einer verschmolzen sind ("22.65" -> "2.65")', async () => {
+  // Gieriges CTC: "22" wird als eine 2 gelesen, die übrige Ziffer ist unsicher. Die Ziffernerkennung sieht dort eine
+  // gute 2; sie darf den Zweifel nur aufheben, wo die Zahl der Ziffern anders geprüft ist (Review-Fund).
+  const merge = forgingReader((chars) => {
+    const i = chars.findIndex((c, k) => k > 0 && /\d/.test(c.c) && c.c === chars[k - 1].c);
+    if (i < 0) return null;
+    return chars.filter((_, k) => k !== i).map((c, k) => (k === i - 1 ? { ...c, p: 0.5, ...('0689'.includes(c.c) ? { amb: true } : {}) } : c));
+  });
+  const truths = JSON.parse(readFileSync(new URL('./fixtures/hud/panel-2026-11-26/regions.json', import.meta.url), 'utf8'));
+  for (const file of ['region-confirmed-10323kg.png', 'region-dark-ice-2296kg.png', 'region-confirmed-inst-85.png', 'region-dark-ice-3312kg.png']) {
+    const { result } = await readScan(await pcTestScreen(file), merge, data.ores, { detector: paddle.detector, glyphs: paddle.glyphs });
+    assert.deepEqual(silentErrors(result, truths[file]), [], file);
+  }
+  assert.ok(merge.counts.changed >= 6, `zu wenig verschmolzene Zahlen: ${merge.counts.changed}`);
+});
+
+test('Ziffernerkennung widerspricht einer sicher, aber falsch gelesenen 0/8 (glyph)', async () => {
+  // PaddleOCR liest manchmal eine durchgestrichene 0 mit über 0,995 als 8 (Review-Fund): nachgestellt, indem die
+  // erste 0 bzw. 8 einer Zahl sicher zur anderen wird
+  const swap = forgingReader((chars) => {
+    const i = chars.findIndex((c) => c.c === '0' || c.c === '8');
+    if (i < 0) return null;
+    return chars.map((c, k) => (k === i ? { ...c, c: c.c === '0' ? '8' : '0', p: 0.999, amb: undefined } : c));
+  });
+  const truths = JSON.parse(readFileSync(new URL('./fixtures/hud/panel-2026-11-26/regions.json', import.meta.url), 'utf8'));
+  let vetoed = 0;
+  for (const file of ['region-confirmed-10323kg.png', 'region-confirmed-6079kg.png', 'region-dark-ice-3312kg.png', 'region-confirmed-6859kg.png']) {
+    const { result } = await readScan(await pcTestScreen(file), swap, data.ores, { detector: paddle.detector, glyphs: paddle.glyphs });
+    assert.deepEqual(silentErrors(result, truths[file]), [], file);
+    vetoed += Object.values(result.reasons).filter((r) => r.includes('glyph')).length;
+  }
+  assert.ok(swap.counts.changed >= 8 && vetoed >= 3, `vertauscht ${swap.counts.changed}, widersprochen ${vetoed}`);
+});
+
+test('JPEG oder andere Auflösung: erkannt, Ziffernerkennung bestätigt nichts, nichts still falsch', async () => {
+  const truths = JSON.parse(readFileSync(new URL('./fixtures/hud/panel-2026-11-26/regions.json', import.meta.url), 'utf8'));
+  for (const file of ['region-confirmed-6079kg.png', 'region-confirmed-10323kg.png']) {
+    const png = await pcTestScreen(file);
+    const area = PROSPECTOR_1080.search;
+    assert.ok(blockArtifacts(await loadScreen(png, PROSPECTOR_1080), area) < 0.15, `${file}: PNG gilt als verlustfrei`);
+    for (const [what, input] of [
+      ['JPEG', await sharp(png).jpeg({ quality: 80 }).toBuffer()],
+      ['JPEG als PNG', await sharp(await sharp(png).jpeg({ quality: 80 }).toBuffer()).png().toBuffer()],
+      ['1280x720', await sharp(png).resize(1280, 720, { kernel: 'lanczos3' }).png().toBuffer()],
+    ]) {
+      if (what.startsWith('JPEG')) assert.ok(blockArtifacts(await loadScreen(input, PROSPECTOR_1080), area) > 0.15, `${file} ${what}: JPEG erkannt`);
+      const plain = (await readScan(input, paddle.reader, data.ores, { detector: paddle.detector })).result;
+      const withGlyphs = (await readScan(input, paddle.reader, data.ores, { detector: paddle.detector, glyphs: paddle.glyphs })).result;
+      assert.ok(withGlyphs.notes.some((n) => /verlustbehaftet|anderer Auflösung/.test(n)), `${file} ${what}: ${withGlyphs.notes.join(' | ')}`);
+      for (const k of Object.keys(plain.marks)) assert.ok(withGlyphs.marks[k], `${file} ${what}: ${k} bestätigt`);
+      assert.deepEqual(silentErrors(withGlyphs, truths[file]), [], `${file} ${what}`);
+    }
+  }
+});
+
+test('Anteil einer Zeile unlesbar: Qualität dieser Zeile wird mitmarkiert (könnte zur Nachbarzeile gehören)', async () => {
+  // Punkt im Anteil verloren ("978%" statt "9.78%"): Formfehler
+  const noDot = forgingReader((chars) => (chars.at(-1)?.c === '%' && chars.some((c) => c.c === '.') ? chars.filter((c) => c.c !== '.') : null));
+  const { result } = await readScan(await pcTestScreen('region-confirmed-6079kg.png'), noDot, data.ores, { detector: paddle.detector, glyphs: paddle.glyphs });
+  const rows = result.draft.parts.map((_, i) => i).filter((i) => result.reasons[`parts.${i}.pct`]?.includes('format'));
+  assert.ok(rows.length >= 2, JSON.stringify(result.reasons));
+  for (const i of rows) assert.ok(result.reasons[`parts.${i}.quality`]?.includes('box'), `Zeile ${i}: ${result.reasons[`parts.${i}.quality`]}`);
+});
+
+test('Formprüfung: führende Null ("05.56" statt 85.56) wird markiert, auch neben bestätigten Ziffern', async () => {
+  const { result } = await readScan(await pcTestScreen('region-confirmed-inst-85.png'), paddle.reader, data.ores, { detector: paddle.detector, glyphs: paddle.glyphs });
+  if (result.draft.instability !== '85.56') assert.ok(result.marks.instability, `Instabilität ${result.draft.instability} unmarkiert`);
+  if (/^0\d/.test(result.draft.instability)) assert.ok(result.reasons.instability.includes('format'));
+});
+
+test('Auswertung (ocr-eval): Zeilen ohne Rücksicht auf die Reihenfolge zuordnen, leere Wahrheit zählt nicht', () => {
+  const part = (pct, ore, quality) => ({ pct, ore, quality });
+  // Die OCR fand die erste Zeile nicht; die Wahrheit hat sie am Ende nachgetragen
+  const truth = { mass: '100', resistance: '0', instability: '1.00', scu: '', resColor: 'white', instColor: 'white', parts: [part('50.00', 'Ore_Tin', '537'), part('40.00', 'inert', '0'), part('10.00', 'Ore_Copper', '359')] };
+  const read = [part('50.00', 'Ore_Tin', '537'), part('40.00', 'inert', '0')];
+  assert.deepEqual(matchParts([read[1], read[0]], truth.parts), [1, 0]);
+  const result = { draft: { mass: '100', resistance: '0', instability: '1.00', scu: '7.00', resColor: 'white', instColor: 'white', parts: read }, marks: { 'parts.0.pct': 'check' } };
+  const fields = compareScan(result, truth);
+  assert.ok(!fields.some((f) => f.key === 'scu'), 'SCU nicht eingetragen: nicht geprüft');
+  assert.deepEqual(fields.filter((f) => !f.ok).map((f) => f.key), ['parts.2.pct', 'parts.2.ore', 'parts.2.quality']);
+  assert.ok(fields.filter((f) => !f.ok).every((f) => f.marked), 'fehlende Zeile gilt als gewarnt, wenn ein Anteil markiert ist');
 });

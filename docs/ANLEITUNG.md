@@ -46,14 +46,14 @@ Rechner für die Prospector: Steinwerte eingeben (oder einlesen), Loadout wähle
 
 ### Scan einlesen (OCR)
 
-Das Tool liest das Scan-Panel aus einem Bild des Bildschirms (1920×1080, englisches HUD).
+Das Tool liest das Scan-Panel aus einem Bild des Bildschirms (1920×1080, englisches HUD). Das Sichtfeld (FOV) ist egal: Das HUD wird mit dem FOV kleiner oder größer (bei FOV 100 etwa 0,87× so groß wie bei FOV 86), das Tool erkennt die Größe selbst (getestet mit FOV 86 und 100, künstlich nachgestellt etwa FOV 70–120).
 
 - **Am PC einlesen** (Knopf im Rechner, z. B. am Handy, während du im Spiel bist): Die Desktop-App fotografiert den Hauptbildschirm und trägt die Werte ein. Star Citizen sollte im Modus „Randloses Fenster“ laufen, im exklusiven Vollbild kann die Aufnahme schwarz sein.
 - Der Hotkey Alt+Shift+S kommt nicht an, solange das Spiel den Fokus hat. Im Spiel deshalb den Knopf am Handy nutzen.
 - Alternativ im Rechner: „Screenshot einlesen“ (Bilddatei) oder ein Bild mit **Strg+V** einfügen.
-- Unsichere Werte (v. a. 0/6/8/9) sind **gelb markiert**. Prüfen, ggf. korrigieren, dann „Alles geprüft“. Vor hellem Planetenboden ist mehr gelb.
+- Unsichere Werte (v. a. 0/6/8/9) sind **gelb markiert**. Prüfen, ggf. korrigieren, dann „Alles geprüft“. Vor hellem Planetenboden ist mehr gelb. Bei einem anderen FOV als 86 ist ebenfalls mehr gelb: Die eigene Ziffernerkennung, die viele Zweifel bei FOV 86 ausräumt, ist nur dafür gelernt. Erkennt das Tool die Größe des Panels nicht sicher, ist alles gelb. Ein JPEG oder ein Bild in anderer Auflösung ergibt ebenfalls deutlich mehr gelb (die Kompression verändert die Ziffern); am besten „Am PC einlesen“ oder ein PNG in 1920×1080.
 - „Alles geprüft“ speichert den Scan zusammen mit dem Bildausschnitt in `data\mining\ocr-samples\confirmed` (lokal, bis 200 Stück). Damit wird die Erkennung verbessert. Die letzten 60 Lesungen liegen in `data\mining\ocr-samples`.
-- Die Texterkennung (PaddleOCR) läuft lokal auf der CPU, ca. 0,2–0,4 s pro Bild.
+- Die Texterkennung (PaddleOCR) läuft lokal auf der CPU, ca. 0,5–0,7 s pro Bild (bei anderem FOV etwas länger, ohne Scan-Panel im Bild bis ~1 s).
 - Ausschalten: in `config\local.json` unter `modules.mining` `"ocr": false`.
 
 ### Radar-Signatur

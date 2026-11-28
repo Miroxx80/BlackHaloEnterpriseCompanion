@@ -76,12 +76,12 @@ const LOOKALIKE_SURE = 0.98;
 const LOOKALIKE_MIN_P = 0.995;
 
 /** Gieriges CTC-Dekodieren, nur erlaubte Zeichen. Sicherheit = kleinste Zeichen-Wahrscheinlichkeit. */
-function decode(probs: Float32Array, steps: number, classes: number, chars: string[], allowed: number[], lookalike: number[]) {
+function decode(probs: Float32Array, steps: number, classes: number, chars: string[], allowed: number[], lookalike: number[], debug = false) {
   let text = '';
   let prev = -1;
   let conf = 1;
   let ambiguous = false;
-  const pos: { c: string; at: number; p: number; amb?: boolean }[] = [];
+  const pos: { c: string; at: number; p: number; amb?: boolean; frames?: number[][] }[] = [];
   for (let t = 0; t < steps; t++) {
     let best = 0;
     let bestP = probs[t * classes];
@@ -103,13 +103,15 @@ function decode(probs: Float32Array, steps: number, classes: number, chars: stri
       }
       pos.push({ c: chars[best], at: (t + 0.5) / steps, p: bestP, ...(amb ? { amb } : {}) });
     }
+    // Fehlersuche: Wahrscheinlichkeiten von 0/6/8/9 und Leerzeichen in allen Schritten des Zeichens
+    if (debug && best !== 0 && pos.length) (pos[pos.length - 1].frames ??= []).push([t, bestP, probs[t * classes], ...lookalike.map((i) => probs[t * classes + i])]);
     prev = best;
   }
   return { text, confidence: text ? conf : 0, ambiguous, chars: pos };
 }
 
 /** Lädt Modell und Zeichenliste beim ersten Gebrauch (ca. 0,1 s), danach ca. 5–20 ms pro Zeile. */
-export function createPaddleReader(modelDir: string): LineReader {
+export function createPaddleReader(modelDir: string, { debug = false }: { debug?: boolean } = {}): LineReader {
   let ready: Promise<{ ort: Ort; session: Session; chars: string[]; lookalike: number[]; allow: Record<ReadKind, number[]> }> | null = null;
 
   const init = () =>
@@ -138,7 +140,7 @@ export function createPaddleReader(modelDir: string): LineReader {
       const out = result[m.session.outputNames[0]];
       const [, steps, classes] = out.dims as number[];
       // Die Breite des Tensors kann größer sein als das Bild (Mindestbreite): Lage auf das Bild umrechnen
-      const r = decode(out.data as Float32Array, steps, classes, m.chars, m.allow[kind], kind === 'text' || kind === 'label' ? [] : m.lookalike);
+      const r = decode(out.data as Float32Array, steps, classes, m.chars, m.allow[kind], kind === 'text' || kind === 'label' ? [] : m.lookalike, debug);
       const used = (img.width * HEIGHT) / img.height / width;
       return { ...r, chars: r.chars.map((p) => ({ ...p, at: Math.min(1, p.at / used) })) };
     },
