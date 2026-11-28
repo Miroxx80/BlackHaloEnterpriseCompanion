@@ -283,18 +283,28 @@ const mod: BhModule = {
         for (const f of readdirSync(dir)) if (f.startsWith(id + '-')) rmSync(join(dir, f), { force: true });
       }
     }
-    /** Panel-Ausschnitt + Ergebnis aufheben: verlustfreie Beispiele, um die Erkennung zu verbessern. Gibt die Kennung zurück. */
-    function keepSample(panelPng: Buffer, result: unknown): string | undefined {
+    /**
+     * Kennung einer OCR (Zeitstempel). Jede OCR bekommt eine, auch wenn kein Bild gespeichert wird: Sie schützt den
+     * neuen Scan vor verspäteten Änderungen zum alten (409 bei POST /scan, "Alles geprüft" nur für den gesehenen Scan)
+     * und zeigt "Bitte prüfen" an allen Geräten. Gleicher Zeitstempel zweimal (sehr selten): Zähler anhängen.
+     */
+    let lastOcrId = '';
+    let sameIdCount = 0;
+    function newOcrId(): string {
+      const t = new Date().toISOString().replace(/[:.]/g, '-');
+      sameIdCount = t === lastOcrId.slice(0, t.length) ? sameIdCount + 1 : 0;
+      lastOcrId = sameIdCount ? `${t}-${sameIdCount}` : t;
+      return lastOcrId;
+    }
+    /** Panel-Ausschnitt + Ergebnis unter der Kennung der OCR aufheben (verlustfreie Beispiele, um die Erkennung zu verbessern). */
+    function keepSample(id: string, panelPng: Buffer, result: unknown) {
       try {
         mkdirSync(samplesDir, { recursive: true });
-        const id = new Date().toISOString().replace(/[:.]/g, '-');
         writeFileSync(join(samplesDir, `${id}-panel.png`), panelPng);
         writeFileSync(join(samplesDir, `${id}-result.json`), JSON.stringify(result, null, 2));
         rotate(samplesDir, MAX_SAMPLES);
-        return id;
       } catch (err) {
         ctx.log.warn(`OCR-Beispiel nicht gespeichert: ${(err as Error).message}`);
-        return undefined;
       }
     }
     /**
@@ -329,8 +339,10 @@ const mod: BhModule = {
     async function ocrImage(image: Buffer, apply: boolean, reply: FastifyReply) {
       try {
         const { result, panelPng } = await readScan(image, reader, data.ores, { detector, glyphs });
-        // Beispielbild nur, wenn im Menü "Dev" eingeschaltet (sonst wächst der Ordner bei jedem Scan)
-        const sample = devSetting('saveOcrSamples') ? keepSample(panelPng, result) : undefined;
+        const sample = newOcrId();
+        // Beispielbild nur, wenn im Menü "Dev" eingeschaltet (sonst wächst der Ordner bei jedem Scan).
+        // Ohne Bild bleibt "Alles geprüft" harmlos: confirmSample findet kein Bild und speichert nichts.
+        if (devSetting('saveOcrSamples')) keepSample(sample, panelPng, result);
         let applied = false;
         if (apply && result.panelFound) {
           commitScan(validator.validateDraft({ ...result.draft, marks: result.marks, ocrSample: sample }), 'ocr');

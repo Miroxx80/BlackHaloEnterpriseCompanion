@@ -10,7 +10,7 @@ const HUD = readFileSync(new URL('./fixtures/hud/prospector-helix1-50pct.webp', 
 const opts = (dataRoot, extra = {}) => ({ overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' }, ...extra } }, dataRoot });
 const json = (body) => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
-test('Dev: Standard aus, OCR speichert dann kein Beispiel und der Scan kennt keins', async () => {
+test('Dev: Standard aus, OCR speichert kein Bild, Schutz vor veralteten Änderungen bleibt', async () => {
   const dataRoot = mkdtempSync(join(tmpdir(), 'bh-dev-off-'));
   const app = await startApp(opts(dataRoot));
   const base = `http://127.0.0.1:${app.port}/api`;
@@ -24,12 +24,30 @@ test('Dev: Standard aus, OCR speichert dann kein Beispiel und der Scan kennt kei
     assert.equal(out.applied, true);
     assert.equal(existsSync(join(dataRoot, 'mining', 'ocr-samples')), false, 'kein Ordner, keine Bilder');
     const shared = await (await fetch(`${base}/mining/scan`)).json();
-    assert.equal(shared.scan.ocrSample, undefined);
-    // "Alles geprüft" geht trotzdem (nimmt nur die Markierungen weg), speichert aber nichts
-    const done = await fetch(`${base}/mining/scan`, json({ origin: 't', ops: [{ op: 'unmark', sample: '' }] }));
+    // Die OCR hat trotzdem eine Kennung (Schutz vor verspäteten Änderungen, "Bitte prüfen" an allen Geräten)
+    const id1 = shared.scan.ocrSample;
+    assert.match(id1, /^[\w-]+$/);
+
+    // Zweite OCR: Änderungen und "Alles geprüft" zum alten Scan (oder ohne bekannte OCR) treffen den neuen nicht
+    const ocr2 = (await (await fetch(`${base}/mining/ocr?apply=1`, { method: 'POST', headers: { 'content-type': 'image/webp' }, body: HUD })).json()).draft;
+    const now = (await (await fetch(`${base}/mining/scan`)).json()).scan;
+    assert.notEqual(now.ocrSample, id1);
+    assert.ok(Object.keys(now.marks ?? {}).length > 0, 'Testbild braucht gelbe Felder');
+    for (const b of [id1, '']) {
+      const stale = await fetch(`${base}/mining/scan`, json({ origin: 't', base: b, ops: [{ op: 'set', field: 'mass', value: '1' }, { op: 'unmark', sample: b }] }));
+      assert.equal(stale.status, 409, `base ${JSON.stringify(b)}`);
+    }
+    const quiet = await (await fetch(`${base}/mining/scan`, json({ origin: 't', ops: [{ op: 'unmark', sample: '' }] }))).json();
+    assert.deepEqual(quiet.scan.marks, now.marks, 'Gerät ohne offene OCR bestätigt die neue nicht');
+    assert.equal(quiet.scan.mass, ocr2.mass);
+
+    // "Alles geprüft" zum aktuellen Scan geht, speichert aber nichts
+    const done = await fetch(`${base}/mining/scan`, json({ origin: 't', base: now.ocrSample, ops: [{ op: 'unmark', sample: now.ocrSample }] }));
     assert.equal(done.status, 200);
-    assert.deepEqual((await done.json()).scan.marks ?? {}, {});
-    assert.equal(existsSync(join(dataRoot, 'mining', 'ocr-samples')), false);
+    const after = (await done.json()).scan;
+    assert.deepEqual(after.marks ?? {}, {});
+    assert.equal(after.ocrSample, undefined);
+    assert.equal(existsSync(join(dataRoot, 'mining', 'ocr-samples')), false, 'auch nach dem Bestätigen keine Bilder');
   } finally {
     await app.stop();
   }

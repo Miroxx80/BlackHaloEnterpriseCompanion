@@ -23,8 +23,9 @@ const STYLE = `
 .dv-store .dv-path { grid-column: 1 / -1; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint); overflow-wrap: anywhere; }
 .dv-store .dv-meta { font-size: var(--fs-s); color: var(--text-dim); }
 .dv-msg { margin: 12px 0 0; font-size: var(--fs-s); color: var(--text-dim); }
-.dv-msg:empty { display: none; }
+.dv-msg:empty { margin: 0; } /* leer, aber im Barrierefreiheits-Baum, damit Meldungen vorgelesen werden */
 .dv > .note, .dv > .panel { margin-bottom: 20px; }
+.dv .btn[aria-disabled="true"] { opacity: .45; cursor: default; }
 .dv .btn.dv-armed { border-color: var(--bad); color: var(--bad); }
 @media (max-width: 620px) {
   .dv-row { grid-template-columns: minmax(0, 1fr); }
@@ -58,6 +59,8 @@ export function mount(root, api) {
 
   let state = null;
   let disposed = false;
+  /** Zeigt msg gerade "nicht erreichbar"? Dann beim nächsten Erfolg leeren (eine Speicher-Fehlermeldung bleibt stehen). */
+  let unreachable = false;
   const msg = el('p', { class: 'dv-msg', role: 'status', 'aria-live': 'polite' });
   const storeMsg = el('p', { class: 'dv-msg', role: 'status', 'aria-live': 'polite' });
 
@@ -75,6 +78,11 @@ export function mount(root, api) {
 
   // ---- Gespeicherte Bilder ----
   const stores = el('div', {});
+  const storeRows = new Map();
+  /** Ordner, dessen Löschen gerade auf die Bestätigung wartet. */
+  let armed = null;
+  let armTimer = null;
+  let storeIds = '';
 
   function render() {
     if (!state) return;
@@ -84,26 +92,41 @@ export function mount(root, api) {
       r.on.setAttribute('aria-pressed', String(v));
     }
     if (!state.stores?.length) {
+      storeRows.clear();
       stores.replaceChildren(el('p', { class: 'dv-msg' }, 'Keine Beispiel-Ordner (Mining-Modul läuft nicht).'));
       return;
     }
-    stores.replaceChildren(
-      ...state.stores.map((s) => {
-        const ask = armed === s.id;
-        const del = button(ask ? 'Wirklich löschen?' : 'Löschen', { iconName: 'trash', onclick: () => clear(s) });
-        del.setAttribute('aria-label', ask ? `${s.label} wirklich löschen?` : `${s.label} löschen`);
-        if (ask) del.classList.add('dv-armed');
-        if (!s.files) del.disabled = true;
-        const count = s.samples === 1 ? '1 Bild' : `${fmtInt(s.samples)} Bilder`;
-        return el(
-          'div',
-          { class: 'dv-store' },
-          el('div', {}, el('span', { class: 'dv-name' }, s.label), el('span', { class: 'dv-size' }, fmtBytes(s.bytes)), el('div', { class: 'dv-meta' }, s.error ? `Fehler: ${s.error}` : count)),
-          del,
-          el('span', { class: 'dv-path' }, s.path),
-        );
-      }),
-    );
+    // Zeilen bleiben bestehen und werden nur aktualisiert: Neu bauen würde den Fokus vom Löschen-Knopf nehmen
+    // (Tastatur, Screenreader), z. B. beim regelmäßigen Neuladen oder zwischen den zwei Klicks.
+    const ids = state.stores.map((s) => s.id).join(',');
+    if (ids !== storeIds) {
+      storeIds = ids;
+      storeRows.clear();
+      stores.replaceChildren(
+        ...state.stores.map((s) => {
+          const del = button('Löschen', { iconName: 'trash', onclick: () => clear(s.id) });
+          const name = el('span', { class: 'dv-name' });
+          const size = el('span', { class: 'dv-size' });
+          const meta = el('div', { class: 'dv-meta' });
+          const path = el('span', { class: 'dv-path' });
+          storeRows.set(s.id, { del, name, size, meta, path });
+          return el('div', { class: 'dv-store' }, el('div', {}, name, size, meta), del, path);
+        }),
+      );
+    }
+    for (const s of state.stores) {
+      const r = storeRows.get(s.id);
+      const ask = armed === s.id;
+      r.name.textContent = s.label;
+      r.size.textContent = fmtBytes(s.bytes);
+      r.meta.textContent = s.error ? `Fehler: ${s.error}` : s.samples === 1 ? '1 Bild' : `${fmtInt(s.samples)} Bilder`;
+      r.path.textContent = s.path;
+      r.del.querySelector('.lbl').textContent = ask ? 'Wirklich löschen?' : 'Löschen';
+      r.del.setAttribute('aria-label', ask ? `${s.label} wirklich löschen?` : `${s.label} löschen`);
+      r.del.classList.toggle('dv-armed', ask);
+      // aria-disabled statt disabled: Der Knopf behält den Fokus, auch wenn der Ordner gerade leer geworden ist
+      r.del.setAttribute('aria-disabled', String(!s.files));
+    }
   }
 
   async function set(key, value) {
@@ -111,6 +134,7 @@ export function mount(root, api) {
     try {
       state = await api.post('/api/dev/settings', { [key]: value });
       msg.textContent = '';
+      unreachable = false;
       render();
     } catch (err) {
       msg.textContent = `Nicht gespeichert: ${err.message}`;
@@ -119,11 +143,11 @@ export function mount(root, api) {
 
   // Löschen in zwei Schritten: erst fragen, dann löschen. Die Bestätigung verfällt nach 4 s und übersteht
   // das regelmäßige Neuzeichnen (armed merkt sich den Ordner, nicht den Knopf).
-  let armed = null;
-  let armTimer = null;
-  async function clear(store) {
-    if (armed !== store.id) {
-      armed = store.id;
+  async function clear(id) {
+    const store = state?.stores?.find((s) => s.id === id);
+    if (!store || !store.files) return;
+    if (armed !== id) {
+      armed = id;
       clearTimeout(armTimer);
       armTimer = setTimeout(() => {
         armed = null;
@@ -135,7 +159,8 @@ export function mount(root, api) {
     armed = null;
     clearTimeout(armTimer);
     try {
-      const out = await api.post('/api/dev/clear', { store: store.id });
+      const out = await api.post('/api/dev/clear', { store: id });
+      if (disposed) return;
       state = out;
       storeMsg.textContent = `${store.label}: ${out.deleted} Datei(en) gelöscht.`;
     } catch (err) {
@@ -149,13 +174,19 @@ export function mount(root, api) {
       const s = await api.get('/api/dev');
       if (disposed) return;
       state = s;
+      if (unreachable) msg.textContent = '';
+      unreachable = false;
       render();
     } catch (err) {
-      if (!disposed) msg.textContent = `Dev-Einstellungen nicht erreichbar: ${err.message}`;
+      if (disposed) return;
+      unreachable = true;
+      msg.textContent = `Dev-Einstellungen nicht erreichbar: ${err.message}`;
     }
   }
   api.on('state', (s) => {
     state = s;
+    if (unreachable) msg.textContent = '';
+    unreachable = false;
     render();
   });
 
