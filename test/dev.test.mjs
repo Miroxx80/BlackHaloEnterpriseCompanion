@@ -16,8 +16,8 @@ test('Dev: Standard aus, OCR speichert kein Bild, Schutz vor veralteten Änderun
   const base = `http://127.0.0.1:${app.port}/api`;
   try {
     const dev = await (await fetch(`${base}/dev`)).json();
-    assert.deepEqual(dev.settings, { saveOcrSamples: false, saveSignatureSamples: false });
-    assert.deepEqual(dev.stores.map((s) => s.id), ['ocr', 'ocr-confirmed', 'signature']);
+    assert.deepEqual(dev.settings, { saveOcrSamples: false, saveSignatureSamples: false, saveSignatureFrames: false });
+    assert.deepEqual(dev.stores.map((s) => s.id), ['ocr', 'ocr-confirmed', 'signature', 'signature-frames']);
     assert.ok(dev.stores.every((s) => s.files === 0 && s.bytes === 0));
 
     const out = await (await fetch(`${base}/mining/ocr?apply=1`, { method: 'POST', headers: { 'content-type': 'image/webp' }, body: HUD })).json();
@@ -121,7 +121,7 @@ test('Dev: Startwert aus der Config, kaputte settings.json -> Standard, Änderun
   const app = await startApp(opts(dataRoot, { dev: { saveSignatureSamples: true, saveOcrSamples: 'egal' } }));
   const base = `http://127.0.0.1:${app.port}/api`;
   try {
-    assert.deepEqual((await (await fetch(`${base}/dev`)).json()).settings, { saveOcrSamples: false, saveSignatureSamples: true });
+    assert.deepEqual((await (await fetch(`${base}/dev`)).json()).settings, { saveOcrSamples: false, saveSignatureSamples: true, saveSignatureFrames: false });
     const ws = new WebSocket(`ws://127.0.0.1:${app.port}/ws`);
     const got = new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error('keine dev:state-Nachricht')), 3000);
@@ -138,7 +138,7 @@ test('Dev: Startwert aus der Config, kaputte settings.json -> Standard, Änderun
     assert.equal((await got).settings.saveOcrSamples, true);
     ws.close();
     // Datei wurde sauber neu geschrieben
-    assert.deepEqual(JSON.parse(readFileSync(join(dataRoot, 'dev', 'settings.json'), 'utf8')), { saveOcrSamples: true, saveSignatureSamples: true });
+    assert.deepEqual(JSON.parse(readFileSync(join(dataRoot, 'dev', 'settings.json'), 'utf8')), { saveOcrSamples: true, saveSignatureSamples: true, saveSignatureFrames: false });
   } finally {
     await app.stop();
   }

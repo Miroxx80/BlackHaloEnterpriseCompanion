@@ -2,7 +2,7 @@
 // Die Texterkennung selbst ist austauschbar; hier wird alles geprüft, was unabhängig davon funktioniert.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -483,7 +483,8 @@ test('API: Live-Lesen über die Desktop-App (Attrappe), an/aus, Kontakte an alle
     regions.push(region);
     return band;
   };
-  const opts = { overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' }, mining: { signatureIntervalMs: 300 } } }, dataRoot: mkdtempSync(join(tmpdir(), 'bh-live-')) };
+  // Dev-Schalter "Radar: alle Bilder speichern" an: Bild + Kästen werden zur Fehlersuche abgelegt
+  const opts = { overrides: { server: { host: '127.0.0.1', port: 0 }, modules: { controls: { driver: 'mock' }, mining: { signatureIntervalMs: 300 }, dev: { saveSignatureFrames: true } } }, dataRoot: mkdtempSync(join(tmpdir(), 'bh-live-')) };
   const app = await startApp({ ...opts, services: { 'desktop.screen': { capture } } });
   const base = `http://127.0.0.1:${app.port}/api/mining`;
   const post = (on) => fetch(`${base}/signature/live`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ on }) });
@@ -501,6 +502,16 @@ test('API: Live-Lesen über die Desktop-App (Attrappe), an/aus, Kontakte an alle
     assert.deepEqual(state.contacts.map((c) => c.value), [3400]);
     assert.equal(state.contacts[0].candidates[0].label, 'Lindinium');
     assert.deepEqual(regions[0], { x: 636, y: 230, width: 648, height: 352 });
+    const framesDir = join(opts.dataRoot, 'mining', 'signature-frames');
+    const traces = readdirSync(framesDir).filter((f) => f.endsWith('-trace.json'));
+    assert.ok(traces.length >= 1 && traces.length <= 2, `höchstens alle 3 s ein Bild (${traces.length})`);
+    assert.ok(readdirSync(framesDir).some((f) => f.endsWith('-band.png')));
+    const tr = JSON.parse(readFileSync(join(framesDir, traces[0]), 'utf8'));
+    assert.ok(tr.boxes.length >= 1);
+    assert.ok(tr.boxes.some((b) => !b.dropped && /^3[,.]?400$/.test(b.text)), JSON.stringify(tr.boxes));
+    assert.ok(tr.boxes.some((b) => b.dropped === 'not-a-number'), 'verworfene Kästen stehen mit Grund drin');
+    assert.ok(tr.boxes.every((b) => b.box[0] >= 636 && b.box[1] >= 230), 'Kästen in Bildschirm-Koordinaten');
+    assert.ok(!existsSync(join(opts.dataRoot, 'mining', 'signature-samples')), 'Treffer-Bilder nur mit eigenem Schalter');
     assert.equal((await (await post(false)).json()).on, false);
     const n = regions.length;
     await new Promise((r) => setTimeout(r, 800));

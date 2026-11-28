@@ -43,6 +43,14 @@ export function parseSignatureText(raw: string): { value: number; separator: boo
   return { value, separator: Boolean(m) };
 }
 
+/** Fehlersuche: jeder gefundene Textkasten, was gelesen wurde und warum er verworfen wurde (leer = übernommen). */
+export interface SignatureTrace {
+  box: Box;
+  text?: string;
+  confidence?: number;
+  dropped?: 'size' | 'empty' | 'not-a-number' | 'not-multiple-of-5' | 'unknown-without-comma';
+}
+
 /**
  * Signaturen im Band lesen. img ist das ganze Bild (1920x1080) oder nur das Band, dann mit offset = Lage des Bands.
  * isKnown: ist der Wert eine bekannte Signatur? Dient nur dazu, einen als Ziffer gelesenen Pin vorn abzuschneiden.
@@ -54,14 +62,25 @@ export async function readSignatures(
   isKnown: (value: number) => boolean,
   band: Box = [0, 0, img.width, img.height],
   offset: [number, number] = [0, 0],
+  trace?: SignatureTrace[],
 ): Promise<SignatureReading[]> {
   const boxes = await detector.detect(img, band);
   const out: SignatureReading[] = [];
   for (const b of boxes) {
+    const t0: SignatureTrace = { box: [offset[0] + b[0], offset[1] + b[1], b[2], b[3]] };
+    trace?.push(t0);
     // Zahlen-Schild: niedrig und kurz (bei 1080p ~10 px Ziffern, 4–6 Ziffern plus Komma)
-    if (b[3] < 7 || b[3] > 30 || b[2] < 14 || b[2] > 140) continue;
+    if (b[3] < 7 || b[3] > 30 || b[2] < 14 || b[2] > 140) {
+      t0.dropped = 'size';
+      continue;
+    }
     const r = await reader.read(cropPadded(img, b, 3), 'signature');
-    if (!r?.text) continue;
+    t0.text = r?.text;
+    t0.confidence = r?.confidence;
+    if (!r?.text) {
+      t0.dropped = 'empty';
+      continue;
+    }
     let parsed = parseSignatureText(r.text);
     // Der Pin links wird manchmal als führende Ziffer gelesen ("27,200"): ohne erste Ziffer eine bekannte Signatur?
     const t = r.text.replace(/\s+/g, '');
@@ -69,11 +88,20 @@ export async function readSignatures(
       const shorter = parseSignatureText(t.slice(1));
       if (shorter && isKnown(shorter.value)) parsed = shorter;
     }
-    if (!parsed) continue;
+    if (!parsed) {
+      t0.dropped = 'not-a-number';
+      continue;
+    }
     // Signaturen sind in 4.10 immer Vielfache von 5 (Erze, Boden, Wracks). Filtert z. B. den Kurs "267°" -> "2672".
-    if (parsed.value % 5 !== 0) continue;
+    if (parsed.value % 5 !== 0) {
+      t0.dropped = 'not-multiple-of-5';
+      continue;
+    }
     // Ohne Tausender-Komma nur bekannte Signaturen (sonst greifen Kurs, Entfernung, Leistung u. ä.)
-    if (!parsed.separator && !isKnown(parsed.value)) continue;
+    if (!parsed.separator && !isKnown(parsed.value)) {
+      t0.dropped = 'unknown-without-comma';
+      continue;
+    }
     out.push({
       value: parsed.value,
       text: r.text,

@@ -92,6 +92,7 @@ Schalter für die Entwicklung des Tools. Für normales Spielen alles auf „Aus�
 
 - **OCR-Scans als Bild speichern:** Trainingsdaten für die Texterkennung (siehe Mining).
 - **Radar-Bilder speichern:** Bilder vom Live-Lesen der Radar-Signaturen (die letzten 60).
+- **Radar: alle Bilder speichern (Fehlersuche):** beim Live-Lesen alle 3 Sekunden das Bild, auch wenn keine Zahl erkannt wurde, dazu eine Liste aller gefundenen Textkästen mit dem gelesenen Text und dem Grund, warum sie verworfen wurden (`data\mining\signature-frames`, die letzten 200). Nur zum Einsammeln von Problemfällen, danach wieder aus.
 - **Gespeicherte Bilder:** Größe der Ordner und Knopf zum Leeren. Die bestätigten Scans (Trainingsdaten) sind ein eigener Ordner und bleiben beim Leeren der übrigen erhalten.
 
 Die Schalter gelten für alle Geräte und bleiben nach einem Neustart oder Update erhalten (`data\dev\settings.json`).

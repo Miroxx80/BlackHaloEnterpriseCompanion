@@ -21,7 +21,7 @@ import { ScreenError } from './ocr/image.js';
 import { readScan } from './ocr/pipeline.js';
 import { createPaddleDetector, createPaddleReader } from './ocr/paddle.js';
 import { loadGlyphModel } from './ocr/glyphs.js';
-import { readSignatures, SIGNATURE_BAND, SignatureTracker } from './ocr/signatures.js';
+import { readSignatures, SIGNATURE_BAND, SignatureTracker, type SignatureTrace } from './ocr/signatures.js';
 import { loadWin32 } from '../controls/input/win32.js';
 import sharp from 'sharp';
 import type { CalcOptions, Dataset, LoadoutInput, ScanInput } from './types.js';
@@ -399,6 +399,11 @@ const mod: BhModule = {
     const liveInterval = Math.max(300, Number(ctx.config.signatureIntervalMs) || 800);
     const gameProcess = String(ctx.config.gameProcess ?? 'StarCitizen.exe').toLowerCase();
     const sigSamplesDir = join(ctx.dataDir, 'signature-samples');
+    // Fehlersuche (Dev): Bilder auch ohne Treffer, höchstens alle FRAME_EVERY_MS eins, die letzten MAX_FRAMES
+    const sigFramesDir = join(ctx.dataDir, 'signature-frames');
+    const FRAME_EVERY_MS = 3000;
+    const MAX_FRAMES = 200;
+    let lastFrameSaved = 0;
     const live = { on: false, status: 'aus', ms: 0, captureMs: 0, readMs: 0, frameAt: 0 };
     /** Mindestpause nach jedem Bild, damit das Lesen neben dem Spiel nicht dauernd CPU belegt. */
     const LIVE_MIN_PAUSE = 600;
@@ -480,7 +485,20 @@ const mod: BhModule = {
       sampleStore('ocr', 'OCR-Scans (letzte Lesungen)', samplesDir, '-panel.png'),
       sampleStore('ocr-confirmed', 'OCR-Scans bestätigt (Trainingsdaten)', confirmedDir, '-panel.png'),
       sampleStore('signature', 'Radar-Signaturen', sigSamplesDir, '-band.png'),
+      sampleStore('signature-frames', 'Radar-Bilder (Fehlersuche)', sigFramesDir, '-band.png'),
     ]);
+    /** Fehlersuche: Bild des Suchbands mit allen Kästen und Lesungen aufheben (auch ohne Treffer). */
+    const keepFrame = (png: Buffer, info: unknown) => {
+      try {
+        mkdirSync(sigFramesDir, { recursive: true });
+        const id = new Date().toISOString().replace(/[:.]/g, '-');
+        writeFileSync(join(sigFramesDir, `${id}-band.png`), png);
+        writeFileSync(join(sigFramesDir, `${id}-trace.json`), JSON.stringify(info, null, 2));
+        rotate(sigFramesDir, MAX_FRAMES, '-band.png');
+      } catch (err) {
+        ctx.log.warn(`Radar-Bild (Fehlersuche) nicht gespeichert: ${(err as Error).message}`);
+      }
+    };
     const liveTick = async () => {
       liveTimer = null;
       if (!live.on || !screen) return;
@@ -495,11 +513,18 @@ const mod: BhModule = {
           live.captureMs = Date.now() - t0;
           const { data: px, info } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true });
           const before = new Set(tracker.contacts(Date.now()).map((c) => c.value));
-          const reads = await readSignatures({ width: info.width, height: info.height, data: px }, reader, detector, isKnown, [0, 0, info.width, info.height], [x, y]);
+          const frames = devSetting('saveSignatureFrames') && Date.now() - lastFrameSaved >= FRAME_EVERY_MS;
+          const trace: SignatureTrace[] | undefined = frames ? [] : undefined;
+          const reads = await readSignatures({ width: info.width, height: info.height, data: px }, reader, detector, isKnown, [0, 0, info.width, info.height], [x, y], trace);
           live.frameAt = Date.now();
           tracker.add(reads, live.frameAt);
-          const fresh = tracker.contacts(Date.now()).filter((c) => !before.has(c.value));
+          const contacts = tracker.contacts(Date.now());
+          const fresh = contacts.filter((c) => !before.has(c.value));
           if (fresh.length && devSetting('saveSignatureSamples')) keepSignatureSample(png, { reads, confirmed: fresh.map((c) => c.value) });
+          if (frames) {
+            lastFrameSaved = Date.now();
+            keepFrame(png, { band: SIGNATURE_BAND, ms: Date.now() - t0, boxes: trace, reads, contacts: contacts.map((c) => c.value) });
+          }
           live.ms = Date.now() - t0;
           live.readMs = live.ms - live.captureMs;
           live.status = 'läuft';

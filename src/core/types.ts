@@ -89,8 +89,10 @@ export interface DevSettings {
   saveOcrSamples: boolean;
   /** Bilder vom Live-Lesen der Radar-Signaturen speichern (signature-samples). */
   saveSignatureSamples: boolean;
+  /** Fehlersuche: beim Live-Lesen alle paar Sekunden das Bild mit allen gefundenen Kästen speichern, auch ohne Treffer. */
+  saveSignatureFrames: boolean;
 }
-export const DEV_DEFAULTS: DevSettings = { saveOcrSamples: false, saveSignatureSamples: false };
+export const DEV_DEFAULTS: DevSettings = { saveOcrSamples: false, saveSignatureSamples: false, saveSignatureFrames: false };
 /** Service "dev.settings": aktueller Stand der Dev-Schalter (Modul "dev"). Fehlt das Modul, gilt DEV_DEFAULTS. */
 export interface DevSettingsService {
   get(): DevSettings;

@@ -44,6 +44,11 @@ const TOGGLES = [
     title: 'Radar-Bilder speichern',
     text: 'Speichert beim Live-Lesen der Radar-Signaturen das Bild, wenn eine neue Zahl erkannt wurde (die letzten 60). Trainingsdaten für eine spätere eigene Erkennung.',
   },
+  {
+    key: 'saveSignatureFrames',
+    title: 'Radar: alle Bilder speichern (Fehlersuche)',
+    text: 'Speichert beim Live-Lesen alle 3 Sekunden das Bild, auch wenn keine Zahl erkannt wurde, mit allem, was die Erkennung darin gefunden hat (die letzten 200, ca. 0,3 MB pro Bild). Damit lässt sich nachvollziehen, warum eine Zahl nicht gelesen wurde. Danach wieder ausschalten.',
+  },
 ];
 
 /** 1234567 -> "1,2 MB" */
