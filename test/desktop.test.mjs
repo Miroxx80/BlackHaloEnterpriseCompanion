@@ -146,10 +146,15 @@ test('Desktop-App: Overlay-Fenster über dem Spiel (durchsichtig, ohne Fokus, ve
   const app = await electron.launch({ executablePath, args, env: { ...process.env, BH_USER_DIR: userDir, BH_PORT: String(await freePort()) } });
   try {
     const page = await until(async () => app.windows().find((w) => w.url().includes('/modules/mining/overlay.html')), 'Overlay-Fenster');
-    const props = await app.evaluate(({ BrowserWindow }) => {
-      const w = BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes('overlay.html'));
-      return { focusable: w.isFocusable(), top: w.isAlwaysOnTop(), visible: w.isVisible() };
-    });
+    // Sichtbar erst nach "ready-to-show": darauf warten (sonst Wettlauf mit dem Laden der Seite)
+    const props = await until(
+      () =>
+        app.evaluate(({ BrowserWindow }) => {
+          const w = BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes('overlay.html'));
+          return w?.isVisible() ? { focusable: w.isFocusable(), top: w.isAlwaysOnTop(), visible: true } : null;
+        }),
+      'Overlay sichtbar',
+    );
     assert.deepEqual(props, { focusable: false, top: true, visible: true });
     // Seite hat ihren Stand vom Server (mit Zugangsschlüssel) und folgt dem Schalter vom Handy
     const local = JSON.parse(readFileSync(join(userDir, 'config', 'local.json'), 'utf8'));
@@ -157,6 +162,19 @@ test('Desktop-App: Overlay-Fenster über dem Spiel (durchsichtig, ohne Fokus, ve
     const res = await fetch(`http://127.0.0.1:${port}/api/mining/overlay`, { method: 'POST', headers: { 'x-bh-token': local.security.token, 'content-type': 'application/json' }, body: '{"visible":false}' });
     assert.deepEqual(await res.json(), { visible: false, contacts: [] });
     assert.ok(await page.evaluate(() => Boolean(document.getElementById('o'))));
+    // Selbstheilung: Darstellung abstürzen lassen -> Fenster wird neu aufgebaut, lädt die Seite wieder, steht oben
+    const before = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes('overlay.html')).id);
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes('overlay.html')).webContents.forcefullyCrashRenderer());
+    const healed = await until(
+      () =>
+        app.evaluate(({ BrowserWindow }, old) => {
+          const w = BrowserWindow.getAllWindows().find((x) => x.id !== old && x.webContents.getURL().includes('overlay.html') && !x.webContents.isLoading());
+          return w ? { top: w.isAlwaysOnTop(), focusable: w.isFocusable(), crashed: w.webContents.isCrashed() } : null;
+        }, before),
+      'Overlay nach Absturz neu aufgebaut',
+      15000,
+    );
+    assert.deepEqual(healed, { top: true, focusable: false, crashed: false });
     await Promise.all([app.waitForEvent('close'), app.evaluate(({ app: a }) => a.quit())]);
   } finally {
     await app.close().catch(() => {});
